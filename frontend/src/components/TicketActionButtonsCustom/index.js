@@ -3,8 +3,10 @@ import { useHistory } from "react-router-dom";
 
 import { Can } from "../Can";
 import { makeStyles } from "@material-ui/core/styles";
-import { IconButton } from "@material-ui/core";
+import { IconButton, Paper, Typography, FormControl, InputLabel, Select, Chip } from "@material-ui/core";
 import { DeviceHubOutlined, History, Replay, SwapHorizOutlined, Phone } from "@material-ui/icons";
+import { TaskSquare } from "iconsax-react";
+import Autocomplete from "@material-ui/lab/Autocomplete";
 
 import { i18n } from "../../translate/i18n";
 import api from "../../services/api";
@@ -20,6 +22,9 @@ import * as Yup from "yup";
 import { Formik, Form } from "formik";
 import Dialog from '@material-ui/core/Dialog';
 import DialogActions from '@material-ui/core/DialogActions';
+import DialogContent from '@material-ui/core/DialogContent';
+import DialogTitle from '@material-ui/core/DialogTitle';
+import TextField from '@material-ui/core/TextField';
 
 import Button from '@material-ui/core/Button';
 import TransferTicketModalCustom from "../TransferTicketModalCustom";
@@ -40,6 +45,7 @@ import ShowTicketOpen from "../ShowTicketOpenModal";
 import { toast } from "react-toastify";
 import useCompanySettings from "../../hooks/useSettings/companySettings";
 import ShowTicketLogModal from "../../components/ShowTicketLogModal";
+import TaskModal from "../TaskModal";
 
 const useStyles = makeStyles(theme => ({
     actionButtons: {
@@ -93,7 +99,8 @@ const TicketActionButtonsCustom = ({ ticket }) => {
     const [showSchedules, setShowSchedules] = useState(false);
     const [enableIntegration, setEnableIntegration] = useState(ticket.useIntegration);
 
-
+    // State para modal de tarefas
+    const [taskModalOpen, setTaskModalOpen] = useState(false);
 
     const [openAlert, setOpenAlert] = useState(false);
     const [userTicketOpen, setUserTicketOpen] = useState("");
@@ -113,6 +120,20 @@ const TicketActionButtonsCustom = ({ ticket }) => {
         setShowTicketLogOpen(false)
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    useEffect(() => {
+        if (taskModalOpen) {
+            // Não precisa mais carregar dados aqui, o TaskModal faz isso
+        }
+    }, [taskModalOpen]);
+
+    const handleOpenTaskModal = () => {
+        setTaskModalOpen(true);
+    };
+
+    const handleCloseTaskModal = () => {
+        setTaskModalOpen(false);
+    };
 
 
     const handleClickOpen = async (e) => {
@@ -149,6 +170,13 @@ const TicketActionButtonsCustom = ({ ticket }) => {
         setOpenAlert(false);
         setLoading(false);
     };
+
+    const handleRequestTransfer = () => {
+        // Abrir modal de transferência
+        setTransferTicketModalOpen(true);
+        setOpenAlert(false);
+    };
+
     const handleOpenAcceptTicketWithouSelectQueue = async () => {
 
         setAcceptTicketWithouSelectQueueOpen(true);
@@ -326,7 +354,28 @@ const TicketActionButtonsCustom = ({ ticket }) => {
             }
         } catch (err) {
             setLoading(false);
-            toastError(err);
+            // Verificar se é erro de ticket em atendimento
+            if (err.response?.data?.message?.includes("atendimento")) {
+                // Tentar extrair nome do atendente da mensagem
+                const match = err.response.data.message.match(/por (.+?)\./);
+                const attendantName = match ? match[1] : "outro atendente";
+                
+                setOpenAlert(true);
+                setUserTicketOpen(attendantName);
+                setQueueTicketOpen(ticket.queue?.name || "N/A");
+                
+                // Toast informativo
+                toast.warning(`⚠️ Ticket já está sendo atendido por ${attendantName}`, {
+                    position: "top-center",
+                    autoClose: 4000,
+                    hideProgressBar: false,
+                    closeOnClick: true,
+                    pauseOnHover: true,
+                    draggable: true,
+                });
+            } else {
+                toastError(err);
+            }
         }
     };
 
@@ -352,6 +401,7 @@ const TicketActionButtonsCustom = ({ ticket }) => {
                 handleClose={handleCloseAlert}
                 user={userTicketOpen}
                 queue={queueTicketOpen}
+                onTransfer={handleRequestTransfer}
             />
             <AcceptTicketWithouSelectQueue
                 modalOpen={acceptTicketWithouSelectQueueOpen}
@@ -400,6 +450,14 @@ const TicketActionButtonsCustom = ({ ticket }) => {
                                 <Tooltip title={i18n.t("messagesList.header.buttons.logTicket")}>
                                     <History />
 
+                                </Tooltip>
+                            </IconButton>
+                            <IconButton
+                                onClick={handleOpenTaskModal}
+                                style={{ padding: 1 }}
+                            >
+                                <Tooltip title="Nova Tarefa">
+                                    <TaskSquare size={24} color="#ff9800" />
                                 </Tooltip>
                             </IconButton>
                             <IconButton
@@ -534,6 +592,15 @@ const TicketActionButtonsCustom = ({ ticket }) => {
                     </ButtonWithSpinner>
                 )}
             </div>
+            
+            {/* Modal de Tarefas Reutilizável */}
+            <TaskModal 
+                open={taskModalOpen} 
+                onClose={handleCloseTaskModal}
+                ticket={ticket}
+                contact={ticket.contact}
+            />
+            
             <>
                 <Formik
                     enableReinitialize={true}

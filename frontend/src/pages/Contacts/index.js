@@ -20,6 +20,10 @@ import Button from "@material-ui/core/Button";
 import Avatar from "@material-ui/core/Avatar";
 import { Facebook, Instagram, WhatsApp } from "@material-ui/icons";
 import SearchIcon from "@material-ui/icons/Search";
+import GetAppIcon from "@material-ui/icons/GetApp";
+import PictureAsPdfIcon from "@material-ui/icons/PictureAsPdf";
+import { CSVLink } from "react-csv";
+import CloudDownloadIcon from '@material-ui/icons/CloudDownload';
 
 import TextField from "@material-ui/core/TextField";
 import InputAdornment from "@material-ui/core/InputAdornment";
@@ -58,7 +62,7 @@ import {
     Backup,
     ContactPhone,
 } from "@material-ui/icons";
-import { Menu, MenuItem } from "@material-ui/core";
+import { Menu, MenuItem, Box, Tooltip } from "@material-ui/core";
 
 import ContactImportWpModal from "../../components/ContactImportWpModal";
 import useCompanySettings from "../../hooks/useSettings/companySettings";
@@ -128,6 +132,7 @@ const Contacts = () => {
     const [contacts, dispatch] = useReducer(reducer, []);
     const [selectedContactId, setSelectedContactId] = useState(null);
     const [contactModalOpen, setContactModalOpen] = useState(false);
+    const [totalCount, setTotalCount] = useState(0);
 
     const [importContactModalOpen, setImportContactModalOpen] = useState(false);
     const [deletingContact, setDeletingContact] = useState(null);
@@ -142,6 +147,10 @@ const Contacts = () => {
     const [contactTicket, setContactTicket] = useState({});
     const fileUploadRef = useRef(null);
     const [selectedTags, setSelectedTags] = useState([]);
+    
+    // Novos filtros
+    const [filterChannel, setFilterChannel] = useState("");
+    const [filterStatus, setFilterStatus] = useState("");
 
 
     const { get: getSetting } = useCompanySettings();
@@ -180,7 +189,7 @@ const Contacts = () => {
     useEffect(() => {
         dispatch({ type: "RESET" });
         setPageNumber(1);
-    }, [searchParam, selectedTags]);
+    }, [searchParam, selectedTags, filterChannel, filterStatus]);
 
     useEffect(() => {
         setLoading(true);
@@ -188,19 +197,27 @@ const Contacts = () => {
             const fetchContacts = async () => {
                 try {
                     const { data } = await api.get("/contacts/", {
-                        params: { searchParam, pageNumber, contactTag: JSON.stringify(selectedTags) },
+                        params: { 
+                            searchParam, 
+                            pageNumber, 
+                            contactTag: JSON.stringify(selectedTags),
+                            channel: filterChannel,
+                            active: filterStatus
+                        },
                     });
                     dispatch({ type: "LOAD_CONTACTS", payload: data.contacts });
                     setHasMore(data.hasMore);
+                    setTotalCount(data.count);
                     setLoading(false);
                 } catch (err) {
                     toastError(err);
+                    setLoading(false);
                 }
             };
             fetchContacts();
-        }, 500);
+        }, 300);
         return () => clearTimeout(delayDebounceFn);
-    }, [searchParam, pageNumber, selectedTags]);
+    }, [searchParam, pageNumber, selectedTags, filterChannel, filterStatus]);
 
     useEffect(() => {
         const companyId = user.companyId;
@@ -310,6 +327,98 @@ const Contacts = () => {
         }
     };
 
+    const prepareExportData = () => {
+        return contacts.map((contact) => ({
+            Nome: contact.name,
+            Número: hideNum && user.profile === "user" 
+                ? contact.isGroup 
+                    ? contact.number 
+                    : formatSerializedId(contact.number).slice(0, -6) + "**-**" + contact.number.slice(-2)
+                : contact.isGroup 
+                    ? contact.number 
+                    : formatSerializedId(contact.number),
+            Email: contact.email || "",
+            Status: contact.active ? "Ativo" : "Bloqueado",
+            Tags: contact.tags?.map(t => t.name).join(", ") || "",
+            "Última Mensagem": getDateLastMessage(contact) || "Sem mensagens"
+        }));
+    };
+
+    const handleExportPDF = () => {
+        try {
+            const exportData = prepareExportData();
+            
+            // Cria uma janela para impressão
+            const printWindow = window.open('', '_blank');
+            
+            const htmlContent = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Contatos - ${new Date().toLocaleDateString()}</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 20px; }
+                        h1 { color: #3f51b5; }
+                        .info { margin: 10px 0; color: #666; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 12px; }
+                        th { background-color: #3f51b5; color: white; }
+                        tr:nth-child(even) { background-color: #f2f2f2; }
+                        @media print {
+                            body { margin: 0; }
+                            button { display: none; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <h1>Lista de Contatos</h1>
+                    <div class="info">
+                        <strong>Total:</strong> ${totalCount} contatos | 
+                        <strong>Exibindo:</strong> ${contacts.length} contatos |
+                        <strong>Data:</strong> ${new Date().toLocaleString()}
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Nome</th>
+                                <th>Número</th>
+                                <th>Email</th>
+                                <th>Status</th>
+                                <th>Tags</th>
+                                <th>Última Mensagem</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${exportData.map(contact => `
+                                <tr>
+                                    <td>${contact.Nome}</td>
+                                    <td>${contact.Número}</td>
+                                    <td>${contact.Email}</td>
+                                    <td>${contact.Status}</td>
+                                    <td>${contact.Tags}</td>
+                                    <td>${contact["Última Mensagem"]}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    <script>
+                        window.onload = function() {
+                            window.print();
+                        }
+                    </script>
+                </body>
+                </html>
+            `;
+            
+            printWindow.document.write(htmlContent);
+            printWindow.document.close();
+            
+            toast.success("PDF preparado para impressão!");
+        } catch (err) {
+            toastError(err);
+        }
+    };
+
     const loadMore = () => {
         setPageNumber((prevState) => prevState + 1);
     };
@@ -413,11 +522,43 @@ const Contacts = () => {
                 {i18n.t("contacts.confirmationModal.wantImport")}
             </ConfirmationModal>
             <MainHeader>
-                <Title>{i18n.t("contacts.title")} ({contacts.length})</Title>
+                <Title>
+                    {i18n.t("contacts.title")} 
+                    {totalCount > 0 && (
+                        <span style={{ fontSize: '0.875rem', color: '#666', marginLeft: '8px' }}>
+                            (Exibindo {contacts.length} de {totalCount})
+                        </span>
+                    )}
+                </Title>
                 <MainHeaderButtonsWrapper>
                     <TagsFilter
                         onFiltered={handleSelectedTags}
                     />
+                    <TextField
+                        select
+                        label="Canal"
+                        value={filterChannel}
+                        onChange={(e) => setFilterChannel(e.target.value)}
+                        style={{ minWidth: 120, marginRight: 8 }}
+                        size="small"
+                    >
+                        <MenuItem value="">Todos</MenuItem>
+                        <MenuItem value="whatsapp">WhatsApp</MenuItem>
+                        <MenuItem value="instagram">Instagram</MenuItem>
+                        <MenuItem value="facebook">Facebook</MenuItem>
+                    </TextField>
+                    <TextField
+                        select
+                        label="Status"
+                        value={filterStatus}
+                        onChange={(e) => setFilterStatus(e.target.value)}
+                        style={{ minWidth: 120, marginRight: 8 }}
+                        size="small"
+                    >
+                        <MenuItem value="">Todos</MenuItem>
+                        <MenuItem value="true">Ativo</MenuItem>
+                        <MenuItem value="false">Bloqueado</MenuItem>
+                    </TextField>
                     <TextField
                         placeholder={i18n.t("contacts.searchPlaceholder")}
                         type="search"
@@ -431,6 +572,32 @@ const Contacts = () => {
                             ),
                         }}
                     />
+                    <Button
+                        variant="outlined"
+                        color="primary"
+                        onClick={handleExportPDF}
+                        disabled={contacts.length === 0}
+                        startIcon={<PictureAsPdfIcon />}
+                        style={{ marginRight: 8 }}
+                    >
+                        PDF
+                    </Button>
+                    <CSVLink
+                        data={prepareExportData()}
+                        filename={`contatos_${new Date().toISOString().split('T')[0]}.csv`}
+                        separator=";"
+                        style={{ textDecoration: 'none' }}
+                    >
+                        <Button
+                            variant="outlined"
+                            color="primary"
+                            disabled={contacts.length === 0}
+                            startIcon={<GetAppIcon />}
+                            style={{ marginRight: 8 }}
+                        >
+                            Excel
+                        </Button>
+                    </CSVLink>
                     <PopupState variant="popover" popupId="demo-popup-menu">
                         {(popupState) => (
                             <React.Fragment>
@@ -439,7 +606,7 @@ const Contacts = () => {
                                     color="primary"
                                     {...bindTrigger(popupState)}
                                 >
-                                    Importar / Exportar
+                                    Importar
                                     <ArrowDropDown />
                                 </Button>
                                 <Menu {...bindMenu(popupState)}>
@@ -552,6 +719,9 @@ const Contacts = () => {
                                 {i18n.t("contacts.table.whatsapp")}
                             </TableCell>
                             <TableCell align="center">
+                                Canal
+                            </TableCell>
+                            <TableCell align="center">
                                 {i18n.t("contacts.table.email")}
                             </TableCell>
                             <TableCell align="center">
@@ -568,70 +738,48 @@ const Contacts = () => {
                             {contacts.map((contact) => (
                                 <TableRow key={contact.id}>
                                     <TableCell style={{ paddingRight: 0 }}>
-                                        {<Avatar src={`${contact?.urlPicture}`} />}
+                                        <Tooltip title={contact.name} arrow>
+                                            <Avatar 
+                                                src={contact?.urlPicture || undefined}
+                                                alt={contact.name}
+                                                style={{ 
+                                                    width: 40, 
+                                                    height: 40,
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                {!contact?.urlPicture && contact.name?.charAt(0).toUpperCase()}
+                                            </Avatar>
+                                        </Tooltip>
                                     </TableCell>
                                     <TableCell>{contact.name}</TableCell>
-                                    <TableCell
-                                        align="right"
-                                        style={{
-                                            display: 'absolute',
-                                            justifyContent: 'absolute',
-                                            alignItems: 'absolute',
-                                            height: '100%',
-                                            padding: '-1%',
-                                        }}
-                                    >
-                                        <div style={{ position: 'flex', width: '150%', display: 'absolute', alignItems: 'center' }}>
-                                            <PhoneInput
-                                                value={contact.number} // Número do contato
-                                                country={contact.number.startsWith('+') ? contact.number.slice(1, 3) : 'br'} // Código do país
-                                                disableCountryCode={false} // Permite editar o código do país
-                                                onlyCountries={[
-                                                    'af', 'al', 'dz', 'as', 'ad', 'ao', 'ai', 'aq', 'ag', 'ar', 'am', 'aw', 'au',
-                                                    'at', 'az', 'bs', 'bh', 'bd', 'bb', 'by', 'be', 'bz', 'bj', 'bm', 'bt', 'bo',
-                                                    'ba', 'bw', 'br', 'bn', 'bg', 'bf', 'bi', 'kh', 'cm', 'ca', 'cv', 'cf', 'td',
-                                                    'cl', 'cn', 'co', 'km', 'cg', 'cd', 'cr', 'hr', 'cu', 'cy', 'cz', 'dk', 'dj',
-                                                    'dm', 'do', 'ec', 'eg', 'sv', 'gq', 'er', 'ee', 'et', 'fk', 'fo', 'fj', 'fi',
-                                                    'fr', 'gf', 'pf', 'ga', 'gm', 'ge', 'de', 'gh', 'gi', 'gr', 'gl', 'gd', 'gp',
-                                                    'gu', 'gt', 'gn', 'gw', 'gy', 'ht', 'hn', 'hk', 'hu', 'is', 'in', 'id', 'ir',
-                                                    'iq', 'ie', 'il', 'it', 'jm', 'jp', 'jo', 'kz', 'ke', 'ki', 'kp', 'kr', 'kw',
-                                                    'kg', 'la', 'lv', 'lb', 'ls', 'lr', 'ly', 'li', 'lt', 'lu', 'mo', 'mk', 'mg',
-                                                    'mw', 'my', 'mv', 'ml', 'mt', 'mh', 'mq', 'mr', 'mu', 'yt', 'mx', 'fm', 'md',
-                                                    'mc', 'mn', 'me', 'ma', 'mz', 'mm', 'na', 'nr', 'np', 'nl', 'nc', 'nz', 'ni',
-                                                    'ne', 'ng', 'nu', 'nf', 'mp', 'no', 'om', 'pk', 'pw', 'ps', 'pa', 'pg', 'py',
-                                                    'pe', 'ph', 'pl', 'pt', 'pr', 'qa', 're', 'ro', 'ru', 'rw', 'sh', 'kn', 'lc',
-                                                    'pm', 'vc', 'ws', 'sm', 'st', 'sa', 'sn', 'rs', 'sc', 'sl', 'sg', 'sk', 'si',
-                                                    'sb', 'so', 'za', 'es', 'lk', 'sd', 'sr', 'sz', 'se', 'ch', 'sy', 'tw', 'tj',
-                                                    'tz', 'th', 'tl', 'tg', 'to', 'tt', 'tn', 'tr', 'tm', 'tc', 'tv', 'ug', 'ua',
-                                                    'ae', 'gb', 'us', 'uy', 'uz', 'vu', 'va', 've', 'vn', 'wf', 'ye', 'zm', 'zw'
-                                                ]} // Lista de países permitidos
-                                                disableDropdown={true} // Impede que o usuário altere a bandeira
-                                                inputStyle={{
-                                                    width: 'calc(100% - 30px)', // Reserva espaço para a bandeira
-                                                    textAlign: 'absolute', // Alinha o número à direita
-                                                    border: 'none',
-                                                    background: 'transparent',
-                                                    paddingLeft: '10px', // Espaço para bandeira
-                                                    paddingRight: '-100px', // Ajuste do espaçamento à direita
-                                                    fontSize: '14px',
-                                                }}
-                                                buttonStyle={{
-                                                    position: 'absolute',
-                                                    left: '0',
-                                                    top: '50%',
-                                                    transform: 'translateY(-50%)', // Centraliza verticalmente
-                                                    border: 'none',
-                                                    background: 'transparent',
-                                                    padding: '0',
-                                                }}
-                                                isValid={(value) => value && value.length > 0}
-                                                placeholder="Número não disponível"
-                                            />
-                                        </div>
+                                    <TableCell align="center">
+                                        {hideNum && user.profile === "user" 
+                                            ? contact.isGroup 
+                                                ? contact.number 
+                                                : formatSerializedId(contact.number).slice(0, -6) + "**-**" + contact.number.slice(-2)
+                                            : contact.isGroup 
+                                                ? contact.number 
+                                                : formatSerializedId(contact.number)
+                                        }
                                     </TableCell>
-
-
-
+                                    <TableCell align="center">
+                                        {contact.channel === "whatsapp" && (
+                                            <Tooltip title="WhatsApp">
+                                                <WhatsApp style={{ color: "green", fontSize: 20 }} />
+                                            </Tooltip>
+                                        )}
+                                        {contact.channel === "instagram" && (
+                                            <Tooltip title="Instagram">
+                                                <Instagram style={{ color: "purple", fontSize: 20 }} />
+                                            </Tooltip>
+                                        )}
+                                        {contact.channel === "facebook" && (
+                                            <Tooltip title="Facebook">
+                                                <Facebook style={{ color: "blue", fontSize: 20 }} />
+                                            </Tooltip>
+                                        )}
+                                    </TableCell>
                                     <TableCell align="center">
                                         {contact.email}
                                     </TableCell>

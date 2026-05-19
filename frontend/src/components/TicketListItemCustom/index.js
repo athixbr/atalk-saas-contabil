@@ -166,10 +166,50 @@ const useStyles = makeStyles((theme) => ({
     presence: {
         color: theme?.mode === 'light' ? "green" : "lightgreen",
         fontWeight: "bold",
-    }
+    },
+    ticketInAttendance: {
+        position: "absolute",
+        top: "5px",
+        right: "5px",
+        backgroundColor: "#ff9800",
+        color: "white",
+        fontSize: "0.65rem",
+        fontWeight: "bold",
+        padding: "4px 8px",
+        borderRadius: "12px",
+        zIndex: 1,
+        boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        lineHeight: 1.3,
+    },
+    ticketInAttendanceByMe: {
+        position: "absolute",
+        top: "5px",
+        right: "5px",
+        backgroundColor: "#4caf50",
+        color: "white",
+        fontSize: "0.65rem",
+        fontWeight: "bold",
+        padding: "4px 8px",
+        borderRadius: "12px",
+        zIndex: 1,
+        boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        lineHeight: 1.3,
+    },
+    ticketBadgeTime: {
+        fontSize: "0.6rem",
+        fontWeight: "normal",
+        opacity: 0.9,
+        marginTop: "1px",
+    },
 }));
 
-const TicketListItemCustom = ({ ticket }) => {
+const TicketListItemCustom = ({ ticket, searchParam }) => {
     const classes = useStyles();
     const history = useHistory();
     const [loading, setLoading] = useState(false);
@@ -377,7 +417,7 @@ const TicketListItemCustom = ({ ticket }) => {
     const handleSelectTicket = (ticket) => {
         const code = uuidv4();
         const { id, uuid } = ticket;
-        setCurrentTicket({ id, uuid, code });
+        setCurrentTicket({ id, uuid, code, searchParam });
     };
 
     return (
@@ -410,6 +450,19 @@ const TicketListItemCustom = ({ ticket }) => {
                     [classes.pendingTicket]: ticket.status === "pending",
                 })}
             >
+                {/* Badge de ticket em atendimento */}
+                {ticket.status === "open" && ticket.userId && (
+                    <div className={ticket.userId === user.id ? classes.ticketInAttendanceByMe : classes.ticketInAttendance}>
+                        <span>{ticket.userId === user.id ? "SEU ATENDIMENTO" : "EM ATENDIMENTO"}</span>
+                        <span className={classes.ticketBadgeTime}>
+                            {ticket.updatedAt && (
+                                isSameDay(parseISO(ticket.updatedAt), new Date())
+                                    ? format(parseISO(ticket.updatedAt), "HH:mm")
+                                    : format(parseISO(ticket.updatedAt), "dd/MM")
+                            )}
+                        </span>
+                    </div>
+                )}
 
                 <ListItemAvatar
                     style={{ marginLeft: "-10px" }}
@@ -504,7 +557,32 @@ const TicketListItemCustom = ({ ticket }) => {
                                 }
 
                                 <Stack direction="row" spacing={0.5} mt={0}>
-                                    {ticketUser && (
+                                    {/* Mostrar último usuário se ticket voltou por inatividade */}
+                                    {ticket.lastUserName && ticket.status === "pending" && (
+                                        <Chip
+                                            sx={{
+                                                mt: 1,
+                                                fontSize: "0.65rem",
+                                                height: "18px",
+                                                padding: "5 5px",
+                                                backgroundColor: "#FF9800",
+                                                color: "white",
+                                                fontWeight: "bold",
+                                                border: "1px solid #F57C00",
+                                                '& .MuiChip-avatar': {
+                                                    width: "16px",
+                                                    height: "16px",
+                                                    fontSize: "15px",
+                                                    color: 'white',
+                                                },
+                                            }}
+                                            avatar={<Replay />}
+                                            label={`Sem interação - ${ticket.lastUserName}`}
+                                            variant="filled"
+                                            size="small"
+                                        />
+                                    )}
+                                    {ticketUser && !ticket.lastUserName && (
                                         <Chip
                                             sx={{
                                                 mt: 1,
@@ -609,7 +687,7 @@ const TicketListItemCustom = ({ ticket }) => {
 
                 />
                 <ListItemSecondaryAction>
-                    {ticket.lastMessage && (
+                    {ticket.lastMessage && !(ticket.status === "open" && ticket.userId) && (
                         <>
 
                             <Typography

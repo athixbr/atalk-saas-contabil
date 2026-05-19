@@ -36,10 +36,26 @@ class ChatMessage extends Model<ChatMessage> {
 
   @Column(DataType.STRING)
   get mediaPath(): string | null {
-    if (this.getDataValue("mediaPath")) {
-      return `${process.env.BACKEND_URL}:${process.env.PROXY_PORT}/public/chats/${this.getDataValue("mediaPath")}`;
+    const raw = this.getDataValue("mediaPath");
+    if (!raw) return null;
+    // New files: full CDN URL stored — encode each path segment to handle special chars
+    if (raw.startsWith("https://") || raw.startsWith("http://")) {
+      const doubleSlash = raw.indexOf("//");
+      const pathStart = raw.indexOf("/", doubleSlash + 2);
+      if (pathStart === -1) return raw;
+      const origin = raw.substring(0, pathStart);
+      const rawPath = raw.substring(pathStart);
+      const encodedPath = rawPath
+        .split("/")
+        .map(seg => {
+          try { seg = decodeURIComponent(seg); } catch (_) {}
+          return encodeURIComponent(seg);
+        })
+        .join("/");
+      return `${origin}${encodedPath}`;
     }
-    return null;
+    // Old files: build backend local URL (retrocompatible)
+    return `${process.env.BACKEND_URL}${process.env.PROXY_PORT ? `:${process.env.PROXY_PORT}` : ""}/public/chats/${raw}`;
   }
 
   @Column
@@ -52,10 +68,10 @@ class ChatMessage extends Model<ChatMessage> {
   updatedAt: Date;
 
   @BelongsTo(() => Chat)
-  chat: Chat;
+  chat: any;
 
   @BelongsTo(() => User)
-  sender: User;
+  sender: any;
 }
 
 export default ChatMessage;

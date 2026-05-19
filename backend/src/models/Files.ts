@@ -38,7 +38,7 @@ class Files extends Model<Files> {
   updatedAt: Date;
 
   @HasMany(() => FilesOptions)
-  options: FilesOptions[];
+  options: any[];
 }
 
 export default Files;

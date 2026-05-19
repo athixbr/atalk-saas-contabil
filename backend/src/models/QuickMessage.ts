@@ -49,7 +49,7 @@ class QuickMessage extends Model<QuickMessage> {
   categoryId: number;
 
   @BelongsTo(() => QuickMessage)
-  category: QuickMessage;
+  category: any;
 
   @Column
   geral: boolean;
@@ -63,10 +63,10 @@ class QuickMessage extends Model<QuickMessage> {
   userId: number;
 
   @BelongsTo(() => Company)
-  company: Company;
+  company: any;
 
   @BelongsTo(() => User)
-  user: User;
+  user: any;
 
   @CreatedAt
   createdAt: Date;

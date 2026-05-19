@@ -5,6 +5,9 @@ import Whatsapp from "../../models/Whatsapp";
 
 import { getIO } from "../../libs/socket";
 import Ticket from "../../models/Ticket";
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 import { Op } from "sequelize";
 import { add } from "date-fns";
 import UpdateTicketService from "../TicketServices/UpdateTicketService";

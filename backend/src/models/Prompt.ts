@@ -68,14 +68,14 @@ class Prompt extends Model<Prompt> {
   queueId: number;
 
   @BelongsTo(() => Queue)
-  queue: Queue;
+  queue: any;
 
   @ForeignKey(() => Company)
   @Column
   companyId: number;
 
   @BelongsTo(() => Company)
-  company: Company;
+  company: any;
 
   @CreatedAt
   createdAt: Date;

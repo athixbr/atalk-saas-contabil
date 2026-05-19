@@ -9,9 +9,15 @@ class FormatMask {
         // Remove caracteres não numéricos
         const number = phoneToFormat.replace(/\D/g, "");
 
+        // Detecta identificadores LID do WhatsApp (>= 15 dígitos sem código de país válido)
+        // LID são identificadores internos do WhatsApp, não números de telefone reais
+        if (number.length >= 15) {
+            return "Identificador WhatsApp";
+        }
+
         // Verifica se o número tem pelo menos 10 dígitos
         if (number.length < 10) {
-            return "Número inválido"; // Número inválido com menos de 10 dígitos
+            return "Número não disponível"; // Número inválido com menos de 10 dígitos
         }
 
         // Verifica se o número já contém um código de país
@@ -25,7 +31,7 @@ class FormatMask {
         const parsedPhoneNumber = parsePhoneNumberFromString(formattedPhoneNumber);
 
         if (!parsedPhoneNumber || !parsedPhoneNumber.isValid()) {
-            return "Número inválido"; // Caso o número não seja válido
+            return "Número não disponível"; // Caso o número não seja válido
         }
 
         // Formatação do número com DDD entre parênteses

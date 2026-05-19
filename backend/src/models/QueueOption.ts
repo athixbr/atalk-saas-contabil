@@ -45,10 +45,10 @@ class QueueOption extends Model<QueueOption> {
   updatedAt: Date;
 
   @BelongsTo(() => Queue)
-  queue: Queue;
+  queue: any;
 
   @BelongsTo(() => QueueOption, { foreignKey: 'parentId' })
-  parent: QueueOption;
+  parent: any;
 }
 
 export default QueueOption;

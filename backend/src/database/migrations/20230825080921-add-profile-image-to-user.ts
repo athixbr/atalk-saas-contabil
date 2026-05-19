@@ -1,3 +1,6 @@
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 import { DataTypes, QueryInterface } from "sequelize";
 
 module.exports = {

@@ -27,21 +27,21 @@ class UserRating extends Model<UserRating> {
   ticketId: number;
 
   @BelongsTo(() => Ticket)
-  ticket: Ticket;
+  ticket: any;
 
   @ForeignKey(() => Company)
   @Column
   companyId: number;
 
   @BelongsTo(() => Company)
-  company: Company;
+  company: any;
 
   @ForeignKey(() => User)
   @Column
   userId: number;
 
   @BelongsTo(() => User)
-  user: User;
+  user: any;
 
   @CreatedAt
   createdAt: Date;
@@ -56,7 +56,7 @@ class UserRating extends Model<UserRating> {
   @ForeignKey(() => TicketTraking)
   ticketTrakingId: number;
   @BelongsTo(() => TicketTraking)
-  ticketTraking: TicketTraking;
+  ticketTraking: any;
 }
 
 export default UserRating;

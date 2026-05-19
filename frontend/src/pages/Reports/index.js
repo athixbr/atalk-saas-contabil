@@ -29,6 +29,9 @@ const Reports = () => {
         <Grid item xs={6}>
           <ReportsContainer title="Grupos" links={reportsRoutes.groups} />
         </Grid>
+        <Grid item xs={6}>
+          <ReportsContainer title="Performance" links={reportsRoutes.performance} />
+        </Grid>
       </Grid>
     </MainContainer>
   );

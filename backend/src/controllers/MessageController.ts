@@ -10,7 +10,9 @@ import Whatsapp from "../models/Whatsapp";
 import { verify } from "jsonwebtoken";
 import authConfig from "../config/auth";
 import path from "path";
+import fs from "fs";
 import { isNil, isNull } from "lodash";
+import { downloadMediaMessage } from "@whiskeysockets/baileys";
 
 import ListMessagesService from "../services/MessageServices/ListMessagesService";
 import ShowTicketService from "../services/TicketServices/ShowTicketService";
@@ -26,6 +28,7 @@ import ShowPlanCompanyService from "../services/CompanyService/ShowPlanCompanySe
 import ListMessagesServiceAll from "../services/MessageServices/ListMessagesServiceAll";
 import ShowContactService from "../services/ContactServices/ShowContactService";
 import FindOrCreateTicketService from "../services/TicketServices/FindOrCreateTicketService";
+import { uploadBufferToSpaces, buildSpacesKey, isSpacesUrl } from "../helpers/uploadToSpaces";
 
 import Contact from "../models/Contact";
 
@@ -137,6 +140,18 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     if (medias) {
       await Promise.all(
         medias.map(async (media: Express.Multer.File) => {
+          // Upload para DigitalOcean Spaces e atualiza filename com CDN URL
+          try {
+            const fileBuffer = fs.readFileSync(media.path);
+            const spacesKey = buildSpacesKey(companyId, media.filename);
+            const cdnUrl = await uploadBufferToSpaces(fileBuffer, spacesKey, media.mimetype);
+            media.filename = cdnUrl;
+            // Remove arquivo local após upload bem-sucedido para Spaces
+            try { fs.unlinkSync(media.path); } catch (_) {}
+          } catch (spacesErr) {
+            console.warn(`[Spaces] Falha no upload do arquivo enviado: ${spacesErr.message}`);
+          }
+
           if (ticket.channel === "whatsapp") {
             await SendWhatsAppMedia({ media, ticket, body, isPrivate: /\u200d/.test(body), isForwarded: false });
           }
@@ -155,7 +170,34 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
       );
     } else {
       if (ticket.channel === "whatsapp" && !isPrivate) {
-        await SendWhatsAppMessage({ body, ticket, quotedMsg, isPrivate, vCard });
+        const sentMessage = await SendWhatsAppMessage({ body, ticket, quotedMsg, isPrivate, vCard });
+
+        if (sentMessage?.key?.id) {
+          const messageData = {
+            wid: sentMessage.key.id,
+            ticketId: ticket.id,
+            contactId: undefined,
+            body,
+            fromMe: true,
+            mediaType: !isNil(vCard) ? "contactMessage" : "extendedTextMessage",
+            read: true,
+            quotedMsgId: quotedMsg?.id || null,
+            ack: (sentMessage.status as number) || 1,
+            remoteJid: sentMessage.key.remoteJid,
+            participant: sentMessage.key.participant || null,
+            dataJson: JSON.stringify(sentMessage),
+            ticketTrakingId: null,
+            isPrivate: false,
+            createdAt: new Date(
+              Math.floor(((sentMessage.messageTimestamp as number) || Date.now() / 1000) * 1000)
+            ).toISOString(),
+            ticketImported: ticket.imported,
+            isForwarded: false
+          };
+
+          await ticket.update({ lastMessage: body, imported: null });
+          await CreateMessageService({ messageData, companyId });
+        }
       }
 
       if (ticket.channel === "whatsapp" && isPrivate) {
@@ -252,18 +294,17 @@ export const forwardmessage = async (req: Request, res: Response): Promise<Respo
         const mediaUrl = message.mediaUrl.replace(`:${process.env.PORT}`, '');
         const fileName = obterNomeEExtensaoDoArquivo(mediaUrl);
 
-        const publicFolder = path.join(__dirname, '..', '..', '..', 'backend', 'public');
-
-        const filePath = path.join(publicFolder, `company${ticket.companyId}`, fileName)
+        const publicFolder = path.join(__dirname, '..', '..', '..', 'public');
+        const filePath = path.join(publicFolder, `company${ticket.companyId}`, fileName);
 
         const mediaSrc = {
           fieldname: 'medias',
           originalname: fileName,
           encoding: '7bit',
           mimetype: message.mediaType,
-          filename: fileName,
+          filename: isSpacesUrl(mediaUrl) ? mediaUrl : fileName,
           path: filePath
-        } as Express.Multer.File
+        } as Express.Multer.File;
 
         await SendWhatsAppMedia({ media: mediaSrc, ticket: createTicket, body, isForwarded: false });
       } else {
@@ -363,18 +404,17 @@ export const forwardMessage = async (req: Request, res: Response): Promise<Respo
       body = "";
     }
 
-    const publicFolder = path.join(__dirname, '..', '..', '..', 'backend', 'public');
-
-    const filePath = path.join(publicFolder, `company${createTicket.companyId}`, fileName)
+    const publicFolder = path.join(__dirname, '..', '..', '..', 'public');
+    const filePath = path.join(publicFolder, `company${createTicket.companyId}`, fileName);
 
     const mediaSrc = {
       fieldname: 'medias',
       originalname: fileName,
       encoding: '7bit',
       mimetype: message.mediaType,
-      filename: fileName,
+      filename: isSpacesUrl(mediaUrl) ? mediaUrl : fileName,
       path: filePath
-    } as Express.Multer.File
+    } as Express.Multer.File;
 
     await SendWhatsAppMedia({ media: mediaSrc, ticket: createTicket, body, isForwarded: true });
   }
@@ -627,4 +667,47 @@ export const ReactMessage = async (req: Request, res: Response): Promise<Respons
 
   return res.send();
 }
+
+export const redownloadMedia = async (req: Request, res: Response): Promise<Response> => {
+  const { messageId } = req.params;
+  const { companyId } = req.user;
+
+  const message = await Message.findOne({ where: { id: messageId, companyId } });
+  if (!message) throw new AppError("ERR_NO_MESSAGE_FOUND", 404);
+  if (!message.mediaUrl) throw new AppError("ERR_NO_MEDIA", 400);
+
+  const publicDir = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..", "..", "..", "public");
+  const filePath = path.join(publicDir, `company${companyId}`, message.mediaUrl);
+
+  // Se já existe no disco, retorna OK
+  if (fs.existsSync(filePath)) {
+    return res.json({ status: "exists", mediaUrl: message.mediaUrl });
+  }
+
+  if (!message.dataJson) throw new AppError("ERR_NO_DATA_JSON", 400);
+
+  let msgObj: any;
+  try {
+    msgObj = JSON.parse(message.dataJson);
+  } catch {
+    throw new AppError("ERR_INVALID_DATA_JSON", 400);
+  }
+
+  const msgContent = msgObj?.message;
+  if (!msgContent) throw new AppError("ERR_NO_MEDIA_CONTENT", 400);
+
+  const buffer = await downloadMediaMessage(msgObj, "buffer", {});
+  if (!buffer || (buffer as Buffer).length === 0) {
+    throw new AppError("ERR_MEDIA_EXPIRED", 410);
+  }
+
+  const folder = path.join(publicDir, `company${companyId}`);
+  if (!fs.existsSync(folder)) {
+    fs.mkdirSync(folder, { recursive: true });
+  }
+
+  fs.writeFileSync(filePath, buffer as Buffer);
+
+  return res.json({ status: "recovered", mediaUrl: message.mediaUrl });
+};
 

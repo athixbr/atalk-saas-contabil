@@ -8,6 +8,10 @@ const reportsRoutes = {
       label: 'Duração dos Atendimentos',
       to: '/reports/tickets/duration',
     },
+    {
+      label: '⏱️ Análise de Tempo',
+      to: '/reports/tickets/time-analysis',
+    },
   ],
   research: [
     {
@@ -19,6 +23,12 @@ const reportsRoutes = {
     {
       label: 'Atendimentos em grupo',
       to: '/reports/groups',
+    },
+  ],
+  performance: [
+    {
+      label: '👥 Performance de Atendentes',
+      to: '/reports/users/performance',
     },
   ],
 };

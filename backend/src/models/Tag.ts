@@ -34,23 +34,23 @@ class Tag extends Model<Tag> {
   kanban: number;
 
   @HasMany(() => TicketTag)
-  ticketTags: TicketTag[];
+  ticketTags: any[];
 
   @BelongsToMany(() => Ticket, () => TicketTag)
-  tickets: Ticket[];
+  tickets: any[];
 
   @BelongsToMany(() => Contact, () => ContactTag)
   contacts: Array<Contact & { ContactTag: ContactTag }>;
 
   @HasMany(() => ContactTag)
-  contactTags: ContactTag[];
+  contactTags: any[];
 
   @ForeignKey(() => Company)
   @Column
   companyId: number;
 
   @BelongsTo(() => Company)
-  company: Company;
+  company: any;
 
   @CreatedAt
   createdAt: Date;

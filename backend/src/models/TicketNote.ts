@@ -29,21 +29,21 @@ class TicketNote extends Model<TicketNote> {
   userId: number;
 
   @BelongsTo(() => User)
-  user: User;
+  user: any;
 
   @ForeignKey(() => Contact)
   @Column
   contactId: number;
 
   @BelongsTo(() => Contact)
-  contact: Contact;
+  contact: any; // any prevents circular __metadata TDZ
 
   @ForeignKey(() => Ticket)
   @Column
   ticketId: number;
 
   @BelongsTo(() => Ticket)
-  ticket: Ticket;
+  ticket: any;
 
   @CreatedAt
   createdAt: Date;

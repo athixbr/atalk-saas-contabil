@@ -1,0 +1,1321 @@
+import React, { useState, useEffect, useContext, useRef } from "react";
+import * as Yup from "yup";
+import { Formik, Form, Field } from "formik";
+import { toast } from "react-toastify";
+import { makeStyles } from "@material-ui/core/styles";
+import { green } from "@material-ui/core/colors";
+import {
+	Button,
+	TextField,
+	CircularProgress,
+	Select,
+	InputLabel,
+	MenuItem,
+	FormControl,
+	FormControlLabel,
+	Checkbox,
+	Typography,
+	Avatar,
+	Input,
+	Paper,
+	Grid,
+	Divider,
+	IconButton,
+	CardContent,
+	Box,
+	useTheme,
+	useMediaQuery,
+} from "@material-ui/core";
+import {
+	ArrowBack as ArrowBackIcon,
+	TrendingUp as TrendingUpIcon,
+	CheckCircle as CheckCircleIcon,
+	Schedule as ScheduleIcon,
+	Warning as WarningIcon,
+	Assignment as AssignmentIcon,
+} from "@material-ui/icons";
+import { useHistory } from "react-router-dom";
+import {
+	Chart as ChartJS,
+	CategoryScale,
+	LinearScale,
+	PointElement,
+	LineElement,
+	BarElement,
+	ArcElement,
+	Title as ChartTitle,
+	Tooltip,
+	Legend,
+} from "chart.js";
+import { Line, Bar, Doughnut } from "react-chartjs-2";
+import whatsappIcon from "../../assets/nopicture.png";
+import { i18n } from "../../translate/i18n";
+import api from "../../services/api";
+import toastError from "../../errors/toastError";
+import QueueSelect from "../../components/QueueSelect";
+import { AuthContext } from "../../context/Auth/AuthContext";
+import useWhatsApps from "../../hooks/useWhatsApps";
+import { Can } from "../../components/Can";
+import { getBackendUrl } from "../../config";
+
+// Registrar componentes do Chart.js
+ChartJS.register(
+	CategoryScale,
+	LinearScale,
+	PointElement,
+	LineElement,
+	BarElement,
+	ArcElement,
+	ChartTitle,
+	Tooltip,
+	Legend
+);
+
+const backendUrl = getBackendUrl();
+
+const useStyles = makeStyles((theme) => ({
+	root: {
+		display: "flex",
+		flexDirection: "column",
+		height: "100%",
+		padding: theme.spacing(3),
+		backgroundColor: theme.palette.background.default,
+		[theme.breakpoints.down("sm")]: {
+			padding: theme.spacing(2),
+		},
+	},
+	header: {
+		display: "flex",
+		justifyContent: "space-between",
+		alignItems: "center",
+		marginBottom: theme.spacing(3),
+		flexWrap: "wrap",
+		gap: theme.spacing(2),
+	},
+	title: {
+		display: "flex",
+		alignItems: "center",
+		gap: theme.spacing(2),
+		fontWeight: 600,
+		color: theme.palette.primary.main,
+	},
+	backButton: {
+		color: theme.palette.primary.main,
+	},
+	paper: {
+		padding: theme.spacing(3),
+		borderRadius: "16px",
+		marginBottom: theme.spacing(3),
+		[theme.breakpoints.down("sm")]: {
+			padding: theme.spacing(2),
+		},
+	},
+	profileSection: {
+		display: "flex",
+		flexDirection: "column",
+		alignItems: "center",
+		justifyContent: "center",
+		padding: theme.spacing(3),
+		marginBottom: theme.spacing(3),
+		[theme.breakpoints.down("sm")]: {
+			padding: theme.spacing(2),
+		},
+	},
+	avatar: {
+		width: theme.spacing(20),
+		height: theme.spacing(20),
+		marginBottom: theme.spacing(2),
+		cursor: "pointer",
+		border: `4px solid ${theme.palette.primary.main}`,
+		transition: "transform 0.2s",
+		"&:hover": {
+			transform: "scale(1.05)",
+		},
+		[theme.breakpoints.down("sm")]: {
+			width: theme.spacing(15),
+			height: theme.spacing(15),
+		},
+	},
+	updateInput: {
+		display: "none",
+	},
+	updateButton: {
+		marginTop: theme.spacing(1),
+		marginBottom: theme.spacing(1),
+		background: "linear-gradient(135deg, #0596cd 0%, #047ba5 100%)",
+		color: "#fff",
+		"&:hover": {
+			background: "linear-gradient(135deg, #047ba5 0%, #035c7d 100%)",
+		},
+	},
+	removeButton: {
+		marginTop: theme.spacing(1),
+	},
+	formSection: {
+		marginBottom: theme.spacing(3),
+	},
+	sectionTitle: {
+		marginBottom: theme.spacing(2),
+		marginTop: theme.spacing(3),
+		fontWeight: 600,
+		color: theme.palette.primary.main,
+		display: "flex",
+		alignItems: "center",
+		gap: theme.spacing(1),
+		[theme.breakpoints.down("sm")]: {
+			fontSize: "1.2rem",
+		},
+	},
+	fieldRow: {
+		display: "flex",
+		gap: theme.spacing(2),
+		marginBottom: theme.spacing(2),
+		[theme.breakpoints.down("sm")]: {
+			flexDirection: "column",
+			gap: theme.spacing(1),
+		},
+	},
+	btnWrapper: {
+		position: "relative",
+		marginTop: theme.spacing(3),
+	},
+	buttonProgress: {
+		color: green[500],
+		position: "absolute",
+		top: "50%",
+		left: "50%",
+		marginTop: -12,
+		marginLeft: -12,
+	},
+	formControl: {
+		marginBottom: theme.spacing(2),
+	},
+	actions: {
+		display: "flex",
+		justifyContent: "flex-end",
+		gap: theme.spacing(2),
+		marginTop: theme.spacing(4),
+		paddingTop: theme.spacing(3),
+		borderTop: `1px solid ${theme.palette.divider}`,
+		[theme.breakpoints.down("sm")]: {
+			flexDirection: "column-reverse",
+			"& button": {
+				width: "100%",
+			},
+		},
+	},
+	saveButton: {
+		background: "linear-gradient(135deg, #0596cd 0%, #047ba5 100%)",
+		color: "#fff",
+		"&:hover": {
+			background: "linear-gradient(135deg, #047ba5 0%, #035c7d 100%)",
+		},
+	},
+	departmentItem: {
+		marginBottom: theme.spacing(1),
+		paddingLeft: theme.spacing(2),
+	},
+	coordenadorLabel: {
+		marginLeft: theme.spacing(4),
+		[theme.breakpoints.down("sm")]: {
+			marginLeft: theme.spacing(2),
+		},
+	},
+	statsCard: {
+		height: "100%",
+		display: "flex",
+		flexDirection: "column",
+		transition: "transform 0.2s, box-shadow 0.2s",
+		borderRadius: "16px",
+		"&:hover": {
+			transform: "translateY(-4px)",
+			boxShadow: theme.shadows[8],
+		},
+	},
+	statsCardContent: {
+		display: "flex",
+		alignItems: "center",
+		justifyContent: "space-between",
+		padding: theme.spacing(3),
+	},
+	statsIcon: {
+		fontSize: 48,
+		opacity: 0.8,
+	},
+	statsNumber: {
+		fontSize: "2.5rem",
+		fontWeight: "bold",
+		lineHeight: 1,
+		[theme.breakpoints.down("sm")]: {
+			fontSize: "1.8rem",
+		},
+	},
+	statsLabel: {
+		color: theme.palette.text.secondary,
+		marginTop: theme.spacing(1),
+		fontSize: "0.875rem",
+		fontWeight: 500,
+	},
+	chartCard: {
+		padding: theme.spacing(3),
+		height: "100%",
+		borderRadius: "16px",
+		[theme.breakpoints.down("sm")]: {
+			padding: theme.spacing(2),
+		},
+	},
+	chartContainer: {
+		position: "relative",
+		height: 300,
+		marginTop: theme.spacing(2),
+		[theme.breakpoints.down("sm")]: {
+			height: 250,
+		},
+	},
+	chartTitle: {
+		fontWeight: 600,
+		color: theme.palette.text.primary,
+		marginBottom: theme.spacing(2),
+	},
+	divider: {
+		margin: theme.spacing(4, 0),
+	},
+}));
+
+const UserSchema = Yup.object().shape({
+	name: Yup.string()
+		.min(2, "Muito curto!")
+		.max(50, "Muito longo!")
+		.required("Campo obrigatório"),
+	password: Yup.string().min(5, "Muito curto!").max(50, "Muito longo!"),
+	email: Yup.string().email("Email inválido").required("Campo obrigatório"),
+});
+
+const Profile = () => {
+	const classes = useStyles();
+	const history = useHistory();
+
+	const initialState = {
+		name: "",
+		email: "",
+		password: "",
+		profile: "user",
+		position: "",
+		startWork: "00:00",
+		endWork: "23:59",
+		farewellMessage: "",
+		allTicket: "disable",
+		allowGroup: false,
+		defaultTheme: "light",
+		defaultMenu: "open",
+		defaultHomePage: "tickets",
+		wpp: "",
+	};
+
+	const { user: loggedInUser } = useContext(AuthContext);
+
+	const [user, setUser] = useState(initialState);
+	const [selectedQueueIds, setSelectedQueueIds] = useState([]);
+	const [selectedQueueIdsRead, setSelectedQueueIdsRead] = useState([]);
+	const [whatsappId, setWhatsappId] = useState(false);
+	const { loading, whatsApps } = useWhatsApps();
+	const [profileUrl, setProfileUrl] = useState(null);
+	const [departamentos, setDepartamentos] = useState([]);
+	const [selectedDepartamentos, setSelectedDepartamentos] = useState([]);
+	const [taskStats, setTaskStats] = useState(null);
+	const [loadingStats, setLoadingStats] = useState(true);
+
+	const startWorkRef = useRef();
+	const endWorkRef = useRef();
+	const theme = useTheme();
+	const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
+	useEffect(() => {
+		const fetchDepartamentos = async () => {
+			try {
+				const { data } = await api.get("/departamentos");
+				setDepartamentos(data.departamentos || data || []);
+			} catch (err) {
+				console.error("Erro ao carregar departamentos:", err);
+				setDepartamentos([]);
+			}
+		};
+		fetchDepartamentos();
+	}, []);
+
+	useEffect(() => {
+		const fetchUser = async () => {
+			if (!loggedInUser?.id) return;
+			try {
+				const { data } = await api.get(`/users/${loggedInUser.id}`);
+				setUser((prevState) => {
+					return { ...prevState, ...data };
+				});
+
+				const { profileImage } = data;
+				setProfileUrl(
+					`${backendUrl}/public/company${data.companyId}/user/${profileImage}`
+				);
+
+				const userQueueIds = data.queues?.map((queue) => queue.id);
+				setSelectedQueueIds(userQueueIds);
+				setWhatsappId(data.whatsappId ? data.whatsappId : "");
+
+				// Load user's departamentos
+				if (data.departamentos && data.departamentos.length > 0) {
+					const userDepts = data.departamentos.map((dept) => ({
+						departamentoId: dept.id,
+						isCoordenador: dept.DepartamentoUsuario?.isCoordenador || false,
+					}));
+					setSelectedDepartamentos(userDepts);
+				}
+			} catch (err) {
+				toastError(err);
+			}
+		};
+
+		fetchUser();
+	}, [loggedInUser]);
+
+	useEffect(() => {
+		const fetchTaskStats = async () => {
+			if (!loggedInUser?.id) return;
+			setLoadingStats(true);
+			try {
+				console.log("Buscando estatísticas para usuário:", loggedInUser.id);
+				const { data } = await api.get(`/tasks/stats/${loggedInUser.id}`);
+				console.log("Estatísticas recebidas:", data);
+				setTaskStats(data);
+			} catch (err) {
+				console.error("Erro ao carregar estatísticas:", err);
+				console.error("Detalhes do erro:", err.response?.data || err.message);
+				// Mesmo com erro, define um objeto vazio para não quebrar a UI
+				setTaskStats({
+					stats: [],
+					recentCompleted: 0,
+					tasksByMonth: [],
+					totalTasks: 0,
+					overdueTasks: 0
+				});
+			} finally {
+				setLoadingStats(false);
+			}
+		};
+
+		fetchTaskStats();
+	}, [loggedInUser]);
+
+	const handleSaveUser = async (values) => {
+		const uploadAvatar = async (file) => {
+			const formData = new FormData();
+			formData.append("userId", file.id);
+			formData.append("typeArch", "user");
+			formData.append("profileImage", file.profileImage);
+
+			const { data } = await api.post(
+				`/users/${file.id}/media-upload`,
+				formData
+			);
+
+			localStorage.setItem("profileImage", data.user.profileImage);
+		};
+
+		const userData = {
+			...values,
+			whatsappId,
+			queueIds: selectedQueueIds,
+			departamentos: selectedDepartamentos,
+		};
+
+		try {
+			const { data } = await api.put(`/users/${loggedInUser.id}`, userData);
+			window.localStorage.setItem("preferredTheme", values.defaultTheme);
+
+			if (user.profileImage && typeof user.profileImage === "object") {
+				await uploadAvatar(user);
+			}
+
+			toast.success("Perfil atualizado com sucesso!");
+			// Recarregar a página para aplicar mudanças
+			window.location.reload();
+		} catch (err) {
+			toastError(err);
+		}
+	};
+
+	const handleUpdateProfileImage = (e) => {
+		if (!e.target.files[0]) return;
+
+		const newAvatarUrl = URL.createObjectURL(e.target.files[0]);
+		setUser((prevState) => ({
+			...prevState,
+			avatar: newAvatarUrl,
+			profileImage: e.target.files[0],
+		}));
+		setProfileUrl(newAvatarUrl);
+	};
+
+	const handleToggleDepartamento = (departamentoId) => {
+		setSelectedDepartamentos((prev) => {
+			const exists = prev.find((d) => d.departamentoId === departamentoId);
+			if (exists) {
+				return prev.filter((d) => d.departamentoId !== departamentoId);
+			} else {
+				return [...prev, { departamentoId, isCoordenador: false }];
+			}
+		});
+	};
+
+	const handleToggleCoordenador = (departamentoId) => {
+		setSelectedDepartamentos((prev) =>
+			prev.map((d) =>
+				d.departamentoId === departamentoId
+					? { ...d, isCoordenador: !d.isCoordenador }
+					: d
+			)
+		);
+	};
+
+	// Preparar dados para os gráficos
+	const getStatsCardData = () => {
+		if (!taskStats || loadingStats) return [];
+
+		const statusMap = taskStats.stats?.reduce((acc, stat) => {
+			acc[stat.status] = parseInt(stat.count);
+			return acc;
+		}, {}) || {};
+
+		return [
+			{
+				title: "Total de Tarefas",
+				value: taskStats.totalTasks || 0,
+				icon: <AssignmentIcon className={classes.statsIcon} />,
+				color: "#3f51b5",
+			},
+			{
+				title: "Concluídas (30 dias)",
+				value: taskStats.recentCompleted || 0,
+				icon: <CheckCircleIcon className={classes.statsIcon} />,
+				color: "#4caf50",
+			},
+			{
+				title: "Em Andamento",
+				value: statusMap["Em Andamento"] || 0,
+				icon: <ScheduleIcon className={classes.statsIcon} />,
+				color: "#ff9800",
+			},
+			{
+				title: "Atrasadas",
+				value: taskStats.overdueTasks || 0,
+				icon: <WarningIcon className={classes.statsIcon} />,
+				color: "#f44336",
+			},
+		];
+	};
+
+	const getTasksByStatusData = () => {
+		// Se não há dados, retorna dados de exemplo
+		if (!taskStats?.stats || taskStats.stats.length === 0) {
+			return {
+				labels: ["Aguardando", "Em Andamento", "Concluída"],
+				datasets: [
+					{
+						label: "Tarefas por Status",
+						data: [0, 0, 0],
+						backgroundColor: ["#2196f3", "#ff9800", "#4caf50"],
+						borderColor: ["#2196f3", "#ff9800", "#4caf50"],
+						borderWidth: 2,
+					},
+				],
+			};
+		}
+
+		const labels = taskStats.stats.map((s) => s.status);
+		const data = taskStats.stats.map((s) => parseInt(s.count));
+		const colors = [
+			"#4caf50",
+			"#ff9800",
+			"#f44336",
+			"#2196f3",
+			"#9c27b0",
+			"#00bcd4",
+		];
+
+		return {
+			labels,
+			datasets: [
+				{
+					label: "Tarefas por Status",
+					data,
+					backgroundColor: colors.slice(0, labels.length),
+					borderColor: colors.slice(0, labels.length),
+					borderWidth: 2,
+				},
+			],
+		};
+	};
+
+	const getTasksByMonthData = () => {
+		// Se não há dados, retorna dados de exemplo dos últimos 6 meses
+		if (!taskStats?.tasksByMonth || taskStats.tasksByMonth.length === 0) {
+			const months = [];
+			const now = new Date();
+			for (let i = 5; i >= 0; i--) {
+				const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+				months.push(
+					date.toLocaleDateString("pt-BR", {
+						month: "short",
+						year: "2-digit",
+					})
+				);
+			}
+			return {
+				labels: months,
+				datasets: [
+					{
+						label: "Concluídas",
+						data: [0, 0, 0, 0, 0, 0],
+						backgroundColor: "#4caf50",
+						borderColor: "#4caf50",
+						borderWidth: 2,
+					},
+					{
+						label: "Em Andamento",
+						data: [0, 0, 0, 0, 0, 0],
+						backgroundColor: "#ff9800",
+						borderColor: "#ff9800",
+						borderWidth: 2,
+					},
+				],
+			};
+		}
+
+		// Agrupar por mês
+		const monthsMap = {};
+		taskStats.tasksByMonth.forEach((item) => {
+			if (!monthsMap[item.month]) {
+				monthsMap[item.month] = {};
+			}
+			monthsMap[item.month][item.status] = parseInt(item.count);
+		});
+
+		const months = Object.keys(monthsMap).sort();
+		const statuses = [
+			...new Set(taskStats.tasksByMonth.map((item) => item.status)),
+		];
+
+		const datasets = statuses.map((status, index) => {
+			const colors = [
+				"#4caf50",
+				"#ff9800",
+				"#f44336",
+				"#2196f3",
+				"#9c27b0",
+			];
+			return {
+				label: status,
+				data: months.map((month) => monthsMap[month][status] || 0),
+				backgroundColor: colors[index % colors.length],
+				borderColor: colors[index % colors.length],
+				borderWidth: 2,
+			};
+		});
+
+		return {
+			labels: months.map((m) => {
+				const [year, month] = m.split("-");
+				const date = new Date(year, month - 1);
+				return date.toLocaleDateString("pt-BR", {
+					month: "short",
+					year: "2-digit",
+				});
+			}),
+			datasets,
+		};
+	};
+
+	const chartOptions = {
+		responsive: true,
+		maintainAspectRatio: false,
+		plugins: {
+			legend: {
+				position: isMobile ? "bottom" : "top",
+			},
+		},
+	};
+
+	return (
+		<div className={classes.root}>
+			{/* Header */}
+			<div className={classes.header}>
+				<div className={classes.title}>
+					<IconButton
+						className={classes.backButton}
+						onClick={() => history.goBack()}
+					>
+						<ArrowBackIcon />
+					</IconButton>
+					<Typography variant="h4" component="h1">
+						👤 Meu Perfil
+					</Typography>
+				</div>
+			</div>
+
+			{/* Seção de Estatísticas */}
+			{loadingStats ? (
+				<Box display="flex" justifyContent="center" p={4}>
+					<CircularProgress />
+				</Box>
+			) : (
+				<>
+					<Typography variant="h5" className={classes.sectionTitle}>
+						📊 Histórico de Atividades
+					</Typography>
+
+					{/* Cards de Estatísticas */}
+					<Grid container spacing={3} style={{ marginBottom: 24 }}>
+						{getStatsCardData().map((stat, index) => (
+							<Grid item xs={12} sm={6} md={3} key={index}>
+								<Paper className={classes.statsCard} elevation={2}>
+									<CardContent className={classes.statsCardContent}>
+										<Box>
+											<Typography
+												className={classes.statsNumber}
+												style={{ color: stat.color }}
+											>
+												{stat.value}
+											</Typography>
+											<Typography
+												variant="body2"
+												className={classes.statsLabel}
+											>
+												{stat.title}
+											</Typography>
+										</Box>
+										<Box style={{ color: stat.color }}>
+											{stat.icon}
+										</Box>
+									</CardContent>
+								</Paper>
+							</Grid>
+						))}
+					</Grid>
+
+					{/* Gráficos */}
+					<Grid container spacing={3} style={{ marginBottom: 32 }}>
+						{/* Gráfico de Rosca - Status */}
+						<Grid item xs={12} md={6}>
+							<Paper className={classes.chartCard} elevation={2}>
+								<Typography variant="h6" className={classes.chartTitle}>
+									📈 Tarefas por Status
+								</Typography>
+								<Box className={classes.chartContainer}>
+									<Doughnut
+										data={getTasksByStatusData()}
+										options={chartOptions}
+									/>
+								</Box>
+							</Paper>
+						</Grid>
+
+						{/* Gráfico de Barras - Por Mês */}
+						<Grid item xs={12} md={6}>
+							<Paper className={classes.chartCard} elevation={2}>
+								<Typography variant="h6" className={classes.chartTitle}>
+									📅 Atividades nos Últimos 6 Meses
+								</Typography>
+								<Box className={classes.chartContainer}>
+									<Bar
+										data={getTasksByMonthData()}
+										options={chartOptions}
+									/>
+								</Box>
+							</Paper>
+						</Grid>
+					</Grid>
+
+					<Divider className={classes.divider} />
+				</>
+			)}
+
+			{/* Formulário de Perfil */}
+			<Paper className={classes.paper} elevation={2}>
+				<Formik
+					initialValues={user}
+					enableReinitialize={true}
+					validationSchema={UserSchema}
+						onSubmit={(values, actions) => {
+							setTimeout(() => {
+								handleSaveUser(values);
+								actions.setSubmitting(false);
+							}, 400);
+						}}
+					>
+						{({ touched, errors, isSubmitting }) => (
+							<Form>
+								<Typography variant="h5" className={classes.sectionTitle}>
+									👤 Informações do Perfil
+								</Typography>
+
+								{/* Seção de Foto de Perfil */}
+								<div className={classes.profileSection}>
+									<label htmlFor="profileImage">
+										<Avatar
+											src={profileUrl ? profileUrl : whatsappIcon}
+											alt="profile-image"
+											className={classes.avatar}
+										/>
+									</label>
+									<Input
+										type="file"
+										name="profileImage"
+										id="profileImage"
+										className={classes.updateInput}
+										onChange={(event) => handleUpdateProfileImage(event)}
+									/>
+									<Button
+										variant="contained"
+										color="primary"
+										className={classes.updateButton}
+										onClick={() =>
+											document.getElementById("profileImage").click()
+										}
+									>
+										{profileUrl
+											? "📸 Atualizar Foto"
+											: "📷 Adicionar Foto"}
+									</Button>
+									{user.avatar && (
+										<Button
+											variant="outlined"
+											color="secondary"
+											className={classes.removeButton}
+											onClick={() => {
+												setUser((prevState) => ({
+													...prevState,
+													avatar: null,
+													profileImage: null,
+												}));
+												setProfileUrl(whatsappIcon);
+											}}
+										>
+											🗑️ Remover Foto
+										</Button>
+									)}
+								</div>
+
+								<Divider style={{ margin: "24px 0" }} />
+
+								{/* Informações Pessoais */}
+								<Typography
+									variant="h6"
+									className={classes.sectionTitle}
+								>
+									📋 Dados Pessoais
+								</Typography>
+
+								<Grid container spacing={2}>
+									<Grid item xs={12} sm={6}>
+										<Field
+											as={TextField}
+											label={i18n.t("userModal.form.name")}
+											name="name"
+											error={touched.name && Boolean(errors.name)}
+											helperText={touched.name && errors.name}
+											variant="outlined"
+											margin="dense"
+											fullWidth
+										/>
+									</Grid>
+									<Grid item xs={12} sm={6}>
+										<Field
+											as={TextField}
+											label={i18n.t("userModal.form.email")}
+											name="email"
+											error={touched.email && Boolean(errors.email)}
+											helperText={touched.email && errors.email}
+											variant="outlined"
+											margin="dense"
+											fullWidth
+										/>
+									</Grid>
+								</Grid>
+
+								<Grid container spacing={2}>
+									<Grid item xs={12} sm={6}>
+										<Field
+											as={TextField}
+											label="Cargo/Função"
+											name="position"
+											placeholder="Ex: Gerente, Analista, Coordenador"
+											error={touched.position && Boolean(errors.position)}
+											helperText={touched.position && errors.position}
+											variant="outlined"
+											margin="dense"
+											fullWidth
+										/>
+									</Grid>
+									<Grid item xs={12} sm={6}>
+										<Field
+											as={TextField}
+											label="WhatsApp"
+											name="wpp"
+											placeholder="5513912344321"
+											error={touched.wpp && Boolean(errors.wpp)}
+											helperText={touched.wpp && errors.wpp}
+											variant="outlined"
+											margin="dense"
+											fullWidth
+										/>
+									</Grid>
+								</Grid>
+
+								<Grid container spacing={2}>
+									<Grid item xs={12} sm={6}>
+										<Field
+											as={TextField}
+											label={i18n.t("userModal.form.password")}
+											type="password"
+											name="password"
+											error={touched.password && Boolean(errors.password)}
+											helperText={touched.password && errors.password}
+											variant="outlined"
+											margin="dense"
+											fullWidth
+											placeholder="Deixe em branco para não alterar"
+										/>
+									</Grid>
+								</Grid>
+
+								<Can
+									role={loggedInUser.profile}
+									perform="user-modal:editProfile"
+									yes={() => (
+										<Grid container spacing={2}>
+											<Grid item xs={12} sm={6}>
+												<FormControl
+													variant="outlined"
+													className={classes.formControl}
+													margin="dense"
+													fullWidth
+												>
+													<InputLabel id="profile-selection-input-label">
+														{i18n.t("userModal.form.profile")}
+													</InputLabel>
+													<Field
+														as={Select}
+														label={i18n.t("userModal.form.profile")}
+														name="profile"
+														labelId="profile-selection-label"
+														id="profile-selection"
+														required
+													>
+														<MenuItem value="admin">Admin</MenuItem>
+														<MenuItem value="user">User</MenuItem>
+													</Field>
+												</FormControl>
+											</Grid>
+										</Grid>
+									)}
+								/>
+
+								<Divider style={{ marginTop: 32, marginBottom: 32 }} />
+
+								{/* Configurações de Trabalho */}
+								<Typography
+									variant="h6"
+									className={classes.sectionTitle}
+								>
+									⚙️ Configurações de Trabalho
+								</Typography>
+
+								<Can
+									role={loggedInUser.profile}
+									perform="user-modal:editQueues"
+									yes={() => (
+										<div className={classes.formSection}>
+											<QueueSelect
+												selectedQueueIds={selectedQueueIds}
+												onChange={(values) => setSelectedQueueIds(values)}
+												fullWidth
+											/>
+										</div>
+									)}
+								/>
+
+								<Can
+									role={loggedInUser.profile}
+									perform="user-modal:editQueues"
+									yes={() => (
+										<div className={classes.formSection}>
+											<QueueSelect
+												selectedQueueIds={selectedQueueIdsRead}
+												onChange={(values) =>
+													setSelectedQueueIdsRead(values)
+												}
+												fullWidth
+												label={"RO"}
+											/>
+										</div>
+									)}
+								/>
+
+								<Can
+									role={loggedInUser.profile}
+									perform="user-modal:editProfile"
+									yes={() => (
+										<FormControl
+											variant="outlined"
+											margin="dense"
+											className={classes.formControl}
+											fullWidth
+										>
+											<InputLabel>
+												{i18n.t("userModal.form.whatsapp")}
+											</InputLabel>
+											<Field
+												as={Select}
+												value={whatsappId}
+												onChange={(e) => setWhatsappId(e.target.value)}
+												label={i18n.t("userModal.form.whatsapp")}
+											>
+												<MenuItem value={""}>&nbsp;</MenuItem>
+												{whatsApps.map((whatsapp) => (
+													<MenuItem
+														key={whatsapp.id}
+														value={whatsapp.id}
+													>
+														{whatsapp.name}
+													</MenuItem>
+												))}
+											</Field>
+										</FormControl>
+									)}
+								/>
+
+								<Can
+									role={loggedInUser.profile}
+									perform="user-modal:editProfile"
+									yes={() => (
+										<div className={classes.fieldRow}>
+											<Field
+												as={TextField}
+												label={i18n.t("userModal.form.startWork")}
+												type="time"
+												ampm={"false"}
+												inputRef={startWorkRef}
+												InputLabelProps={{
+													shrink: true,
+												}}
+												inputProps={{
+													step: 600, // 5 min
+												}}
+												fullWidth
+												name="startWork"
+												error={
+													touched.startWork && Boolean(errors.startWork)
+												}
+												helperText={touched.startWork && errors.startWork}
+												variant="outlined"
+												margin="dense"
+											/>
+											<Field
+												as={TextField}
+												label={i18n.t("userModal.form.endWork")}
+												type="time"
+												ampm={"false"}
+												inputRef={endWorkRef}
+												InputLabelProps={{
+													shrink: true,
+												}}
+												inputProps={{
+													step: 600, // 5 min
+												}}
+												fullWidth
+												name="endWork"
+												error={touched.endWork && Boolean(errors.endWork)}
+												helperText={touched.endWork && errors.endWork}
+												variant="outlined"
+												margin="dense"
+											/>
+										</div>
+									)}
+								/>
+
+								<Field
+									as={TextField}
+									label={i18n.t("userModal.form.farewellMessage")}
+									type="farewellMessage"
+									multiline
+									rows={4}
+									fullWidth
+									name="farewellMessage"
+									error={
+										touched.farewellMessage &&
+										Boolean(errors.farewellMessage)
+									}
+									helperText={
+										touched.farewellMessage && errors.farewellMessage
+									}
+									variant="outlined"
+									margin="dense"
+									className={classes.formControl}
+								/>
+
+								<Can
+									role={loggedInUser.profile}
+									perform="user-modal:editProfile"
+									yes={() => (
+										<div className={classes.fieldRow}>
+											<FormControl
+												variant="outlined"
+												margin="dense"
+												fullWidth
+											>
+												<InputLabel>
+													{i18n.t("userModal.form.allTicket")}
+												</InputLabel>
+												<Field
+													as={Select}
+													label={i18n.t("userModal.form.allTicket")}
+													name="allTicket"
+													type="allTicket"
+													required
+												>
+													<MenuItem value="enable">
+														{i18n.t("userModal.form.allTicketEnable")}
+													</MenuItem>
+													<MenuItem value="disable">
+														{i18n.t("userModal.form.allTicketDisable")}
+													</MenuItem>
+												</Field>
+											</FormControl>
+											<FormControl
+												variant="outlined"
+												margin="dense"
+												fullWidth
+											>
+												<InputLabel>
+													{i18n.t("userModal.form.allowGroup")}
+												</InputLabel>
+												<Field
+													as={Select}
+													label={i18n.t("userModal.form.allowGroup")}
+													name="allowGroup"
+													type="allowGroup"
+													required
+												>
+													<MenuItem value={true}>
+														{i18n.t("userModal.form.allTicketEnable")}
+													</MenuItem>
+													<MenuItem value={false}>
+														{i18n.t("userModal.form.allTicketDisable")}
+													</MenuItem>
+												</Field>
+											</FormControl>
+										</div>
+									)}
+								/>
+
+								<Divider style={{ marginTop: 24, marginBottom: 24 }} />
+
+								{/* Preferências */}
+								<Typography
+									variant="h6"
+									className={classes.sectionTitle}
+								>
+									🎨 Preferências
+								</Typography>
+
+								<div className={classes.fieldRow}>
+									<FormControl
+										variant="outlined"
+										margin="dense"
+										fullWidth
+									>
+										<InputLabel>
+											{i18n.t("userModal.form.defaultTheme")}
+										</InputLabel>
+										<Field
+											as={Select}
+											label={i18n.t("userModal.form.defaultTheme")}
+											name="defaultTheme"
+											type="defaultTheme"
+											required
+										>
+											<MenuItem value="light">
+												{i18n.t("userModal.form.defaultThemeLight")}
+											</MenuItem>
+											<MenuItem value="dark">
+												{i18n.t("userModal.form.defaultThemeDark")}
+											</MenuItem>
+										</Field>
+									</FormControl>
+
+									<FormControl
+										variant="outlined"
+										margin="dense"
+										fullWidth
+									>
+										<InputLabel>
+											{i18n.t("userModal.form.defaultMenu")}
+										</InputLabel>
+										<Field
+											as={Select}
+											label={i18n.t("userModal.form.defaultMenu")}
+											name="defaultMenu"
+											type="defaultMenu"
+											required
+										>
+											<MenuItem value={"open"}>
+												{i18n.t("userModal.form.defaultMenuOpen")}
+											</MenuItem>
+											<MenuItem value={"closed"}>
+												{i18n.t("userModal.form.defaultMenuClosed")}
+											</MenuItem>
+										</Field>
+									</FormControl>
+								</div>
+
+								<div className={classes.fieldRow} style={{ marginTop: 16 }}>
+									<FormControl
+										variant="outlined"
+										margin="dense"
+										fullWidth
+									>
+										<InputLabel>
+											🏠 Tela Inicial ao Abrir o Sistema
+										</InputLabel>
+										<Field
+											as={Select}
+											label="🏠 Tela Inicial ao Abrir o Sistema"
+											name="defaultHomePage"
+											required
+										>
+											<MenuItem value="tickets">
+												📱 Atendimentos (Padrão)
+											</MenuItem>
+											<MenuItem value="dashboard">
+												📊 Dashboard Pessoal
+											</MenuItem>
+											<MenuItem value="tarefas">
+												✅ Minhas Tarefas
+											</MenuItem>
+										</Field>
+									</FormControl>
+								</div>
+
+								{/* Departamentos */}
+								<Can
+									role={loggedInUser.profile}
+									perform="user-modal:editProfile"
+									yes={() => (
+										<div className={classes.formSection}>
+											<Divider
+												style={{ marginTop: 24, marginBottom: 24 }}
+											/>
+											<Typography
+												variant="h6"
+												className={classes.sectionTitle}
+											>
+												Departamentos
+											</Typography>
+											{departamentos && departamentos.length > 0 ? (
+												departamentos.map((dept) => {
+													const isSelected =
+														selectedDepartamentos.find(
+															(d) => d.departamentoId === dept.id
+														);
+													const isCoordenador =
+														isSelected?.isCoordenador || false;
+
+													return (
+														<div
+															key={dept.id}
+															className={classes.departmentItem}
+														>
+															<FormControlLabel
+																control={
+																	<Checkbox
+																		checked={!!isSelected}
+																		onChange={() =>
+																			handleToggleDepartamento(
+																				dept.id
+																			)
+																		}
+																		color="primary"
+																	/>
+																}
+																label={dept.nome}
+															/>
+															{isSelected && (
+																<FormControlLabel
+																	className={
+																		classes.coordenadorLabel
+																	}
+																	control={
+																		<Checkbox
+																			checked={isCoordenador}
+																			onChange={() =>
+																				handleToggleCoordenador(
+																					dept.id
+																				)
+																			}
+																			color="secondary"
+																		/>
+																	}
+																	label="Coordenador 👑"
+																/>
+															)}
+														</div>
+													);
+												})
+											) : (
+												<Typography
+													variant="body2"
+													color="textSecondary"
+												>
+													Nenhum departamento cadastrado
+												</Typography>
+											)}
+										</div>
+									)}
+								/>
+
+								{/* Botões de Ação */}
+								<div className={classes.actions}>
+									<Button
+										onClick={() => history.goBack()}
+										color="secondary"
+										disabled={isSubmitting}
+										variant="outlined"
+										size="large"
+									>
+										Cancelar
+									</Button>
+									<Button
+										type="submit"
+										color="primary"
+										disabled={isSubmitting}
+										variant="contained"
+										className={classes.saveButton}
+										size="large"
+									>
+										💾 Salvar Alterações
+										{isSubmitting && (
+											<CircularProgress
+												size={24}
+												className={classes.buttonProgress}
+											/>
+										)}
+									</Button>
+								</div>
+							</Form>
+						)}
+					</Formik>
+				</Paper>
+		</div>
+	);
+};
+
+export default Profile;

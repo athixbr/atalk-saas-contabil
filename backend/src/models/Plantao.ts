@@ -32,14 +32,14 @@ class Plantao extends Model<Plantao> {
   userId: number;
 
   @BelongsTo(() => User)
-  user: User;
+  user: any;
 
   @ForeignKey(() => Company)
   @Column
   companyId: number;
 
   @BelongsTo(() => Company)
-  company: Company;
+  company: any;
 
   @CreatedAt
   createdAt: Date;

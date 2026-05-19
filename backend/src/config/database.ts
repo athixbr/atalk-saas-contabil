@@ -1,6 +1,6 @@
 import "../bootstrap";
 
-module.exports = {
+export default {
   define: {
     charset: "utf8mb4",
     collate: "utf8mb4_bin"

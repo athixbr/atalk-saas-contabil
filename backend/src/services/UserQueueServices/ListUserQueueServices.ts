@@ -1,3 +1,6 @@
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 import { Op, Sequelize } from "sequelize";
 import AppError from "../../errors/AppError";
 import UserQueue from "../../models/UserQueue"

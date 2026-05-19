@@ -1,7 +1,8 @@
 {
   "compilerOptions": {
     "target": "es2020",
-    "module": "commonjs",
+    "module": "esnext",
+    "moduleResolution": "node",
     "outDir": "./dist",
     "strict": false,
     "strictPropertyInitialization": false,
@@ -9,7 +10,13 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "noEmitOnError": false
   },
-  "exclude": ["public"]
+  "exclude": [
+    "public",
+    "src/database/migrations/**",
+    "src/database/seeds/**"
+  ]
 }

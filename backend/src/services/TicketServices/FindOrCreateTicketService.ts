@@ -1,3 +1,6 @@
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 import { Op } from "sequelize";
 import { add, sub } from "date-fns";
 
@@ -21,7 +24,14 @@ interface Response {
   isCreated: boolean;
 }
 
-const FindOrCreateTicketService = async (
+/**
+ * Mutex em memória para evitar race condition ao criar tickets.
+ * Garante que dois processos simultâneos para o mesmo contato/whatsapp
+ * não criem tickets duplicados.
+ */
+const _ticketCreationLocks = new Map<string, Promise<Response>>();
+
+const _doFindOrCreateTicket = async (
   contact: Contact,
   whatsapp: Whatsapp,
   unreadMessages: number,
@@ -58,6 +68,37 @@ const FindOrCreateTicketService = async (
     order: [["id", "DESC"]]
   });
 
+  // Se não achou pelo contactId direto, busca em contatos duplicados com o mesmo número
+  // Resolve tickets duplicados causados por race condition ao criar contatos
+  if (!ticket && !groupContact && contact.number) {
+    const duplicateContacts = await Contact.findAll({
+      where: {
+        number: contact.number,
+        companyId,
+        id: { [Op.ne]: contact.id }
+      },
+      attributes: ["id"]
+    });
+
+    if (duplicateContacts.length > 0) {
+      ticket = await Ticket.findOne({
+        where: {
+          status: { [Op.or]: ["open", "pending", "group", "nps", "lgpd"] },
+          contactId: { [Op.in]: duplicateContacts.map((c: any) => c.id) },
+          companyId,
+          whatsappId: whatsapp.id
+        },
+        order: [["id", "DESC"]]
+      });
+
+      // Migra o ticket para o contactId atual para manter consistência
+      if (ticket) {
+        await ticket.update({ contactId: contact.id });
+        logger.info(`[FindOrCreateTicket] Ticket ${ticket.id} migrado do contato duplicado para contact ${contact.id} (número ${contact.number})`);
+      }
+    }
+  }
+
   if (ticket) {
 
     await ticket.update({ unreadMessages, isBot: false });
@@ -70,9 +111,9 @@ const FindOrCreateTicketService = async (
       }
     }
 
-    isCreated = true;
+    isCreated = false; // ticket já existia, não foi criado agora
 
-    return { ticket, isCreated };;
+    return { ticket, isCreated };
   }
 
   const timeCreateNewTicket = whatsapp.timeCreateNewTicket;
@@ -109,6 +150,24 @@ const FindOrCreateTicketService = async (
   }
 
   if (!ticket) {
+    // Segunda verificação antes de criar — garante que outro processo não criou
+    // enquanto passávamos pelo bloco de timeCreateNewTicket
+    const raceCheck = await Ticket.findOne({
+      where: {
+        status: { [Op.or]: ["open", "pending", "group", "nps", "lgpd"] },
+        contactId: groupContact ? groupContact.id : contact.id,
+        companyId,
+        whatsappId: whatsapp.id
+      },
+      order: [["id", "DESC"]]
+    });
+    if (raceCheck) {
+      logger.info(`[FindOrCreateTicket] Race condition detectada para contact ${contact.id} — usando ticket ${raceCheck.id} já criado por processo concorrente`);
+      await raceCheck.update({ unreadMessages, isBot: false });
+      ticket = await ShowTicketService(raceCheck.id, companyId);
+      return { ticket, isCreated: false };
+    }
+
     ticket = await Ticket.create({
       contactId: groupContact ? groupContact.id : contact.id,
       status: (!isImported && !isNil(settings.enableLGPD)
@@ -182,6 +241,49 @@ const FindOrCreateTicketService = async (
   // } catch (err) {
   //   logger.error("Error to find or create a ticket:", err);
   // }
+};
+
+/**
+ * Wrapper público com mutex por contato/whatsapp para evitar criação duplicada
+ * de tickets quando múltiplas mensagens chegam ao mesmo tempo do mesmo contato.
+ */
+const FindOrCreateTicketService = async (
+  contact: Contact,
+  whatsapp: Whatsapp,
+  unreadMessages: number,
+  companyId: number,
+  queueId?: number,
+  userId?: number,
+  groupContact?: Contact,
+  channel?: string,
+  isImported?: boolean,
+  isForward?: boolean,
+  settings?: any
+): Promise<Response> => {
+  const contactId = groupContact ? groupContact.id : contact.id;
+  const lockKey = `ticket:${companyId}:${contactId}:${whatsapp.id}`;
+
+  // Se já há uma criação pendente para este contato, aguarda e reutiliza o resultado
+  const existing = _ticketCreationLocks.get(lockKey);
+  if (existing) {
+    logger.debug(`[FindOrCreateTicket] Aguardando lock para ${lockKey}`);
+    const result = await existing;
+    // Após o lock liberar, atualiza unread do ticket existente e retorna
+    if (result.ticket && !result.isCreated) {
+      try { await result.ticket.update({ unreadMessages }); } catch (_) {}
+    }
+    return result;
+  }
+
+  const promise = _doFindOrCreateTicket(
+    contact, whatsapp, unreadMessages, companyId,
+    queueId, userId, groupContact, channel, isImported, isForward, settings
+  ).finally(() => {
+    _ticketCreationLocks.delete(lockKey);
+  });
+
+  _ticketCreationLocks.set(lockKey, promise);
+  return promise;
 };
 
 export default FindOrCreateTicketService;

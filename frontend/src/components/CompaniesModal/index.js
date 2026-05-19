@@ -31,6 +31,7 @@ import { i18n } from "../../translate/i18n";
 
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
+import usePlans from "../../hooks/usePlans";
 
 const useStyles = makeStyles(theme => ({
 	root: {
@@ -74,6 +75,7 @@ const CompanySchema = Yup.object().shape({
 
 const CompanyModal = ({ open, onClose, companyId }) => {
 	const classes = useStyles();
+	const { list: listPlans } = usePlans();
 
 	const initialState = {
 		name: "",
@@ -81,11 +83,26 @@ const CompanyModal = ({ open, onClose, companyId }) => {
 		passwordDefault: "",
 		numberAttendants: 1,
 		numberConections: 1,
-		status: false
+		status: false,
+		planId: ""
 	};
 
 	const [company, setCompany] = useState(initialState);
 	const [showPassword, setShowPassword] = useState(false);
+	const [plans, setPlans] = useState([]);
+
+	useEffect(() => {
+		const fetchPlans = async () => {
+			try {
+				const data = await listPlans();
+				setPlans(data);
+			} catch (err) {
+				toastError(err);
+			}
+		};
+		fetchPlans();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 
 	useEffect(() => {
 		const fetchCompany = async () => {
@@ -188,6 +205,23 @@ const CompanyModal = ({ open, onClose, companyId }) => {
 										margin="dense"
 										fullWidth
 									/>
+								</div>
+								<div className={classes.multFieldLine}>
+									<FormControl variant="outlined" margin="dense" fullWidth>
+										<InputLabel>{i18n.t("companyModal.form.plan")}</InputLabel>
+										<Field
+											as={Select}
+											name="planId"
+											label={i18n.t("companyModal.form.plan")}
+										>
+											<MenuItem value="">&nbsp;</MenuItem>
+											{plans.map((plan) => (
+												<MenuItem key={plan.id} value={plan.id}>
+													{plan.name} — R$ {plan.amount ? Number(plan.amount).toLocaleString('pt-br', { minimumFractionDigits: 2 }) : '0,00'}
+												</MenuItem>
+											))}
+										</Field>
+									</FormControl>
 								</div>
 								<div className={classes.multFieldLine}>
 									<Field

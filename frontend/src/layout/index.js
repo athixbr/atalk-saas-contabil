@@ -1,5 +1,6 @@
 import clsx from "clsx";
 import React, { useContext, useEffect, useMemo, useState } from "react";
+import { useHistory } from "react-router-dom";
 // import moment from "moment";
 import UserLanguageSelector from "../components/UserLanguageSelector";
 // import { isNill } from "lodash";
@@ -22,6 +23,14 @@ import {
   useMediaQuery,
   useTheme,
   withStyles,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  Button,
+  FormControlLabel,
+  Switch,
 } from "@material-ui/core";
 import InternalChat from "../components/InternalChat"; //Importa internal Chat
 
@@ -33,12 +42,15 @@ import MenuIcon from "@material-ui/icons/Menu";
 import BackdropLoading from "../components/BackdropLoading";
 import NotificationsPopOver from "../components/NotificationsPopOver";
 import NotificationsVolume from "../components/NotificationsVolume";
-import UserModal from "../components/UserModal";
+import TasksNotifications from "../components/TasksNotifications";
 import { AuthContext } from "../context/Auth/AuthContext";
 import MainListItems from "./MainListItems";
 // import DarkMode from "../components/DarkMode";
 import AnnouncementsPopover from "../components/AnnouncementsPopover";
+import AdminNotificationModal from "../components/AdminNotificationModal";
 import toastError from "../errors/toastError";
+import { toast } from "react-toastify";
+import api from "../services/api";
 import { i18n } from "../translate/i18n";
 
 import ChatPopover from "../pages/Chat/ChatPopover";
@@ -46,7 +58,7 @@ import ChatPopover from "../pages/Chat/ChatPopover";
 import { useDate } from "../hooks/useDate";
 
 import { Refresh } from "iconsax-react";
-import logo from "../assets/logo.png";
+import logo from "../assets/logo1.png";
 import { getBackendUrl } from "../config";
 import useSettings from "../hooks/useSettings";
 import { socketConnection } from "../services/socket";
@@ -55,7 +67,7 @@ import ColorModeContext from "./themeContext";
 
 const backendUrl = getBackendUrl();
 
-const drawerWidth = 276;
+const drawerWidth = 256;
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -92,7 +104,7 @@ const useStyles = makeStyles((theme) => ({
     paddingRight: 52, // keep right padding when drawer closed
     color: theme.palette.dark.main,
     background: theme.palette.barraSuperior,
-    minHeight: `76px`,
+    minHeight: `48px`,
   },
   toolbarIcon: {
     display: "flex",
@@ -147,6 +159,12 @@ const useStyles = makeStyles((theme) => ({
     }),
     overflowX: "hidden",
     overflowY: "hidden",
+    [theme.breakpoints.down("md")]: {
+      width: 220,
+    },
+    [theme.breakpoints.down("sm")]: {
+      width: drawerWidth,
+    },
   },
 
   drawerPaperClose: {
@@ -163,7 +181,7 @@ const useStyles = makeStyles((theme) => ({
   },
 
   appBarSpacer: {
-    minHeight: "78px",
+    minHeight: "48px",
   },
   content: {
     flex: 1,
@@ -181,18 +199,24 @@ const useStyles = makeStyles((theme) => ({
   //   },
   containerWithScroll: {
     flex: 1,
-    // padding: theme.spacing(1),
-    overflowY: "scroll", // Use "auto" para mostrar a barra de rolagem apenas quando necessário
-    overflowX: "hidden", // Oculta a barra de rolagem horizontal
-    ...theme.scrollbarStyles,
-    paddingTop: "28px !important",
+    overflowY: "auto",
+    overflowX: "hidden",
+    height: "100vh",
+    paddingTop: "8px !important",
     border: "2px solid transparent",
-    "&::-webkit-scrollbar": {
-      display: "none",
-    },
-    "-ms-overflow-style": "none",
-    "scrollbar-width": "none",
     backgroundColor: "#FFF",
+    "&::-webkit-scrollbar": {
+      width: "4px",
+    },
+    "&::-webkit-scrollbar-thumb": {
+      backgroundColor: "rgba(0,0,0,0.15)",
+      borderRadius: "4px",
+    },
+    "&::-webkit-scrollbar-track": {
+      backgroundColor: "transparent",
+    },
+    scrollbarWidth: "thin",
+    scrollbarColor: "rgba(0,0,0,0.15) transparent",
   },
   NotificationsPopOver: {
     // color: theme.barraSuperior.secondary.main,
@@ -273,11 +297,13 @@ const SmallAvatar = withStyles((theme) => ({
 
 const LoggedInLayout = ({ children, themeToggle }) => {
   const classes = useStyles();
+  const history = useHistory();
   const [userToken, setUserToken] = useState("disabled");
   const [loadingUserToken, setLoadingUserToken] = useState(false);
-  const [userModalOpen, setUserModalOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const { handleLogout, loading, showDialogButton } = useContext(AuthContext);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerVariant, setDrawerVariant] = useState("permanent");
@@ -378,6 +404,44 @@ const LoggedInLayout = ({ children, themeToggle }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  // Carregar status inicial do usuário
+  useEffect(() => {
+    if (user) {
+      setIsOnline(user.isOnline !== false); // Default true se undefined
+    }
+  }, [user]);
+
+  const handleToggleOnline = () => {
+    setConfirmDialogOpen(true);
+  };
+
+  const handleConfirmToggle = async () => {
+    const newStatus = !isOnline;
+    
+    try {
+      const { data } = await api.put("/users/toggle-status", { isOnline: newStatus });
+      setIsOnline(newStatus);
+      
+      // Atualizar o user no contexto
+      user.isOnline = newStatus;
+      
+      toast.success(data.message);
+      setConfirmDialogOpen(false);
+      handleCloseMenu();
+      
+      // Recarregar a página para atualizar todas as referências
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    } catch (err) {
+      toastError(err);
+    }
+  };
+
+  const handleCancelToggle = () => {
+    setConfirmDialogOpen(false);
+  };
+
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
     setMenuOpen(true);
@@ -389,7 +453,7 @@ const LoggedInLayout = ({ children, themeToggle }) => {
   };
 
   const handleOpenUserModal = () => {
-    setUserModalOpen(true);
+    history.push("/profile");
     handleCloseMenu();
   };
 
@@ -540,6 +604,8 @@ const LoggedInLayout = ({ children, themeToggle }) => {
 
           <NotificationsVolume setVolume={setVolume} volume={volume} />
 
+          <TasksNotifications />
+
           <IconButton
             onClick={handleRefreshPage}
             aria-label={i18n.t("mainDrawer.appBar.refresh")}
@@ -554,16 +620,27 @@ const LoggedInLayout = ({ children, themeToggle }) => {
 
           <AnnouncementsPopover />
 
+          <AdminNotificationModal />
+
           <ChatPopover />
 
           <div>
-            <StyledBadge
+            <Badge
               overlap="circular"
               anchorOrigin={{
                 vertical: "bottom",
                 horizontal: "right",
               }}
-              variant="dot"
+              badgeContent={
+                <Avatar
+                  style={{
+                    width: 12,
+                    height: 12,
+                    backgroundColor: isOnline ? "#4caf50" : "#9e9e9e",
+                    border: "2px solid #fff",
+                  }}
+                />
+              }
               onClick={handleMenu}
             >
               <Avatar
@@ -571,14 +648,7 @@ const LoggedInLayout = ({ children, themeToggle }) => {
                 className={classes.avatar2}
                 src={profileUrl}
               />
-            </StyledBadge>
-
-            <UserModal
-              open={userModalOpen}
-              onClose={() => setUserModalOpen(false)}
-              onImageUpdate={(newProfileUrl) => setProfileUrl(newProfileUrl)}
-              userId={user?.id}
-            />
+            </Badge>
 
             <Menu
               id="menu-appbar"
@@ -595,6 +665,15 @@ const LoggedInLayout = ({ children, themeToggle }) => {
               open={menuOpen}
               onClose={handleCloseMenu}
             >
+              <MenuItem onClick={handleToggleOnline}>
+                <Switch
+                  checked={isOnline}
+                  color="primary"
+                  size="small"
+                  style={{ marginRight: 8 }}
+                />
+                {isOnline ? "Online" : "Offline"}
+              </MenuItem>
               <MenuItem onClick={handleOpenUserModal}>
                 {i18n.t("mainDrawer.appBar.user.profile")}
               </MenuItem>
@@ -602,6 +681,30 @@ const LoggedInLayout = ({ children, themeToggle }) => {
                 {i18n.t("mainDrawer.appBar.user.logout")}
               </MenuItem>
             </Menu>
+
+            <Dialog
+              open={confirmDialogOpen}
+              onClose={handleCancelToggle}
+            >
+              <DialogTitle>
+                {isOnline ? "Ficar Offline?" : "Ficar Online?"}
+              </DialogTitle>
+              <DialogContent>
+                <DialogContentText>
+                  {isOnline
+                    ? "Ao ficar offline, você não receberá novos atendimentos. Deseja continuar?"
+                    : "Ao ficar online, você poderá receber novos atendimentos. Deseja continuar?"}
+                </DialogContentText>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={handleCancelToggle} color="primary">
+                  Cancelar
+                </Button>
+                <Button onClick={handleConfirmToggle} color="primary" autoFocus>
+                  Confirmar
+                </Button>
+              </DialogActions>
+            </Dialog>
           </div>
         </Toolbar>
       </AppBar>

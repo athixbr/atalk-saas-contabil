@@ -1,5 +1,8 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
+import "emoji-mart/css/emoji-mart.css";
+import { Picker } from "emoji-mart";
 import {
+  Avatar,
   Box,
   Button,
   FormControl,
@@ -9,18 +12,22 @@ import {
   makeStyles,
   Paper,
   Typography,
+  TextField,
+  ClickAwayListener,
 } from "@material-ui/core";
 import SendIcon from "@material-ui/icons/Send";
+import DeleteIcon from "@material-ui/icons/Delete";
+import EmojiEmotionsIcon from "@material-ui/icons/EmojiEmotions";
 
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { useDate } from "../../hooks/useDate";
 import api from "../../services/api";
+import { useHistory } from "react-router-dom";
 
 import AttachFileIcon from "@material-ui/icons/AttachFile";
 import CancelIcon from "@material-ui/icons/Cancel";
 import CircularProgress from "@material-ui/core/CircularProgress";
 import ModalImageCors from "../../components/ModalImageCors";
-// import { Divider } from "@mui/material";
 import { GetApp } from "@material-ui/icons";
 import toastError from "../../errors/toastError";
 import MicRecorder from "mic-recorder-to-mp3";
@@ -59,7 +66,7 @@ const useStyles = makeStyles((theme) => ({
     margin: theme.spacing(1),
   },
   boxLeft: {
-    padding: "10px 10px 5px",
+    padding: "8px 10px 5px",
     margin: "10px",
     position: "relative",
     backgroundColor: "#ffffff",
@@ -70,16 +77,54 @@ const useStyles = makeStyles((theme) => ({
     border: "1px solid rgba(0, 0, 0, 0.12)",
   },
   boxRight: {
-    padding: "10px 10px 5px",
+    padding: "8px 10px 5px",
     margin: "10px 10px 10px auto",
     position: "relative",
     backgroundColor: "#dcf8c6",
     color: "#303030",
-    textAlign: "right",
     maxWidth: 300,
     borderRadius: 10,
     borderBottomRightRadius: 0,
     border: "1px solid rgba(0, 0, 0, 0.12)",
+  },
+  messageWrapper: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: "8px",
+    marginBottom: "8px",
+  },
+  messageWrapperRight: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: "8px",
+    marginBottom: "8px",
+    justifyContent: "flex-end",
+  },
+  messageAvatar: {
+    width: 32,
+    height: 32,
+  },
+  messageHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: "4px",
+    gap: "8px",
+  },
+  messageHeaderInfo: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  },
+  deleteButton: {
+    padding: 2,
+    marginTop: -4,
+    "& svg": {
+      fontSize: 16,
+    },
+  },
+  messageContent: {
+    flex: 1,
   },
   sendMessageIcons: {
     color: "grey",
@@ -136,6 +181,12 @@ const useStyles = makeStyles((theme) => ({
   sendAudioIcon: {
     color: "green",
   },
+  emojiBox: {
+    position: "absolute",
+    bottom: 63,
+    width: 40,
+    borderTop: "1px solid #e8e8e8",
+  },
 }));
 
 const Mp3Recorder = new MicRecorder({ bitRate: 128 });
@@ -150,6 +201,14 @@ export default function ChatMessages({
 }) {
   const classes = useStyles();
   const { user } = useContext(AuthContext);
+
+  const getAvatarUrl = (profileImage, companyId) => {
+    const backendUrl = process.env.REACT_APP_BACKEND_URL;
+    if (profileImage) {
+      return `${backendUrl}/public/company${companyId}/user/${profileImage}`;
+    }
+    return null;
+  };
   const { datetimeToClient } = useDate();
   const baseRef = useRef();
 
@@ -157,6 +216,10 @@ export default function ChatMessages({
   const [medias, setMedias] = useState([]);
   const [loading, setLoading] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [caption, setCaption] = useState("");
+  const [dragging, setDragging] = useState(false);
+  const [showEmoji, setShowEmoji] = useState(false);
+  const history = useHistory();
 
   const scrollToBottom = () => {
     if (baseRef.current) {
@@ -198,6 +261,53 @@ export default function ChatMessages({
     const selectedMedias = Array.from(e.target.files);
     setMedias(selectedMedias);
   };
+
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragging(false);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragging(false);
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      setMedias(files);
+    }
+  };
+
+  const handleOpenTaskModal = () => {
+    history.push("/tasks");
+  };
+
+  const handleAddEmoji = (e) => {
+    let emoji = e.native;
+    setContentMessage((prevState) => prevState + emoji);
+  };
+
+  const handleDeleteMessage = async (messageId) => {
+    try {
+      await api.delete(`/chats/messages/${messageId}`);
+      // A mensagem será removida através do socket
+    } catch (err) {
+      console.log(err);
+      toastError(err);
+    }
+  };
+
   const checkMessageMedia = (message) => {
     
     if (message.mediaType === "image") {
@@ -244,6 +354,7 @@ export default function ChatMessages({
     const formData = new FormData();
     formData.append("fromMe", true);
     formData.append("typeArch","chats");
+    formData.append("caption", caption);
     medias.forEach((media) => {
       formData.append("medias", media);
       formData.append("body", media.name);
@@ -257,6 +368,7 @@ export default function ChatMessages({
     }
     setLoading(false);
     setMedias([]);
+    setCaption("");
   };
   const handleStartRecording = async () => {
     setLoading(true);
@@ -307,35 +419,79 @@ export default function ChatMessages({
   };
 
   return (
-    <Paper className={classes.mainContainer}>
+    <Paper 
+      className={classes.mainContainer}
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      style={dragging ? { backgroundColor: '#e3f2fd', border: '2px dashed #1976d2' } : {}}
+    >
       <div onScroll={handleScroll} className={classes.messageList}>
         {Array.isArray(messages) &&
           messages.map((item, key) => {
             if (item.senderId === user.id) {
               return (
-                <Box key={key} className={classes.boxRight}>
-                  <Typography variant="subtitle2">
-                    {item.sender.name}
-                  </Typography>
-                  {item.mediaPath && checkMessageMedia(item)}
-                  {item.message}
-                  <Typography variant="caption" display="block">
-                    {datetimeToClient(item.createdAt)}
-                  </Typography>
-                </Box>
+                <div key={key} className={classes.messageWrapperRight}>
+                  <Box className={classes.boxRight}>
+                    <div className={classes.messageContent}>
+                      <div className={classes.messageHeader}>
+                        <div className={classes.messageHeaderInfo}>
+                          <Typography variant="subtitle2" style={{ fontWeight: 600 }}>
+                            {item.sender.name}
+                          </Typography>
+                          <Typography variant="caption" style={{ color: '#888' }}>
+                            {datetimeToClient(item.createdAt)}
+                          </Typography>
+                        </div>
+                        <IconButton 
+                          size="small" 
+                          className={classes.deleteButton}
+                          onClick={() => handleDeleteMessage(item.id)}
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </div>
+                      {item.mediaPath && checkMessageMedia(item)}
+                      <Typography variant="body2">{item.message}</Typography>
+                    </div>
+                  </Box>
+                  <Avatar 
+                    src={getAvatarUrl(item.sender.profileImage, item.sender.companyId)} 
+                    alt={item.sender.name}
+                    className={classes.messageAvatar}
+                  >
+                    {!item.sender.profileImage && item.sender.name?.charAt(0)}
+                  </Avatar>
+                </div>
               );
             } else {
               return (
-                <Box key={key} className={classes.boxLeft}>
-                  <Typography variant="subtitle2">
-                    {item.sender.name}
-                  </Typography>
-                  {item.mediaPath && checkMessageMedia(item)}
-                  {item.message}
-                  <Typography variant="caption" display="block">
-                    {datetimeToClient(item.createdAt)}
-                  </Typography>
-                </Box>
+                <div key={key} className={classes.messageWrapper}>
+                  <Avatar 
+                    src={getAvatarUrl(item.sender.profileImage, item.sender.companyId)} 
+                    alt={item.sender.name}
+                    className={classes.messageAvatar}
+                  >
+                    {!item.sender.profileImage && item.sender.name?.charAt(0)}
+                  </Avatar>
+                  <Box className={classes.boxLeft}>
+                    <div className={classes.messageContent}>
+                      <div className={classes.messageHeader}>
+                        <div className={classes.messageHeaderInfo}>
+                          <Typography variant="subtitle2" style={{ fontWeight: 600 }}>
+                            {item.sender.name}
+                          </Typography>
+                          <Typography variant="caption" style={{ color: '#888' }}>
+                            {datetimeToClient(item.createdAt)}
+                          </Typography>
+                        </div>
+                      </div>
+                      {item.mediaPath && checkMessageMedia(item)}
+                      <Typography variant="body2">{item.message}</Typography>
+                    </div>
+                  </Box>
+                </div>
               );
             }
           })}
@@ -381,20 +537,29 @@ export default function ChatMessages({
                     <IconButton
                       aria-label="cancel-upload"
                       component="span"
-                      onClick={(e) => setMedias([])}
+                      onClick={(e) => { setMedias([]); setCaption(""); }}
                     >
                       <CancelIcon className={classes.sendMessageIcons} />
                     </IconButton>
 
-                    {loading ? (
-                      <div>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {loading ? (
                         <CircularProgress className={classes.circleLoading} />
-                      </div>
-                    ) : (
-                      <span>
-                        {medias[0]?.name}
-                      </span>
-                    )}
+                      ) : (
+                        <>
+                          <span>{medias[0]?.name}</span>
+                          <TextField
+                            placeholder="Adicionar legenda..."
+                            value={caption}
+                            onChange={(e) => setCaption(e.target.value)}
+                            size="small"
+                            fullWidth
+                            variant="outlined"
+                          />
+                        </>
+                      )}
+                    </div>
+                    
                     <IconButton
                       aria-label="send-upload"
                       component="span"
@@ -412,7 +577,6 @@ export default function ChatMessages({
                     value={contentMessage}
                     onKeyUp={(e) => {
                       if (e.key === "Enter" && contentMessage.trim() !== "") {
-
                         handleSendMessage(contentMessage);
                         setContentMessage("");
                       }
@@ -421,6 +585,27 @@ export default function ChatMessages({
                     className={classes.input}
                     startAdornment={
                       <InputAdornment position="start">
+                        <IconButton
+                          aria-label="emojiPicker"
+                          component="span"
+                          disabled={loading}
+                          size="small"
+                          onClick={(e) => setShowEmoji((prevState) => !prevState)}
+                        >
+                          <EmojiEmotionsIcon className={classes.sendMessageIcons} />
+                        </IconButton>
+                        {showEmoji ? (
+                          <div className={classes.emojiBox}>
+                            <ClickAwayListener onClickAway={(e) => setShowEmoji(false)}>
+                              <Picker
+                                perLine={16}
+                                showPreview={true}
+                                showSkinTones={false}
+                                onSelect={handleAddEmoji}
+                              />
+                            </ClickAwayListener>
+                          </div>
+                        ) : null}
                         <FileInput disableOption={loading} handleChangeMedias={handleChangeMedias} />
                       </InputAdornment>
                     }

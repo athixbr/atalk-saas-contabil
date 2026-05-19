@@ -23,6 +23,7 @@ import {
   Box,
   Card,
   CardContent,
+  Chip,
 } from "@material-ui/core";
 import {
   Edit,
@@ -151,6 +152,7 @@ const Connections = () => {
 
   const { whatsApps, loading } = useContext(WhatsAppsContext);
   const [whatsAppModalOpen, setWhatsAppModalOpen] = useState(false);
+  const [modalProvider, setModalProvider] = useState(null);
   const [statusImport, setStatusImport] = useState([]);
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [selectedWhatsApp, setSelectedWhatsApp] = useState(null);
@@ -254,12 +256,14 @@ const Connections = () => {
 
   const handleOpenWhatsAppModal = () => {
     setSelectedWhatsApp(null);
+    setModalProvider(null);
     setWhatsAppModalOpen(true);
   };
 
   const handleCloseWhatsAppModal = React.useCallback(() => {
     setWhatsAppModalOpen(false);
     setSelectedWhatsApp(null);
+    setModalProvider(null);
   }, [setSelectedWhatsApp, setWhatsAppModalOpen]);
 
   const handleOpenQrModal = (whatsApp) => {
@@ -274,6 +278,7 @@ const Connections = () => {
 
   const handleEditWhatsApp = (whatsApp) => {
     setSelectedWhatsApp(whatsApp);
+    setModalProvider(null);
     setWhatsAppModalOpen(true);
   };
 
@@ -395,7 +400,7 @@ const Connections = () => {
   const renderActionButtons = (whatsApp) => {
     return (
       <>
-        {whatsApp.status === "qrcode" && (
+        {(whatsApp.status === "qrcode" || whatsApp.status === "QRCODE") && (
           <Button
             size="small"
             variant="contained"
@@ -465,7 +470,7 @@ const Connections = () => {
         {whatsApp.status === "OPENING" && (
           <CircularProgress size={24} className={classes.buttonProgress} />
         )}
-        {whatsApp.status === "qrcode" && (
+        {(whatsApp.status === "qrcode" || whatsApp.status === "QRCODE") && (
           <CustomToolTip
             title={i18n.t("connections.toolTips.qrcode.title")}
             content={i18n.t("connections.toolTips.qrcode.content")}
@@ -513,12 +518,13 @@ const Connections = () => {
       <QrcodeModal
         open={qrModalOpen}
         onClose={handleCloseQrModal}
-        whatsAppId={!whatsAppModalOpen && selectedWhatsApp?.id}
+        whatsAppId={selectedWhatsApp?.id}
       />
       <WhatsAppModal
         open={whatsAppModalOpen}
         onClose={handleCloseWhatsAppModal}
-        whatsAppId={!qrModalOpen && selectedWhatsApp?.id}
+        whatsAppId={selectedWhatsApp?.id}
+        fixedProvider={modalProvider}
       />
       <MainHeader>
         <Title>{i18n.t("connections.title")} ({whatsApps.length})</Title>
@@ -553,6 +559,7 @@ const Connections = () => {
                   <MenuItem
                     disabled={planConfig?.plan?.useWhatsapp ? false : true}
                     onClick={() => {
+                      setModalProvider('baileys');
                       handleOpenWhatsAppModal();
                       popupState.close();
                     }}
@@ -566,30 +573,23 @@ const Connections = () => {
                     />
                     WhatsApp
                   </MenuItem>
-                  {/* FACEBOOK */}
-                  <FacebookLogin
-                    appId={process.env.REACT_APP_FACEBOOK_APP_ID}
-                    autoLoad={false}
-                    fields="name,email,picture"
-                    version="9.0"
-                    scope="public_profile,pages_messaging,pages_show_list,pages_manage_metadata,pages_read_engagement"
-                    callback={responseFacebook}
-                    render={(renderProps) => (
-                      <MenuItem
-                        disabled={planConfig?.plan?.useFacebook ? false : true}
-                        onClick={renderProps.onClick}
-                      >
-                        <Facebook
-                          fontSize="small"
-                          style={{
-                            marginRight: "10px",
-                            color: "#3b5998",
-                          }}
-                        />
-                        Facebook
-                      </MenuItem>
-                    )}
-                  />
+                  <MenuItem
+                    disabled={planConfig?.plan?.useWhatsapp ? false : true}
+                    onClick={() => {
+                      setModalProvider('wwebjs');
+                      handleOpenWhatsAppModal();
+                      popupState.close();
+                    }}
+                  >
+                    <WhatsApp
+                      fontSize="small"
+                      style={{
+                        marginRight: "10px",
+                        color: "#25D366",
+                      }}
+                    />
+                    Whatsapp WWEBJS
+                  </MenuItem>
                   {/* INSTAGRAM */}
                   <FacebookLogin
                     appId={process.env.REACT_APP_FACEBOOK_APP_ID}
@@ -672,6 +672,7 @@ const Connections = () => {
             <TableRow>
               <TableCell align="center">Channel</TableCell>
               <TableCell align="center">{i18n.t("connections.table.name")}</TableCell>
+              <TableCell align="center">API/Provider</TableCell>
               <TableCell align="center">{i18n.t("connections.table.number")}</TableCell>
               <TableCell align="center">{i18n.t("connections.table.status")}</TableCell>
               <TableCell align="center">{i18n.t("connections.table.session")}</TableCell>
@@ -690,10 +691,34 @@ const Connections = () => {
                     <TableRow key={whatsApp.id}>
                       <TableCell align="center">{IconChannel(whatsApp.channel)}</TableCell>
                       <TableCell align="center">{whatsApp.name}</TableCell>
+                      <TableCell align="center">
+                        {whatsApp.provider === 'wwebjs' && (
+                          <Chip 
+                            label="API 2026" 
+                            color="primary" 
+                            size="small" 
+                            icon={<WhatsApp style={{ fontSize: 16 }} />}
+                          />
+                        )}
+                        {whatsApp.provider === 'baileys' && (
+                          <Chip label="Baileys" size="small" />
+                        )}
+                        {whatsApp.provider === 'evolution' && (
+                          <Chip label="Evolution" color="secondary" size="small" />
+                        )}
+                        {whatsApp.provider === 'baileys2026' && (
+                          <Chip label="Baileys 2026" size="small" style={{ backgroundColor: '#ff9800', color: 'white' }} />
+                        )}
+                        {(!whatsApp.provider || whatsApp.provider === 'beta' || whatsApp.provider === 'stable') && (
+                          <Chip label="Baileys" size="small" />
+                        )}
+                      </TableCell>
                       <TableCell align="center">{whatsApp.number ? (<>{formatSerializedId(whatsApp.number)}</>) : "-"}</TableCell>
                       <TableCell align="center">{renderStatusToolTips(whatsApp)}</TableCell>
                       <TableCell align="center">{renderActionButtons(whatsApp)}</TableCell>
-                      <TableCell align="center">{format(parseISO(whatsApp.updatedAt), "dd/MM/yy HH:mm")}</TableCell>
+                      <TableCell align="center">
+                        {whatsApp.updatedAt && whatsApp.updatedAt !== 'Invalid date' ? format(parseISO(whatsApp.updatedAt), "dd/MM/yy HH:mm") : "-"}
+                      </TableCell>
                       <TableCell align="center">
                         {whatsApp.isDefault && (
                           <div className={classes.customTableCell}>

@@ -1,3 +1,6 @@
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 import { QueryInterface, DataTypes } from "sequelize";
 
 interface ExistingTables {

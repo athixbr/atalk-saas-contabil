@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Avatar, CardHeader } from "@material-ui/core";
+import { Avatar, CardHeader, Chip, Box } from "@material-ui/core";
+import { AccessTime, Warning } from "@material-ui/icons";
 import { i18n } from "../../translate/i18n";
 import { makeStyles } from "@material-ui/core/styles";
+import { differenceInMinutes, parseISO } from "date-fns";
 
 const useStyles = makeStyles(theme => ({
 	userQueueStyle: {
@@ -17,6 +19,24 @@ const useStyles = makeStyles(theme => ({
 		fontSize: "0.8em",
 		display: "inline-flex"
 	},
+	inactivityWarning: {
+		backgroundColor: "#fff3cd",
+		color: "#856404",
+		fontWeight: "bold",
+		marginTop: "4px",
+		"& .MuiChip-icon": {
+			color: "#ff9800"
+		}
+	},
+	inactivityCritical: {
+		backgroundColor: "#f8d7da",
+		color: "#721c24",
+		fontWeight: "bold",
+		marginTop: "4px",
+		"& .MuiChip-icon": {
+			color: "#dc3545"
+		}
+	},
 }));
 
 const TicketInfo = ({ contact, ticket, onClick }) => {
@@ -25,6 +45,7 @@ const TicketInfo = ({ contact, ticket, onClick }) => {
 	const { user } = ticket
 	const [userName, setUserName] = useState('')
 	const [contactName, setContactName] = useState('')
+	const [inactivityMinutes, setInactivityMinutes] = useState(0)
 
 	useEffect(() => {
 		if (contact) {
@@ -44,28 +65,65 @@ const TicketInfo = ({ contact, ticket, onClick }) => {
 				setUserName(`${user.name}`);
 			}
 		}
+
+		// Calcular tempo de inatividade
+		if (ticket.status === "open" && ticket.updatedAt) {
+			const updateInterval = setInterval(() => {
+				const minutes = differenceInMinutes(new Date(), parseISO(ticket.updatedAt));
+				setInactivityMinutes(minutes);
+			}, 30000); // Atualiza a cada 30 segundos
+
+			// Calcula imediatamente
+			const minutes = differenceInMinutes(new Date(), parseISO(ticket.updatedAt));
+			setInactivityMinutes(minutes);
+
+			return () => clearInterval(updateInterval);
+		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [])
+	}, [ticket.updatedAt, ticket.status])
+
+	const renderInactivityChip = () => {
+		if (ticket.status !== "open" || inactivityMinutes < 30) return null;
+
+		const isCritical = inactivityMinutes >= 50;
+		const chipClass = isCritical ? classes.inactivityCritical : classes.inactivityWarning;
+		const icon = isCritical ? <Warning /> : <AccessTime />;
+		const label = isCritical 
+			? `⚠️ ${inactivityMinutes} min sem resposta - Retorna em ${60 - inactivityMinutes} min`
+			: `${inactivityMinutes} min sem resposta`;
+
+		return (
+			<Chip
+				size="small"
+				icon={icon}
+				label={label}
+				className={chipClass}
+			/>
+		);
+	};
 
 	return (
-		<CardHeader
-			onClick={onClick}
-			style={{ cursor: "pointer" }}
-			titleTypographyProps={{ noWrap: true }}
-			subheaderTypographyProps={{ noWrap: true }}
-			avatar={
-				<Avatar
-					src={`${ticket?.contact?.urlPicture}`}					
-					alt="contact_image"
-					style={{
-						width: "50px",
-						height: "50px",
-						borderRadius: "50%"
-					}}
-				/>}
-			title={`${contactName} #${ticket.id}`}
-			subheader={ticket.user && `${userName}`}
-		/>
+		<Box>
+			<CardHeader
+				onClick={onClick}
+				style={{ cursor: "pointer" }}
+				titleTypographyProps={{ noWrap: true }}
+				subheaderTypographyProps={{ noWrap: true }}
+				avatar={
+					<Avatar
+						src={`${ticket?.contact?.urlPicture}`}					
+						alt="contact_image"
+						style={{
+							width: "50px",
+							height: "50px",
+							borderRadius: "50%"
+						}}
+					/>}
+				title={`${contactName} #${ticket.id}`}
+				subheader={ticket.user && `${userName}`}
+			/>
+			{renderInactivityChip()}
+		</Box>
 	);
 };
 

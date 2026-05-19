@@ -3,6 +3,9 @@
  * migração/CompaniesSettings |
  * @descrição:migração tabela para configurações das empresas 
  */
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 import { QueryInterface, DataTypes } from "sequelize";
 
 module.exports = {

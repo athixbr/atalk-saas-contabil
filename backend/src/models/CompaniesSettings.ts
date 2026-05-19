@@ -29,7 +29,7 @@ import {
     companyId: number;
 
     @BelongsTo(() => Company)
-    company: Company;
+    company: any;
 
     @Column
     hoursCloseTicketsAuto: string;

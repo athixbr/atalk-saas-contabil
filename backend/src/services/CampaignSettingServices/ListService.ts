@@ -1,3 +1,6 @@
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 import { Op, fn, col, where } from "sequelize";
 import Campaign from "../../models/Campaign";
 import { isEmpty } from "lodash";

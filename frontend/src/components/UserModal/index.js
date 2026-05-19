@@ -17,6 +17,9 @@ import Select from "@material-ui/core/Select";
 import InputLabel from "@material-ui/core/InputLabel";
 import MenuItem from "@material-ui/core/MenuItem";
 import FormControl from "@material-ui/core/FormControl";
+import FormControlLabel from "@material-ui/core/FormControlLabel";
+import Checkbox from "@material-ui/core/Checkbox";
+import Typography from "@material-ui/core/Typography";
 import whatsappIcon from '../../assets/nopicture.png'
 import { i18n } from "../../translate/i18n";
 
@@ -31,7 +34,6 @@ import { Avatar, Input } from "@material-ui/core";
 import { getBackendUrl } from "../../config";
 
 const backendUrl = getBackendUrl();
-const path = require('path');
 
 const useStyles = makeStyles(theme => ({
 	root: {
@@ -141,12 +143,28 @@ const UserModal = ({ open, onClose, userId }) => {
 	const [whatsappId, setWhatsappId] = useState(false);
 	// const [allTicket, setAllTicket] = useState("disable");
 	const { loading, whatsApps } = useWhatsApps();
-	const [profileUrl, setProfileUrl] = useState(null)
+	const [profileUrl, setProfileUrl] = useState(null);
+	const [departamentos, setDepartamentos] = useState([]);
+	const [selectedDepartamentos, setSelectedDepartamentos] = useState([]);
 
 	const startWorkRef = useRef();
 	const endWorkRef = useRef();
 
-
+	useEffect(() => {
+		const fetchDepartamentos = async () => {
+			try {
+				const { data } = await api.get("/departamentos");
+				// A API retorna { departamentos: [...], count: ... }
+				setDepartamentos(data.departamentos || data || []);
+			} catch (err) {
+				console.error("Erro ao carregar departamentos:", err);
+				setDepartamentos([]);
+			}
+		};
+		if (open) {
+			fetchDepartamentos();
+		}
+	}, [open]);
 
 	useEffect(() => {
 		const fetchUser = async () => {
@@ -164,6 +182,15 @@ const UserModal = ({ open, onClose, userId }) => {
 				const userQueueIds = data.queues?.map(queue => queue.id);
 				setSelectedQueueIds(userQueueIds);
 				setWhatsappId(data.whatsappId ? data.whatsappId : '');
+				
+				// Load user's departamentos
+				if (data.departamentos && data.departamentos.length > 0) {
+					const userDepts = data.departamentos.map(dept => ({
+						departamentoId: dept.id,
+						isCoordenador: dept.DepartamentoUsuario?.isCoordenador || false
+					}));
+					setSelectedDepartamentos(userDepts);
+				}
 			} catch (err) {
 				toastError(err);
 			}
@@ -175,6 +202,7 @@ const UserModal = ({ open, onClose, userId }) => {
 	const handleClose = () => {
 		onClose();
 		setUser(initialState);
+		setSelectedDepartamentos([]);
 	};
 
 	const handleSaveUser = async values => {
@@ -189,13 +217,18 @@ const UserModal = ({ open, onClose, userId }) => {
 			localStorage.setItem("profileImage", data.user.profileImage);
 
 		}
-		const userData = { ...values, whatsappId, queueIds: selectedQueueIds };
+		const userData = { 
+			...values, 
+			whatsappId, 
+			queueIds: selectedQueueIds,
+			departamentos: selectedDepartamentos
+		};
 		try {
 			if (userId) {
 				const { data } = await api.put(`/users/${userId}`, userData);
 				window.localStorage.setItem("preferredTheme", values.defaultTheme);
 
-				if (user.profileImage && user.profileImage !== path.basename(profileUrl))
+				if (user.profileImage && typeof user.profileImage === 'object')
 					uploadAvatar(user)
 			} else {
 				const { data } = await api.post("/users", userData);
@@ -222,6 +255,27 @@ const UserModal = ({ open, onClose, userId }) => {
 			profileImage: e.target.files[0]
 		}));
 		setProfileUrl(newAvatarUrl);
+	};
+
+	const handleToggleDepartamento = (departamentoId) => {
+		setSelectedDepartamentos(prev => {
+			const exists = prev.find(d => d.departamentoId === departamentoId);
+			if (exists) {
+				return prev.filter(d => d.departamentoId !== departamentoId);
+			} else {
+				return [...prev, { departamentoId, isCoordenador: false }];
+			}
+		});
+	};
+
+	const handleToggleCoordenador = (departamentoId) => {
+		setSelectedDepartamentos(prev => 
+			prev.map(d => 
+				d.departamentoId === departamentoId 
+					? { ...d, isCoordenador: !d.isCoordenador }
+					: d
+			)
+		);
 	};
 
 	return (
@@ -598,6 +652,56 @@ const UserModal = ({ open, onClose, userId }) => {
 										</>
 									</FormControl>
 								</div>
+								
+								<Can
+									role={loggedInUser.profile}
+									perform="user-modal:editProfile"
+									yes={() => (
+										<div style={{ marginTop: 16 }}>
+											<Typography variant="subtitle1" style={{ marginBottom: 8 }}>
+												Departamentos
+											</Typography>
+											{departamentos && departamentos.length > 0 ? (
+												departamentos.map(dept => {
+													const isSelected = selectedDepartamentos.find(d => d.departamentoId === dept.id);
+													const isCoordenador = isSelected?.isCoordenador || false;
+													
+													return (
+														<div key={dept.id} style={{ marginBottom: 8 }}>
+															<FormControlLabel
+																control={
+																	<Checkbox
+																		checked={!!isSelected}
+																		onChange={() => handleToggleDepartamento(dept.id)}
+																		color="primary"
+																	/>
+																}
+																label={dept.nome}
+															/>
+															{isSelected && (
+																<FormControlLabel
+																	style={{ marginLeft: 32 }}
+																	control={
+																		<Checkbox
+																			checked={isCoordenador}
+																			onChange={() => handleToggleCoordenador(dept.id)}
+																			color="secondary"
+																		/>
+																	}
+																	label="Coordenador 👑"
+																/>
+															)}
+														</div>
+													);
+												})
+											) : (
+												<Typography variant="body2" color="textSecondary">
+													Nenhum departamento cadastrado
+												</Typography>
+											)}
+										</div>
+									)}
+								/>
 							</DialogContent>
 							<DialogActions>
 								<Button

@@ -13,6 +13,9 @@ import ListTicketsServiceKanban from "../services/TicketServices/ListTicketsServ
 import CreateLogTicketService from "../services/TicketServices/CreateLogTicketService";
 import ShowLogTicketService from "../services/TicketServices/ShowLogTicketService";
 import ListTicketsServiceReport from '../services/TicketServices/ListTicketsServiceReport';
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 import { Op } from 'sequelize';
 import AppError from '../errors/AppError';
 

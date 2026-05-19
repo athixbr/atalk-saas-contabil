@@ -29,10 +29,10 @@ class TicketTag extends Model<TicketTag> {
   updatedAt: Date;
 
   @BelongsTo(() => Ticket)
-  ticket: Ticket;
+  ticket: any;
 
   @BelongsTo(() => Tag)
-  tag: Tag;
+  tag: any;
 }
 
 export default TicketTag;

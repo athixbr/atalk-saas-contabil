@@ -1,5 +1,8 @@
 import Message from "../models/Message";
 import Ticket from "../models/Ticket";
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 import { Op } from "sequelize";
 import { getIO } from "../libs/socket";
 import Contact from "../models/Contact";

@@ -1,0 +1,30 @@
+# Git
+.git
+.gitignore
+
+# Dependências (reconstruídas no build)
+node_modules
+
+# Build NÃO é excluído — vem commitado do repositório
+# build
+
+# Segredos
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+*.log
+build-output.log
+build.log
+
+# OS
+.DS_Store
+
+# Servidor original (substituído pelo docker-server.js)
+server.js
+
+# Scripts avulsos
+create-tabs-parametros.sh

@@ -12,6 +12,9 @@ import { logger } from "../../utils/logger";
 import createOrUpdateBaileysService from "../BaileysServices/CreateOrUpdateBaileysService";
 import CreateMessageService from "../MessageServices/CreateMessageService";
 import CompaniesSettings from "../../models/CompaniesSettings";
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 import { json } from "sequelize";
 import Setting from "../../models/Setting";
 

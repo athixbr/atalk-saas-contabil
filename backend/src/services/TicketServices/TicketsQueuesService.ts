@@ -1,3 +1,6 @@
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 import { Op, Filterable, col, fn } from "sequelize";
 import { parseISO, startOfDay, endOfDay } from "date-fns";
 import Ticket from "../../models/Ticket";

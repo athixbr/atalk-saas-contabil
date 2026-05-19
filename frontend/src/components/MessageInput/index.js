@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useRef } from "react";
+import React, { useState, useEffect, useContext, useRef, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import "emoji-mart/css/emoji-mart.css";
 import { Picker } from "emoji-mart";
@@ -24,6 +24,16 @@ import {
   Avatar,
   Tooltip,
   Fab,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Button,
+  Select,
+  FormControl,
+  InputLabel,
+  Chip,
 } from "@material-ui/core";
 import {
   blue,
@@ -34,6 +44,7 @@ import {
   grey,
 } from "@material-ui/core/colors";
 import {
+  Assignment,
   AttachFile,
   Cancel,
   CheckCircleOutline,
@@ -58,6 +69,7 @@ import { ReplyMessageContext } from "../../context/ReplyingMessage/ReplyingMessa
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { i18n } from "../../translate/i18n";
 import toastError from "../../errors/toastError";
+import { toast } from "react-toastify";
 import api from "../../services/api";
 import RecordingTimer from "./RecordingTimer";
 
@@ -66,6 +78,7 @@ import { isString, isEmpty } from "lodash";
 import ContactSendModal from "../ContactSendModal";
 import CameraModal from "../CameraModal";
 import axios from "axios";
+import Autocomplete from "@material-ui/lab/Autocomplete";
 
 import { getBackendUrl } from "../../config";
 import useCompanySettings from "../../hooks/useSettings/companySettings";
@@ -77,6 +90,7 @@ import { EditMessageContext } from "../../context/EditingMessage/EditingMessageC
 import InternalChat from '../InternalChat';
 import { BsChat } from 'react-icons/bs';
 import usePlans from '../../hooks/usePlans';
+import TaskModal from "../TaskModal";
 const Mp3Recorder = new MicRecorder({ bitRate: 128 });
 
 
@@ -110,6 +124,44 @@ const useStyles = makeStyles((theme) => ({
   },
   dropInfoOut: {
     display: "none",
+  },
+  dragDropOverlay: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(33, 150, 243, 0.1)",
+    backdropFilter: "blur(2px)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 9999,
+    border: "4px dashed #2196f3",
+    pointerEvents: "none",
+  },
+  dragDropContent: {
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    padding: "40px 60px",
+    borderRadius: 20,
+    boxShadow: "0 8px 32px rgba(33, 150, 243, 0.3)",
+    textAlign: "center",
+    border: "3px dashed #2196f3",
+  },
+  dragDropIcon: {
+    fontSize: 80,
+    color: "#2196f3",
+    marginBottom: 20,
+  },
+  dragDropText: {
+    fontSize: 24,
+    fontWeight: 600,
+    color: "#2196f3",
+    marginBottom: 10,
+  },
+  dragDropSubtext: {
+    fontSize: 16,
+    color: "#666",
   },
   gridFiles: {
     maxHeight: "100%",
@@ -315,7 +367,7 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-const MessageInput = ({ ticketId, ticketStatus }) => {
+const MessageInput = ({ ticketId, ticketStatus, ticket }) => {
   const classes = useStyles();
   const [medias, setMedias] = useState([]);
   const [mediaUrl, setMediaUrl] = useState('');
@@ -332,11 +384,18 @@ const MessageInput = ({ ticketId, ticketStatus }) => {
   const { setReplyingMessage, replyingMessage } = useContext(ReplyMessageContext);
 
   const { user, setShowDialogButton, showDialogButton } = useContext(AuthContext);
+  
+  // Verifica se o ticket está sendo atendido por outro usuário
+  const isTicketBeingHandledByOther = ticket && ticket.status === "open" && ticket.userId && ticket.userId !== user.id;
+  const isAdmin = user.profile === "admin";
+  const canInteract = !isTicketBeingHandledByOther || isAdmin;
   const [signMessagePar, setSignMessagePar] = useState(false);
   const { get: getSetting } = useCompanySettings();
   const [signMessage, setSignMessage] = useState(true);
   const [privateMessage, setPrivateMessage] = useState(false);
   const [senVcardModalOpen, setSenVcardModalOpen] = useState(false);
+  const [taskModalOpen, setTaskModalOpen] = useState(false);
+  const [ticketData, setTicketData] = useState(null);
   const { getPlanCompany } = usePlans();
   const [showInternalChat, setShowInternalChat] = useState(false);
   const { list: listQuickMessages } = useQuickMessages();
@@ -373,6 +432,22 @@ const MessageInput = ({ ticketId, ticketStatus }) => {
     // eslint-disable-next-line
   }, [onDragEnter === true]);
 
+  // Listener para arquivos soltos na área do ticket
+  useEffect(() => {
+    const handleTicketFileDrop = (event) => {
+      if (event.detail && event.detail.files) {
+        const files = event.detail.files;
+        setMedias(files);
+      }
+    };
+
+    window.addEventListener('ticketFileDrop', handleTicketFileDrop);
+
+    return () => {
+      window.removeEventListener('ticketFileDrop', handleTicketFileDrop);
+    };
+  }, []);
+
   //permitir ativar/desativar firma
   useEffect(() => {
     const fetchSettings = async () => {
@@ -408,6 +483,25 @@ const MessageInput = ({ ticketId, ticketStatus }) => {
 
   const handlePrivateMessage = (e) => {
     setPrivateMessage(!privateMessage);
+  };
+
+  const handleOpenTaskModal = async () => {
+    // Busca informações do ticket para passar ao TaskModal
+    if (ticketId) {
+      try {
+        const { data } = await api.get(`/tickets/${ticketId}`);
+        setTicketData(data);
+        setTaskModalOpen(true);
+      } catch (err) {
+        console.error("Erro ao buscar dados do ticket:", err);
+        toast.error("Erro ao buscar dados do ticket");
+      }
+    }
+  };
+
+  const handleCloseTaskModal = () => {
+    setTaskModalOpen(false);
+    setTicketData(null);
   };
 
   const handleQuickAnswersClick = async (value) => {
@@ -497,9 +591,33 @@ const MessageInput = ({ ticketId, ticketStatus }) => {
 
   const handleInputDrop = (e) => {
     e.preventDefault();
-    if (e.dataTransfer.files[0]) {
+    e.stopPropagation();
+    setOnDragEnter(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const selectedMedias = Array.from(e.dataTransfer.files);
       setMedias(selectedMedias);
+      toast.success(`${selectedMedias.length} arquivo(s) adicionado(s)`);
+    }
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setOnDragEnter(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Verifica se realmente saiu da área
+    if (e.currentTarget === e.target) {
+      setOnDragEnter(false);
     }
   };
 
@@ -514,17 +632,19 @@ const MessageInput = ({ ticketId, ticketStatus }) => {
       return;
     }
     try {
-      medias.forEach(async (media) => {
-        const formData = new FormData();
-        formData.append("fromMe", true);
-        formData.append("isPrivate", privateMessage);
-        formData.append("medias", media);
-        privateMessage ?
-          formData.append("body", `\u200d`)
-          :
-          formData.append("body", "")
-        await api.post(`/messages/${ticketId}`, formData);
-      });
+      await Promise.all(
+        medias.map(async (media) => {
+          const formData = new FormData();
+          formData.append("fromMe", true);
+          formData.append("isPrivate", privateMessage);
+          formData.append("medias", media);
+          privateMessage ?
+            formData.append("body", `\u200d`)
+            :
+            formData.append("body", "")
+          await api.post(`/messages/${ticketId}`, formData);
+        })
+      );
     } catch (err) {
       toastError(err);
     }
@@ -669,7 +789,8 @@ const MessageInput = ({ ticketId, ticketStatus }) => {
     return (
       loading ||
       recording ||
-      (ticketStatus !== "open" && ticketStatus !== "group")
+      (ticketStatus !== "open" && ticketStatus !== "group") ||
+      !canInteract
     );
   };
 
@@ -797,8 +918,10 @@ const MessageInput = ({ ticketId, ticketStatus }) => {
         elevation={0}
         square
         className={classes.viewMediaInputWrapper}
-        onDragEnter={() => setOnDragEnter(true)}
-        onDrop={(e) => handleInputDrop(e)}
+        onDragEnter={handleDragEnter}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleInputDrop}
       >
         <IconButton
           aria-label="cancel-upload"
@@ -865,6 +988,26 @@ const MessageInput = ({ ticketId, ticketStatus }) => {
   else {
     return (
       <>
+        {/* Overlay de Drag and Drop */}
+        {onDragEnter && (
+          <div 
+            className={classes.dragDropOverlay}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleInputDrop}
+          >
+            <div className={classes.dragDropContent}>
+              <AttachFile className={classes.dragDropIcon} />
+              <Typography className={classes.dragDropText}>
+                Solte os arquivos aqui
+              </Typography>
+              <Typography className={classes.dragDropSubtext}>
+                Imagens, vídeos, áudios e documentos
+              </Typography>
+            </div>
+          </div>
+        )}
+        
         <CameraModal
           isOpen={modalCameraOpen}
           onRequestClose={() => setModalCameraOpen(false)}
@@ -880,8 +1023,10 @@ const MessageInput = ({ ticketId, ticketStatus }) => {
           square
           elevation={0}
           className={classes.mainWrapper}
-          onDragEnter={() => setOnDragEnter(true)}
-          onDrop={(e) => handleInputDrop(e)}
+          onDragEnter={handleDragEnter}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleInputDrop}
         >
           {replyingMessage && renderReplyingMessage(replyingMessage)}
           <div className={classes.newMessageBox}>
@@ -957,7 +1102,7 @@ const MessageInput = ({ ticketId, ticketStatus }) => {
                     multiple
                     type="file"
                     id="upload-doc-button"
-                    accept="application/*, text/*"
+                    accept="application/*, text/*, .ofx, .OFX"
                     disabled={disableOption()}
                     className={classes.uploadInput}
                     onChange={handleChangeMedias}
@@ -1012,6 +1157,16 @@ const MessageInput = ({ ticketId, ticketStatus }) => {
                   ) : (
                     <Comment style={{ color: "grey" }} />
                   )}
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Criar Tarefa">
+                <IconButton
+                  aria-label="create-task"
+                  component="span"
+                  onClick={handleOpenTaskModal}
+                  disabled={!ticketId}
+                >
+                  <Assignment style={{ color: ticketId ? "#065183" : "grey" }} />
                 </IconButton>
               </Tooltip>
             </Hidden>
@@ -1100,7 +1255,9 @@ const MessageInput = ({ ticketId, ticketStatus }) => {
                 }}
                 className={classes.messageInput}
                 placeholder={
-                  ticketStatus === "open" || ticketStatus === "group"
+                  !canInteract && isTicketBeingHandledByOther
+                    ? `🚫 Ticket em atendimento por ${ticket.user?.name || 'outro usuário'} - Apenas visualização`
+                    : ticketStatus === "open" || ticketStatus === "group"
                     ? i18n.t("messagesInput.placeholderOpen")
                     : i18n.t("messagesInput.placeholderClosed")
                 }
@@ -1214,6 +1371,16 @@ const MessageInput = ({ ticketId, ticketStatus }) => {
             )}
           </div>
         </Paper>
+
+        {/* Modal de Criar Tarefa */}
+        
+        {/* Modal de Tarefas Reutilizável */}
+        <TaskModal 
+          open={taskModalOpen} 
+          onClose={handleCloseTaskModal}
+          ticket={ticketData}
+          contact={ticketData?.contact}
+        />
       </>
     );
   }

@@ -1,5 +1,8 @@
 import moment from "moment";
 import * as Sentry from "@sentry/node";
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 import { Op } from "sequelize";
 import SetTicketMessagesAsRead from "../../helpers/SetTicketMessagesAsRead";
 import { getIO } from "../../libs/socket";
@@ -201,13 +204,13 @@ const UpdateTicketService = async ({
 
         const _userId = ticket.userId || userId;
 
-        const user = await User.findByPk(_userId);
+        const user = _userId ? await User.findByPk(_userId) : null;
 
         let body: any
 
         if ((ticket.status !== 'pending') || (ticket.status === 'pending' && settings.sendFarewellWaitingTicket === 'enabled')) {
 
-          if (user.farewellMessage) {
+          if (user?.farewellMessage) {
             body = `\u200e${user.farewellMessage}`;
           } else {
             body = `\u200e${complationMessage}`;
@@ -521,6 +524,7 @@ const UpdateTicketService = async ({
     return { ticket, oldStatus, oldUserId };
   } catch (err) {
     Sentry.captureException(err);
+    throw err;
   }
 };
 

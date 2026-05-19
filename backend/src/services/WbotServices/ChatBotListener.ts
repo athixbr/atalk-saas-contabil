@@ -743,7 +743,7 @@ export const sayChatbot = async (
 
       if (choosenQueue.queueType === "file") {
         try {
-          const publicFolder = path.resolve(__dirname, "..", "..", "..", "public");
+          const publicFolder = path.resolve(__dirname, "..", "..", "..", "..", "public");
 
           const files = await ShowFileService(choosenQueue.optFileId, ticket.companyId)
 
@@ -891,7 +891,7 @@ export const sayChatbot = async (
 
       if (choosenQueue.queueType === "file") {
         try {
-          const publicFolder = path.resolve(__dirname, "..", "..", "..", "public");
+          const publicFolder = path.resolve(__dirname, "..", "..", "..", "..", "public");
 
           const files = await ShowFileService(choosenQueue.optFileId, ticket.companyId)
 

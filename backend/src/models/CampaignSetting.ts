@@ -35,7 +35,7 @@ class CampaignSetting extends Model<CampaignSetting> {
   companyId: number;
 
   @BelongsTo(() => Company)
-  company: Company;
+  company: any;
 }
 
 export default CampaignSetting;

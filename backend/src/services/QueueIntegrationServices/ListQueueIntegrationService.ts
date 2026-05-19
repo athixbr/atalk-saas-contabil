@@ -1,3 +1,6 @@
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 import { Sequelize, Op, Filterable } from "sequelize";
 import QueueIntegrations from "../../models/QueueIntegrations";
 

@@ -68,7 +68,7 @@ class Company extends Model<Company> {
   planId: number;
 
   @BelongsTo(() => Plan)
-  plan: Plan;
+  plan: any;
 
   @CreatedAt
   createdAt: Date;
@@ -81,70 +81,70 @@ class Company extends Model<Company> {
     onDelete: "CASCADE",
     hooks: true
   })
-  users: User[];
+  users: any[];
 
   @HasMany(() => UserRating, {
     onUpdate: "CASCADE",
     onDelete: "CASCADE",
     hooks: true
   })
-  userRatings: UserRating[];
+  userRatings: any[];
 
   @HasMany(() => Queue, {
     onUpdate: "CASCADE",
     onDelete: "CASCADE",
     hooks: true
   })
-  queues: Queue[];
+  queues: any[];
 
   @HasMany(() => Whatsapp, {
     onUpdate: "CASCADE",
     onDelete: "CASCADE",
     hooks: true
   })
-  whatsapps: Whatsapp[];
+  whatsapps: any[];
 
   @HasMany(() => Message, {
     onUpdate: "CASCADE",
     onDelete: "CASCADE",
     hooks: true
   })
-  messages: Message[];
+  messages: any[];
 
   @HasMany(() => Contact, {
     onUpdate: "CASCADE",
     onDelete: "CASCADE",
     hooks: true
   })
-  contacts: Contact[];
+  contacts: any[];
 
   @HasMany(() => Setting, {
     onUpdate: "CASCADE",
     onDelete: "CASCADE",
     hooks: true
   })
-  settings: Setting[];
+  settings: any[];
 
   @HasMany (() => CompaniesSettings, {
     onUpdate: "CASCADE",
     onDelete: "CASCADE",
     hooks: true
   })
-  companieSettings: CompaniesSettings;
+  companieSettings: any;
 
   @HasMany(() => Ticket, {
     onUpdate: "CASCADE",
     onDelete: "CASCADE",
     hooks: true
   })
-  tickets: Ticket[];
+  tickets: any[];
 
   @HasMany(() => TicketTraking, {
     onUpdate: "CASCADE",
     onDelete: "CASCADE",
     hooks: true
   })
-  ticketTrankins: TicketTraking[];
+  ticketTrankins: any[];
 }
 
 export default Company;

@@ -1,4 +1,7 @@
 import * as Yup from "yup";
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 import { Op } from "sequelize";
 
 import AppError from "../../errors/AppError";

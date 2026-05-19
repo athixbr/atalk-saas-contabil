@@ -1,3 +1,6 @@
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 import { QueryTypes } from "sequelize";
 import sequelize from "../../database";
 

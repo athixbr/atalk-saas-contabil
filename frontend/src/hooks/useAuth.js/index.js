@@ -21,7 +21,10 @@ const useAuth = () => {
       const token = localStorage.getItem("token");
       if (token) {
         config.headers["Authorization"] = `Bearer ${JSON.parse(token)}`;
+        console.log("🔑 Token enviado na requisição:", config.url);
         setIsAuth(true);
+      } else {
+        console.log("⚠️  Nenhum token encontrado para requisição:", config.url);
       }
       return config;
     },
@@ -165,7 +168,11 @@ const useAuth = () => {
             } `
           );
         }
-        history.push("/tickets");
+        
+        // Redirecionar para a página inicial preferida do usuário
+        const homePage = data.user.defaultHomePage || "tickets";
+        history.push(`/${homePage}`);
+        
         setLoading(false);
       } else {
         // localStorage.setItem("companyId", companyId);

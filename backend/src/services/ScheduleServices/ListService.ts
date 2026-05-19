@@ -1,3 +1,6 @@
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 import { Op, col, where, fn } from "sequelize";
 import Contact from "../../models/Contact";
 import Schedule from "../../models/Schedule";

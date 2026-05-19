@@ -23,10 +23,10 @@ class ContactTag extends Model<ContactTag> {
   tagId: number;
 
   @BelongsTo(() => Contact)
-  ticket: Contact;
+  ticket: any; // any prevents circular __metadata TDZ
 
   @BelongsTo(() => Tag)
-  tags: Tag;
+  tags: any;
 
   @CreatedAt
   createdAt: Date;

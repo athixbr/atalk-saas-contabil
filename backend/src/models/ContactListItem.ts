@@ -48,14 +48,14 @@ class ContactListItem extends Model<ContactListItem> {
   companyId: number;
 
   @BelongsTo(() => Company)
-  company: Company;
+  company: any;
 
   @ForeignKey(() => ContactList)
   @Column
   contactListId: number;
 
   @BelongsTo(() => ContactList)
-  contactList: ContactList;
+  contactList: any;
 }
 
 export default ContactListItem;

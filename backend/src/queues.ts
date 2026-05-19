@@ -5,6 +5,9 @@ import Whatsapp from "./models/Whatsapp";
 import { logger } from "./utils/logger";
 import moment from "moment";
 import Schedule from "./models/Schedule";
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 import { Op, QueryTypes, Sequelize } from "sequelize";
 import GetDefaultWhatsApp from "./helpers/GetDefaultWhatsApp";
 import Campaign from "./models/Campaign";
@@ -595,7 +598,7 @@ async function handleDispatchCampaign(job) {
       });
 
       if (campaign.mediaPath) {
-        const publicFolder = path.resolve(__dirname, "..", "public");
+        const publicFolder = path.resolve(__dirname, "..", "..", "public");
         const filePath = path.join(publicFolder, `company${campaign.companyId}`, campaign.mediaPath);
 
         const options = await getMessageOptions(campaign.mediaName, filePath, campaign.companyId.toString());
@@ -1008,6 +1011,11 @@ async function handleInvoiceCreate() {
 
       if (dias < 20) {
         const plan = await Plan.findByPk(c.planId);
+
+        if (!plan) {
+          logger.warn(`Plano não encontrado para empresa ${c.id} (planId: ${c.planId}), pulando geração de fatura.`);
+          return;
+        }
 
         const sql = `SELECT COUNT(*) mycount FROM "Invoices" WHERE "companyId" = ${c.id} AND "dueDate"::text LIKE '${moment(dueDate).format("yyyy-MM-DD")}%';`
         const invoice = await sequelize.query(sql,

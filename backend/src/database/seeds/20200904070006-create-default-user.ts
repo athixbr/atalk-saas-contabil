@@ -1,3 +1,6 @@
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 import { QueryInterface } from "sequelize";
 import { hash } from "bcryptjs";
 

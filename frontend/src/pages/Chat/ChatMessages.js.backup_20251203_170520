@@ -1,0 +1,950 @@
+import React, { useContext, useEffect, useRef, useState } from "react";
+import {
+  Avatar,
+  Box,
+  Button,
+  FormControl,
+  IconButton,
+  Input,
+  InputAdornment,
+  makeStyles,
+  Paper,
+  Tooltip,
+  Typography,
+} from "@material-ui/core";
+import SendIcon from "@material-ui/icons/Send";
+import DoneAllIcon from "@material-ui/icons/DoneAll";
+
+import { AuthContext } from "../../context/Auth/AuthContext";
+import { useDate } from "../../hooks/useDate";
+import api from "../../services/api";
+
+import AttachFileIcon from "@material-ui/icons/AttachFile";
+import CancelIcon from "@material-ui/icons/Cancel";
+import CircularProgress from "@material-ui/core/CircularProgress";
+import ModalImageCors from "../../components/ModalImageCors";
+import { GetApp } from "@material-ui/icons";
+import toastError from "../../errors/toastError";
+import MicRecorder from "mic-recorder-to-mp3";
+import MicIcon from "@material-ui/icons/Mic";
+import HighlightOffIcon from "@material-ui/icons/HighlightOff";
+import CheckCircleOutlineIcon from "@material-ui/icons/CheckCircleOutline";
+import RecordingTimer from "../../components/MessageInputCustom/RecordingTimer";
+import { green } from '@material-ui/core/colors';
+import { getBackendUrl } from "../../config";
+
+const useStyles = makeStyles((theme) => ({
+  mainContainer: {
+    display: "flex",
+    flexDirection: "column",
+    position: "relative",
+    flex: 1,
+    overflow: "hidden",
+    borderRadius: 0,
+    height: "100%",
+    borderLeft: `1px solid ${theme.mode === 'light' ? '#e2e8f0' : '#4a5568'}`,
+    background: theme.mode === 'light' 
+      ? 'linear-gradient(135deg, #f8fafc 0%, #e8ebf0 100%)'
+      : 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+  },
+  messageList: {
+    position: "relative",
+    overflowY: "auto",
+    height: "100%",
+    ...theme.scrollbarStyles,
+    backgroundColor: "transparent",
+    padding: theme.spacing(2),
+  },
+  inputArea: {
+    position: "relative",
+    height: "auto",
+    backgroundColor: theme.mode === 'light' ? "#ffffff" : "#2d3748",
+    padding: theme.spacing(1.5),
+    borderTop: `1px solid ${theme.mode === 'light' ? '#e2e8f0' : '#4a5568'}`,
+  },
+  input: {
+    padding: "20px",
+    backgroundColor: theme.mode === 'light' ? '#f1f5f9' : '#334155',
+    borderRadius: 24,
+    transition: 'all 0.2s ease',
+    '&:hover': {
+      backgroundColor: theme.mode === 'light' ? '#e2e8f0' : '#475569',
+    },
+    '&:focus-within': {
+      backgroundColor: theme.mode === 'light' ? '#ffffff' : '#3b4554',
+      boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.1)',
+    },
+  },
+  buttonSend: {
+    margin: theme.spacing(1),
+  },
+  messageContainer: {
+    display: 'flex',
+    marginBottom: theme.spacing(1.5),
+    alignItems: 'flex-end',
+  },
+  messageContainerRight: {
+    justifyContent: 'flex-end',
+  },
+  messageContainerLeft: {
+    justifyContent: 'flex-start',
+  },
+  avatar: {
+    width: 32,
+    height: 32,
+    fontSize: 14,
+    fontWeight: 600,
+    marginRight: theme.spacing(1),
+    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  },
+  avatarRight: {
+    marginRight: 0,
+    marginLeft: theme.spacing(1),
+  },
+  messageWrapper: {
+    maxWidth: '65%',
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  messageBubble: {
+    padding: '8px 12px',
+    borderRadius: 12,
+    position: 'relative',
+    wordBreak: 'break-word',
+    boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+    transition: 'transform 0.2s ease',
+    '&:hover': {
+      transform: 'scale(1.02)',
+    },
+  },
+  boxLeft: {
+    padding: "10px 10px 5px",
+    margin: "10px",
+    position: "relative",
+    backgroundColor: theme.mode === 'light' ? '#ffffff' : '#334155',
+    color: theme.mode === 'light' ? '#1e293b' : '#f1f5f9',
+    maxWidth: 300,
+    borderRadius: 10,
+    borderBottomLeftRadius: 0,
+    border: `1px solid ${theme.mode === 'light' ? '#e2e8f0' : '#475569'}`,
+  },
+  boxRight: {
+    padding: "10px 10px 5px",
+    margin: "10px 10px 10px auto",
+    position: "relative",
+    backgroundColor: theme.mode === 'light' ? '#dcf8c6' : '#065f46',
+    color: theme.mode === 'light' ? '#1e293b' : '#f0fdf4',
+    textAlign: "right",
+    maxWidth: 300,
+    borderRadius: 10,
+    borderBottomRightRadius: 0,
+    border: "1px solid rgba(0, 0, 0, 0.12)",
+  },
+  messageInfo: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 2,
+    gap: 6,
+  },
+  messageAuthor: {
+    fontSize: 11,
+    fontWeight: 600,
+    color: theme.mode === 'light' ? '#6366f1' : '#818cf8',
+    marginBottom: 2,
+  },
+  messageTime: {
+    fontSize: 10,
+    color: theme.mode === 'light' ? '#64748b' : '#94a3b8',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 2,
+  },
+  readIcon: {
+    fontSize: 14,
+    color: '#3b82f6',
+  },
+  mediaContainer: {
+    maxWidth: 300,
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginTop: 4,
+  },
+  downloadButton: {
+    marginTop: 8,
+    borderRadius: 8,
+    textTransform: 'none',
+    fontWeight: 500,
+  },
+  dragDropOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(33, 150, 243, 0.1)",
+    backdropFilter: "blur(2px)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 9999,
+    border: "4px dashed #2196f3",
+  },
+  dragDropContent: {
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    padding: "40px 60px",
+    borderRadius: 20,
+    boxShadow: "0 8px 32px rgba(33, 150, 243, 0.3)",
+    textAlign: "center",
+    border: "3px dashed #2196f3",
+  },
+  dragDropIcon: {
+    fontSize: 60,
+    color: "#2196f3",
+    marginBottom: 15,
+  },
+  dragDropText: {
+    fontSize: 20,
+    fontWeight: 600,
+    color: "#2196f3",
+    marginBottom: 8,
+  },
+  sendMessageIcons: {
+    color: "grey",
+  },
+  uploadInput: {
+    display: "none",
+  },
+  circleLoading: {
+    color: green[500],
+    opacity: "70%",
+    position: "absolute",
+    top: "20%",
+    left: "50%",
+    marginLeft: -12,
+  },
+  viewMediaInputWrapper: {
+    display: "flex",
+    padding: "10px 13px",
+    position: "relative",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#eee",
+    borderTop: "1px solid rgba(0, 0, 0, 0.12)",
+  },
+  downloadMedia: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "inherit",
+    padding: 10,
+  },
+  messageMedia: {
+    objectFit: "cover",
+    width: 250,
+    height: 200,
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
+  },
+  recorderWrapper: {
+    display: "flex",
+    alignItems: "center",
+    alignContent: "middle",
+    justifyContent: 'flex-end',
+  },
+  cancelAudioIcon: {
+    color: "red",
+  },
+  audioLoading: {
+    color: green[500],
+    opacity: "70%",
+  },
+  sendAudioIcon: {
+    color: "green",
+  },
+}));
+
+const Mp3Recorder = new MicRecorder({ bitRate: 128 });
+
+export default function ChatMessages({
+  chat,
+  messages,
+  handleSendMessage,
+  handleLoadMore,
+  scrollToBottomRef,
+  pageInfo,
+}) {
+  const classes = useStyles();
+  const { user } = useContext(AuthContext);
+  const { datetimeToClient } = useDate();
+  const baseRef = useRef();
+
+  const [contentMessage, setContentMessage] = useState("");
+  const [medias, setMedias] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [taskData, setTaskData] = useState({
+    title: "",
+    description: "",
+    userId: "",
+    dueDate: "",
+    priority: "Média",
+    status: "Pendente"
+  });
+
+  const scrollToBottom = () => {
+    if (baseRef.current) {
+      baseRef.current.scrollIntoView({});
+    }
+  };
+
+  const getUserInitials = (name) => {
+    if (!name) return "?";
+    const words = name.split(' ');
+    if (words.length >= 2) {
+      return (words[0][0] + words[1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  };
+
+  const getUserAvatarUrl = (sender) => {
+    if (!sender) return null;
+    if (sender.profileImage && sender.profileImage !== 'null' && sender.profileImage !== '') {
+      const backendUrl = getBackendUrl();
+      return `${backendUrl}/public/company${sender.companyId}/user/${sender.profileImage}`;
+    }
+    return null;
+  };
+
+  const unreadMessages = (chat) => {
+    if (chat !== undefined && chat.users) {
+      const currentUser = chat.users.find((u) => u.userId === user.id);
+      return currentUser ? currentUser.unreads > 0 : false;
+    }
+    return false;
+  };
+
+  useEffect(() => {
+    if (chat && chat.id && unreadMessages(chat) > 0) {
+      try {
+        api.post(`/chats/${chat.id}/read`, { userId: user.id });
+      } catch (err) {
+        console.error("Erro ao marcar como lida:", err);
+      }
+    }
+    scrollToBottomRef.current = scrollToBottom;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleScroll = (e) => {
+    const { scrollTop } = e.currentTarget;
+    if (!pageInfo.hasMore || loading) return;
+    if (scrollTop < 600) {
+      handleLoadMore();
+    }
+  };
+
+
+  const handleChangeMedias = (e) => {
+    if (!e.target.files) {
+      return;
+    }
+    const selectedMedias = Array.from(e.target.files);
+    setMedias(selectedMedias);
+  };
+  
+  const checkMessageMedia = (message) => {
+    
+    if (message.mediaType === "image") {
+      return <ModalImageCors imageUrl={message.mediaPath} />;
+    }
+    if (message.mediaType === "audio") {
+      return (
+        <audio controls>
+          <source src={message.mediaPath} type="audio/ogg"></source>
+        </audio>
+      );
+    }
+    if (message.mediaType === "video") {
+      return (
+        <video
+          className={classes.messageMedia}
+          src={message.mediaPath}
+          controls
+        />
+      );
+    } else {
+      return (
+        <>
+          <div className={classes.downloadMedia}>
+            <Button
+              startIcon={<GetApp />}
+              color="primary"
+              variant="outlined"
+              target="_blank"
+              href={message.mediaPath}
+            >
+              Download
+            </Button>
+          </div>
+          {/* <Divider /> */}
+        </>
+      );
+    }
+  };
+  const handleSendMedia = async (e) => {
+    setLoading(true);
+    e.preventDefault();
+    const currentChat = JSON.parse(localStorage.getItem("currentChat"));
+    const formData = new FormData();
+    formData.append("fromMe", true);
+    formData.append("typeArch", "chats");
+    medias.forEach((media) => {
+      formData.append("medias", media);
+      formData.append("body", media.name);
+    });
+    try {
+      await api.post(`/chats/${currentChat.id}/messages`, formData);
+    } catch (err) {
+      console.log(err);
+      toastError(err);
+    }
+    setLoading(false);
+    setMedias([]);
+  };
+  const handleStartRecording = async () => {
+    setLoading(true);
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      await Mp3Recorder.start();
+      setRecording(true);
+      setLoading(false);
+    } catch (err) {
+      toastError(err);
+      setLoading(false);
+    }
+  };
+  const handleUploadAudio = async (e) => {
+    setLoading(true);
+    e.preventDefault();
+    const [, blob] = await Mp3Recorder.stop().getMp3();
+    if (blob.size < 10000) {
+      setLoading(false);
+      setRecording(false);
+      return;
+    }
+       
+    const formData1 = new FormData();
+    formData1.append("fromMe", true);
+    formData1.append("typeArch","chats");
+    const currentChat = JSON.parse(localStorage.getItem("currentChat"));
+    const filename = `audio-${new Date().getTime()}.mp3`;
+    formData1.append("medias", blob, filename);
+    formData1.append("body", filename);
+    
+    try {
+      await api.post(`/chats/${currentChat.id}/messages`, formData1);
+      // await api.post(`/messages/${ticketId}`, formData);
+    } catch (err) {
+      toastError(err);
+    }
+    setRecording(false);
+    setLoading(false);
+  };
+  const handleCancelAudio = async () => {
+    try {
+      await Mp3Recorder.stop().getMp3();
+      setRecording(false);
+    } catch (err) {
+      toastError(err);
+    }
+  };
+
+  return (
+    <>
+      {/* Overlay de Drag and Drop */}
+      {onDragEnter && (
+        <div 
+          className={classes.dragDropOverlay}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleInputDrop}
+        >
+          <div className={classes.dragDropContent}>
+            <AttachFileIcon className={classes.dragDropIcon} />
+            <Typography className={classes.dragDropText}>
+              Solte os arquivos aqui
+            </Typography>
+            <Typography style={{ fontSize: 14, color: '#666' }}>
+              Imagens, vídeos, áudios e documentos
+            </Typography>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Tarefa */}
+      <Dialog 
+        open={taskModalOpen} 
+        onClose={handleCloseTaskModal}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Nova Tarefa</DialogTitle>
+        <DialogContent>
+          <TextField
+            label="Título"
+            fullWidth
+            margin="normal"
+            value={taskData.title}
+            onChange={(e) => setTaskData({...taskData, title: e.target.value})}
+          />
+          <TextField
+            label="Descrição"
+            fullWidth
+            margin="normal"
+            multiline
+            rows={3}
+            value={taskData.description}
+            onChange={(e) => setTaskData({...taskData, description: e.target.value})}
+          />
+          <FormControl fullWidth margin="normal">
+            <InputLabel>Usuário Responsável</InputLabel>
+            <Select
+              value={taskData.userId}
+              onChange={(e) => setTaskData({...taskData, userId: e.target.value})}
+            >
+              {users.map((u) => (
+                <MenuItem key={u.id} value={u.id}>
+                  {u.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <TextField
+            label="Data de Vencimento"
+            type="datetime-local"
+            fullWidth
+            margin="normal"
+            value={taskData.dueDate}
+            onChange={(e) => setTaskData({...taskData, dueDate: e.target.value})}
+            InputLabelProps={{ shrink: true }}
+          />
+          <FormControl fullWidth margin="normal">
+            <InputLabel>Prioridade</InputLabel>
+            <Select
+              value={taskData.priority}
+              onChange={(e) => setTaskData({...taskData, priority: e.target.value})}
+            >
+              <MenuItem value="Baixa">Baixa</MenuItem>
+              <MenuItem value="Média">Média</MenuItem>
+              <MenuItem value="Alta">Alta</MenuItem>
+            </Select>
+          </FormControl>
+          <FormControl fullWidth margin="normal">
+            <InputLabel>Status</InputLabel>
+            <Select
+              value={taskData.status}
+              onChange={(e) => setTaskData({...taskData, status: e.target.value})}
+            >
+              <MenuItem value="Pendente">Pendente</MenuItem>
+              <MenuItem value="Em Progresso">Em Progresso</MenuItem>
+              <MenuItem value="Concluída">Concluída</MenuItem>
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseTaskModal} color="default">
+            Cancelar
+          </Button>
+          <Button onClick={handleTaskSuccess} color="primary" variant="contained">
+            Criar Tarefa
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Paper 
+        className={classes.mainContainer}
+        onDragEnter={handleDragEnter}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleInputDrop}
+      >
+        <div onScroll={handleScroll} className={classes.messageList}>
+        {Array.isArray(messages) && messages.length > 0 &&
+          messages.map((item, key) => {
+            if (!item) return null;
+            
+            const isOwnMessage = item.senderId === user.id;
+            const isDeleted = item.message === "Mensagem apagada" && !item.mediaPath;
+            
+            return (
+              <div
+                key={key}
+                className={`${classes.messageContainer} ${
+                  isOwnMessage
+                    ? classes.messageContainerRight
+                    : classes.messageContainerLeft
+                }`}
+              >
+                  {!isOwnMessage && (
+                    <Tooltip title={item.sender?.name || "Usuário"}>
+                      <Avatar 
+                        className={classes.avatar}
+                        src={getUserAvatarUrl(item.sender)}
+                      >
+                        {!getUserAvatarUrl(item.sender) && getUserInitials(item.sender?.name)}
+                      </Avatar>
+                    </Tooltip>
+                  )}
+                  
+                  <div className={classes.messageWrapper}>
+                    <Paper
+                      className={`${classes.messageBubble} ${classes.messageHover} ${
+                        isOwnMessage ? classes.boxRight : classes.boxLeft
+                      }`}
+                      elevation={1}
+                    >
+                      {!isOwnMessage && (
+                        <Typography className={classes.messageAuthor}>
+                          {item.sender?.name || "Usuário"}
+                        </Typography>
+                      )}
+                      
+                      {isOwnMessage && !isDeleted && (
+                        <div className={classes.messageOptions}>
+                          <IconButton
+                            size="small"
+                            onClick={(e) => handleMessageMenu(e, item)}
+                          >
+                            <MoreVertIcon fontSize="small" />
+                          </IconButton>
+                        </div>
+                      )}
+                      
+                      {item.mediaPath && !isDeleted && (
+                        <div className={classes.mediaContainer}>
+                          {checkMessageMedia(item)}
+                        </div>
+                      )}
+                      
+                      {item.caption && !isDeleted && (
+                        <Typography variant="body2" className={classes.captionText}>
+                          {item.caption}
+                        </Typography>
+                      )}
+                      
+                      {item.message && (
+                        <Typography
+                          variant="body2"
+                          className={isDeleted ? classes.deletedMessage : ""}
+                          style={{ whiteSpace: "pre-wrap" }}
+                        >
+                          {item.message}
+                        </Typography>
+                      )}
+                      
+                      <div className={classes.messageInfo}>
+                        <Typography className={classes.messageTime}>
+                        {datetimeToClient(item.createdAt)}
+                      </Typography>
+                      {isOwnMessage && (
+                        <DoneAllIcon className={classes.readIcon} />
+                      )}
+                    </div>
+                  </Paper>
+                </div>
+                
+                {isOwnMessage && user && (
+                  <Tooltip title={user.name}>
+                    <Avatar 
+                      className={`${classes.avatar} ${classes.avatarRight}`}
+                      src={getUserAvatarUrl(user)}
+                    >
+                      {!getUserAvatarUrl(user) && getUserInitials(user.name)}
+                    </Avatar>
+                  </Tooltip>
+                )}
+              </div>
+            );
+          })}
+        <div ref={baseRef}></div>
+      </div>
+
+      {/* Menu de opções da mensagem */}
+      <Menu
+        anchorEl={messageMenuAnchor}
+        open={Boolean(messageMenuAnchor)}
+        onClose={handleCloseMessageMenu}
+      >
+        <MenuItemMui onClick={handleDeleteMessage}>
+          <ListItemIcon>
+            <DeleteIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary="Apagar mensagem" />
+        </MenuItemMui>
+        <MenuItemMui onClick={handleOpenForwardModal}>
+          <ListItemIcon>
+            <ForwardIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary="Encaminhar" />
+        </MenuItemMui>
+        <MenuItemMui onClick={handleNewChatFromMessage}>
+          <ListItemIcon>
+            <ChatIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary="Abrir conversa" />
+        </MenuItemMui>
+      </Menu>
+
+      {/* Modal de encaminhar mensagem */}
+      <Dialog open={forwardModalOpen} onClose={() => setForwardModalOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Encaminhar Mensagem</DialogTitle>
+        <DialogContent>
+          <FormControl fullWidth margin="normal">
+            <InputLabel>Selecione o usuário</InputLabel>
+            <Select
+              value={selectedForwardUser}
+              onChange={(e) => setSelectedForwardUser(e.target.value)}
+            >
+              {forwardUsers.map((u) => (
+                <MenuItem key={u.id} value={u.id}>
+                  {u.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setForwardModalOpen(false)} color="default">
+            Cancelar
+          </Button>
+          <Button onClick={handleForwardMessage} color="primary" variant="contained">
+            Encaminhar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <div className={classes.inputArea}>
+        <FormControl variant="outlined" fullWidth>
+        {recording ? (
+            <div className={classes.recorderWrapper}>
+              <IconButton
+                aria-label="cancelRecording"
+                component="span"
+                fontSize="large"
+                disabled={loading}
+                onClick={handleCancelAudio}
+              >
+                <HighlightOffIcon className={classes.cancelAudioIcon} />
+              </IconButton>
+              {loading ? (
+                <div>
+                  <CircularProgress className={classes.audioLoading} />
+                </div>
+              ) : (
+                <RecordingTimer />
+              )}
+
+              <IconButton
+                aria-label="sendRecordedAudio"
+                component="span"
+                onClick={handleUploadAudio}
+                disabled={loading}
+              >
+                <CheckCircleOutlineIcon className={classes.sendAudioIcon} />
+              </IconButton>
+            </div>
+
+          )
+            :
+            <>
+              {medias.length > 0 ?
+                <>
+                  <Paper elevation={0} square className={classes.viewMediaInputWrapper}>
+                    <IconButton
+                      aria-label="cancel-upload"
+                      component="span"
+                      onClick={(e) => {
+                        setMedias([]);
+                        setCaption("");
+                      }}
+                    >
+                      <CancelIcon className={classes.sendMessageIcons} />
+                    </IconButton>
+
+                    {loading ? (
+                      <div>
+                        <CircularProgress className={classes.circleLoading} />
+                      </div>
+                    ) : (
+                      <Box display="flex" flexDirection="column" flex={1}>
+                        <span>
+                          {medias.length} arquivo(s) selecionado(s)
+                        </span>
+                        <TextField
+                          placeholder="Adicione uma legenda..."
+                          value={caption}
+                          onChange={(e) => setCaption(e.target.value)}
+                          variant="standard"
+                          size="small"
+                          fullWidth
+                          style={{ marginTop: 8 }}
+                        />
+                      </Box>
+                    )}
+                    <IconButton
+                      aria-label="send-upload"
+                      component="span"
+                      onClick={handleSendMedia}
+                      disabled={loading}
+                    >
+                      <SendIcon className={classes.sendMessageIcons} />
+                    </IconButton>
+                  </Paper>
+                </>
+                :
+                <React.Fragment>
+                  <Input
+                    multiline
+                    value={contentMessage}
+                    onKeyUp={(e) => {
+                      if (e.key === "Enter" && contentMessage.trim() !== "") {
+
+                        handleSendMessage(contentMessage);
+                        setContentMessage("");
+                      }
+                    }}
+                    onChange={(e) => setContentMessage(e.target.value)}
+                    className={classes.input}
+                    startAdornment={
+                      <InputAdornment position="start">
+                        <Tooltip title="Criar Tarefa">
+                          <IconButton
+                            onClick={handleOpenTaskModal}
+                            disabled={loading}
+                            size="small"
+                          >
+                            <AssignmentIcon />
+                          </IconButton>
+                        </Tooltip>
+                        <FileInput disableOption={loading} handleChangeMedias={handleChangeMedias} />
+                      </InputAdornment>
+                    }
+                    endAdornment={
+                      <InputAdornment position="end">
+                        <Tooltip title="Emoji">
+                          <IconButton
+                            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                            disabled={loading}
+                            size="small"
+                          >
+                            <EmojiEmotionsIcon />
+                          </IconButton>
+                        </Tooltip>
+                        {contentMessage ? (
+                          <IconButton
+                            onClick={() => {
+                              if (contentMessage.trim() !== "") {
+                                handleSendMessage(contentMessage);
+                                setContentMessage("");
+                              }
+                            }}
+                            className={classes.buttonSend}
+                          >
+                            <SendIcon />
+                          </IconButton>
+
+                        )
+
+                          : (
+                            <IconButton
+                              aria-label="showRecorder"
+                              component="span"
+                              disabled={loading}
+                              onClick={handleStartRecording}
+                            >
+                              <MicIcon className={classes.sendMessageIcons} />
+                            </IconButton>
+                          )
+
+                        }
+                      </InputAdornment>
+                    }
+                  />
+                </React.Fragment>
+              }
+            </>
+          }
+        </FormControl>
+        
+        {/* Seletor de Emoji */}
+        {showEmojiPicker && (
+          <Popover
+            open={showEmojiPicker}
+            onClose={() => setShowEmojiPicker(false)}
+            anchorReference="anchorPosition"
+            anchorPosition={{ top: window.innerHeight - 480, left: window.innerWidth - 380 }}
+            transformOrigin={{
+              vertical: 'bottom',
+              horizontal: 'right',
+            }}
+          >
+            <Picker
+              onSelect={handleEmojiSelect}
+              title="Escolha um emoji"
+              emoji="point_up"
+              theme="light"
+              i18n={{
+                search: 'Buscar',
+                clear: 'Limpar',
+                categories: {
+                  search: 'Resultados da busca',
+                  recent: 'Recentes',
+                  smileys: 'Sorrisos & Emoções',
+                  people: 'Pessoas & Corpo',
+                  nature: 'Animais & Natureza',
+                  foods: 'Comida & Bebida',
+                  activity: 'Atividades',
+                  places: 'Viagens & Lugares',
+                  objects: 'Objetos',
+                  symbols: 'Símbolos',
+                  flags: 'Bandeiras',
+                }
+              }}
+            />
+          </Popover>
+        )}
+      </div>
+    </Paper>
+    </>
+  );
+}
+
+
+const FileInput = (props) => {
+  const { handleChangeMedias, disableOption } = props;
+  const classes = useStyles();
+  return (
+    <>
+      <input
+        multiple
+        type="file"
+        id="upload-button"
+        disabled={disableOption}
+        className={classes.uploadInput}
+        onChange={handleChangeMedias}
+      />
+      <label htmlFor="upload-button">
+        <IconButton
+          aria-label="upload"
+          component="span"
+          disabled={disableOption}
+        >
+          <AttachFileIcon className={classes.sendMessageIcons} />
+        </IconButton>
+      </label>
+    </>
+  );
+};

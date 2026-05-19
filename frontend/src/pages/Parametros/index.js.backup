@@ -1,0 +1,509 @@
+import React, { useState } from "react";
+import { makeStyles } from "@material-ui/core/styles";
+import {
+  Paper,
+  Box,
+  Typography,
+  List,
+  ListItem,
+  ListItemText,
+  TextField,
+  InputAdornment,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Chip,
+  Divider,
+  ListItemIcon,
+} from "@material-ui/core";
+import {
+  Search as SearchIcon,
+  ExpandMore as ExpandMoreIcon,
+  Assignment as AssignmentIcon,
+  Business as BusinessIcon,
+  Category as CategoryIcon,
+  Assessment as AssessmentIcon,
+  Settings as SettingsIcon,
+  CheckCircle as CheckCircleIcon,
+  Label as LabelIcon,
+  BarChart as BarChartIcon,
+} from "@material-ui/icons";
+import MainContainer from "../../components/MainContainer";
+import MainHeader from "../../components/MainHeader";
+import Title from "../../components/Title";
+import StatusTab from "./StatusTab";
+import PrazosTab from "./PrazosTab";
+import PrioridadeTab from "./PrioridadeTab";
+import StatusComplementarTab from "./StatusComplementarTab";
+import SegmentoTab from "./SegmentoTab";
+import RegimeTributarioFederalTab from "./RegimeTributarioFederalTab";
+import ModalidadeFechamentoContabilTab from "./ModalidadeFechamentoContabilTab";
+import DistribuicaoLucrosTab from "./DistribuicaoLucrosTab";
+import GrupoClienteTab from "./GrupoClienteTab";
+import RegimeTributarioEstadualTab from "./RegimeTributarioEstadualTab";
+import ModalidadeFechamentoFiscalTab from "./ModalidadeFechamentoFiscalTab";
+import AdiantamentoFolhaTab from "./AdiantamentoFolhaTab";
+import TipoClienteTab from "./TipoClienteTab";
+import CategoriaClienteTab from "./CategoriaClienteTab";
+import PeriodicidadeClienteTab from "./PeriodicidadeClienteTab";
+import RegimeTributarioMunicipalTab from "./RegimeTributarioMunicipalTab";
+import ModalidadeFechamentoDPTab from "./ModalidadeFechamentoDPTab";
+import TagsTab from "./TagsTab";
+import Checklists from "../Checklists";
+import TipoServico from "../TipoServico";
+
+// Imports das Novas Abas 2026
+import StatusClienteTab from "./StatusClienteTab";
+import PorteFederalTab from "./PorteFederalTab";
+import PorteEstadualTab from "./PorteEstadualTab";
+import PorteMunicipalTab from "./PorteMunicipalTab";
+import TierClienteTab from "./TierClienteTab";
+import ClusterClienteTab from "./ClusterClienteTab";
+import VolumeFiscalTab from "./VolumeFiscalTab";
+import VolumeContabilTab from "./VolumeContabilTab";
+import VolumeDPTab from "./VolumeDPTab";
+import VolumeBPOTab from "./VolumeBPOTab";
+import ModalFechBPOTab from "./ModalFechBPOTab";
+import StatusControleTab from "./StatusControleTab";
+
+const useStyles = makeStyles((theme) => ({
+  mainPaper: {
+    flex: 1,
+    padding: theme.spacing(2),
+    height: 'calc(100vh - 120px)',
+    display: 'flex',
+    gap: theme.spacing(2),
+    ...theme.scrollbarStyles,
+  },
+  sidebar: {
+    width: 320,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: theme.spacing(2),
+  },
+  searchField: {
+    width: '100%',
+    backgroundColor: theme.palette.background.paper,
+  },
+  categoriesContainer: {
+    flex: 1,
+    overflowY: 'auto',
+    ...theme.scrollbarStyles,
+  },
+  accordion: {
+    boxShadow: 'none',
+    border: `1px solid ${theme.palette.divider}`,
+    '&:before': {
+      display: 'none',
+    },
+    '&.Mui-expanded': {
+      margin: '8px 0',
+    },
+  },
+  accordionSummary: {
+    backgroundColor: theme.palette.background.default,
+    minHeight: 56,
+    '&.Mui-expanded': {
+      minHeight: 56,
+      backgroundColor: theme.palette.primary.light + '15',
+    },
+  },
+  categoryTitle: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(1),
+    flex: 1,
+  },
+  categoryIcon: {
+    color: theme.palette.primary.main,
+  },
+  itemCount: {
+    marginLeft: 'auto',
+    fontSize: '0.75rem',
+    color: theme.palette.text.secondary,
+  },
+  accordionDetails: {
+    padding: 0,
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  listItem: {
+    paddingLeft: theme.spacing(4),
+    paddingRight: theme.spacing(2),
+    '&.Mui-selected': {
+      backgroundColor: theme.palette.primary.main + '20',
+      borderLeft: `3px solid ${theme.palette.primary.main}`,
+      '&:hover': {
+        backgroundColor: theme.palette.primary.main + '30',
+      },
+    },
+    '&:hover': {
+      backgroundColor: theme.palette.action.hover,
+    },
+  },
+  tabPanel: {
+    flex: 1,
+    padding: theme.spacing(3),
+    overflowY: 'auto',
+    backgroundColor: theme.palette.background.paper,
+    borderRadius: theme.shape.borderRadius,
+    ...theme.scrollbarStyles,
+  },
+  newBadge: {
+    marginLeft: theme.spacing(1),
+  },
+  headerBox: {
+    marginBottom: theme.spacing(3),
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  breadcrumb: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(1),
+    color: theme.palette.text.secondary,
+    fontSize: '0.875rem',
+  },
+}));
+
+function TabPanel({ value, index, children }) {
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`parametros-tabpanel-${index}`}
+      aria-labelledby={`parametros-tab-${index}`}
+    >
+      {value === index && <Box>{children}</Box>}
+    </div>
+  );
+}
+
+const Parametros = () => {
+  const classes = useStyles();
+  const [tabValue, setTabValue] = useState(0);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [expandedCategory, setExpandedCategory] = useState("tarefas");
+
+  // Organização das abas por categorias
+  const categories = [
+    {
+      id: "tarefas",
+      title: "Tarefas",
+      icon: <AssignmentIcon />,
+      items: [
+        { index: 0, label: "Status da Tarefa", isNew: false },
+        { index: 15, label: "Prazos", isNew: false },
+        { index: 16, label: "Prioridade", isNew: false },
+        { index: 31, label: "Checklists", isNew: false },
+      ],
+    },
+    {
+      id: "clientes",
+      title: "Classificação de Clientes",
+      icon: <BusinessIcon />,
+      items: [
+        { index: 1, label: "Status Cliente", isNew: true },
+        { index: 5, label: "Tier do Cliente", isNew: true },
+        { index: 7, label: "Cluster do Cliente", isNew: true },
+        { index: 25, label: "Tipo do Cliente", isNew: false },
+        { index: 26, label: "Categoria de Cliente", isNew: false },
+        { index: 14, label: "Status Complementar", isNew: false },
+        { index: 17, label: "Segmento", isNew: false },
+        { index: 21, label: "Grupo de Cliente", isNew: false },
+      ],
+    },
+    {
+      id: "portes",
+      title: "Portes e Enquadramento",
+      icon: <CategoryIcon />,
+      items: [
+        { index: 2, label: "Porte Federal", isNew: true },
+        { index: 3, label: "Porte Estadual", isNew: true },
+        { index: 4, label: "Porte Municipal", isNew: true },
+        { index: 18, label: "Regime Tributário Federal", isNew: false },
+        { index: 22, label: "Regime Tributário Estadual", isNew: false },
+        { index: 28, label: "Regime Tributário Municipal", isNew: false },
+      ],
+    },
+    {
+      id: "volumes",
+      title: "Volumes Operacionais",
+      icon: <BarChartIcon />,
+      items: [
+        { index: 8, label: "Volume Fiscal", isNew: true },
+        { index: 9, label: "Volume Contábil", isNew: true },
+        { index: 10, label: "Volume DP", isNew: true },
+        { index: 11, label: "Volume BPO", isNew: true },
+      ],
+    },
+    {
+      id: "modalidades",
+      title: "Modalidades de Fechamento",
+      icon: <AssessmentIcon />,
+      items: [
+        { index: 19, label: "Modal. Fechamento Contábil", isNew: false },
+        { index: 23, label: "Modal. Fechamento Fiscal", isNew: false },
+        { index: 29, label: "Modal. Fechamento DP", isNew: false },
+        { index: 12, label: "Modal Fech BPO", isNew: true },
+      ],
+    },
+    {
+      id: "servicos",
+      title: "Serviços e Controles",
+      icon: <SettingsIcon />,
+      items: [
+        { index: 6, label: "Grupo Serviço", isNew: false },
+        { index: 32, label: "Tipos de Serviço", isNew: false },
+        { index: 13, label: "Status do Controle", isNew: true },
+        { index: 20, label: "Distribuição de Lucros", isNew: false },
+        { index: 24, label: "Adiantamento da Folha", isNew: false },
+      ],
+    },
+    {
+      id: "outros",
+      title: "Outros",
+      icon: <LabelIcon />,
+      items: [
+        { index: 30, label: "Tags", isNew: false },
+        { index: 27, label: "Periodicidade do Cliente", isNew: false },
+      ],
+    },
+  ];
+
+  const handleTabChange = (index) => {
+    setTabValue(index);
+  };
+
+  const handleCategoryChange = (categoryId) => (event, isExpanded) => {
+    setExpandedCategory(isExpanded ? categoryId : false);
+  };
+
+  // Filtrar itens com base na busca
+  const getFilteredCategories = () => {
+    if (!searchTerm) return categories;
+
+    return categories
+      .map((category) => ({
+        ...category,
+        items: category.items.filter((item) =>
+          item.label.toLowerCase().includes(searchTerm.toLowerCase())
+        ),
+      }))
+      .filter((category) => category.items.length > 0);
+  };
+
+  const getCurrentTabInfo = () => {
+    for (const category of categories) {
+      const item = category.items.find((item) => item.index === tabValue);
+      if (item) {
+        return { category: category.title, item: item.label };
+      }
+    }
+    return { category: "", item: "" };
+  };
+
+  const filteredCategories = getFilteredCategories();
+  const currentTabInfo = getCurrentTabInfo();
+
+  return (
+    <MainContainer>
+      <MainHeader>
+        <Title>Configurações do Sistema</Title>
+      </MainHeader>
+
+      <Box className={classes.mainPaper}>
+        {/* Sidebar com categorias */}
+        <Box className={classes.sidebar}>
+          <TextField
+            className={classes.searchField}
+            placeholder="Buscar parâmetro..."
+            variant="outlined"
+            size="small"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon color="action" />
+                </InputAdornment>
+              ),
+            }}
+          />
+
+          <Paper className={classes.categoriesContainer} variant="outlined">
+            {filteredCategories.map((category) => (
+              <Accordion
+                key={category.id}
+                expanded={expandedCategory === category.id}
+                onChange={handleCategoryChange(category.id)}
+                className={classes.accordion}
+              >
+                <AccordionSummary
+                  expandIcon={<ExpandMoreIcon />}
+                  className={classes.accordionSummary}
+                >
+                  <Box className={classes.categoryTitle}>
+                    <Box className={classes.categoryIcon}>{category.icon}</Box>
+                    <Typography variant="subtitle2" fontWeight={600}>
+                      {category.title}
+                    </Typography>
+                    <Chip
+                      label={category.items.length}
+                      size="small"
+                      color="primary"
+                      className={classes.itemCount}
+                    />
+                  </Box>
+                </AccordionSummary>
+                <AccordionDetails className={classes.accordionDetails}>
+                  <List disablePadding>
+                    {category.items.map((item) => (
+                      <ListItem
+                        button
+                        key={item.index}
+                        selected={tabValue === item.index}
+                        onClick={() => handleTabChange(item.index)}
+                        className={classes.listItem}
+                      >
+                        <ListItemText
+                          primary={
+                            <Box display="flex" alignItems="center">
+                              {item.label}
+                              {item.isNew && (
+                                <Chip
+                                  label="NOVO"
+                                  size="small"
+                                  color="secondary"
+                                  className={classes.newBadge}
+                                  style={{ height: 20, fontSize: '0.65rem' }}
+                                />
+                              )}
+                            </Box>
+                          }
+                          primaryTypographyProps={{
+                            variant: "body2",
+                          }}
+                        />
+                      </ListItem>
+                    ))}
+                  </List>
+                </AccordionDetails>
+              </Accordion>
+            ))}
+          </Paper>
+        </Box>
+
+        {/* Conteúdo da aba selecionada */}
+        <Box className={classes.tabPanel}>
+          <Box className={classes.headerBox}>
+            <Box>
+              <Box className={classes.breadcrumb}>
+                <SettingsIcon fontSize="small" />
+                <Typography variant="caption">
+                  {currentTabInfo.category}
+                </Typography>
+                <Typography variant="caption">›</Typography>
+                <Typography variant="caption" color="primary">
+                  {currentTabInfo.item}
+                </Typography>
+              </Box>
+              <Typography variant="h5" style={{ marginTop: 8, fontWeight: 600 }}>
+                {currentTabInfo.item}
+              </Typography>
+            </Box>
+          </Box>
+          <Divider style={{ marginBottom: 24 }} />
+          <TabPanel value={tabValue} index={tabValue}>
+            {renderTabContent(tabValue)}
+          </TabPanel>
+        </Box>
+      </Box
+      }))
+      .filter((category) => category.items.length > 0);
+  };
+
+  const getCurrentTabInfo = () => {
+    for (const category of categories) {
+      const item = category.items.find((item) => item.index === tabValue);
+      if (item) {
+        return { category: category.title, item: item.label };
+      }
+    }
+    return { category: "", item: "" };
+  };
+
+  const filteredCategories = getFilteredCategories();
+
+  const renderTabContent = (index) => {
+    switch (index) {
+      case 0: return <StatusTab />;
+      case 1: return <StatusClienteTab />;
+      case 2: return <PorteFederalTab />;
+      case 3: return <PorteEstadualTab />;
+      case 4: return <PorteMunicipalTab />;
+      case 5: return <TierClienteTab />;
+      case 6: return <GrupoClienteTab />;
+      case 7: return <ClusterClienteTab />;
+      case 8: return <VolumeFiscalTab />;
+      case 9: return <VolumeContabilTab />;
+      case 10: return <VolumeDPTab />;
+      case 11: return <VolumeBPOTab />;
+      case 12: return <ModalFechBPOTab />;
+      case 13: return <StatusControleTab />;
+      case 14: return <StatusComplementarTab />;
+      case 15: return <PrazosTab />;
+      case 16: return <PrioridadeTab />;
+      case 17: return <SegmentoTab />;
+      case 18: return <RegimeTributarioFederalTab />;
+      case 19: return <ModalidadeFechamentoContabilTab />;
+      case 20: return <DistribuicaoLucrosTab />;
+      case 21: return <GrupoClienteTab />;
+      case 22: return <RegimeTributarioEstadualTab />;
+      case 23: return <ModalidadeFechamentoFiscalTab />;
+      case 24: return <AdiantamentoFolhaTab />;
+      case 25: return <TipoClienteTab />;
+      case 26: return <CategoriaClienteTab />;
+      case 27: return <PeriodicidadeClienteTab />;
+      case 28: return <RegimeTributarioMunicipalTab />;
+      case 29: return <ModalidadeFechamentoDPTab />;
+      case 30: return <TagsTab />;
+      case 31: return <Checklists />;
+      case 32: return <TipoServico />;
+      default: return null;
+    }
+  };
+
+  return (
+    <MainContainer>
+      <MainHeader>
+        <Title>Configurações</Title>
+      </MainHeader>
+
+      <Paper className={classes.mainPaper} variant="outlined">
+        <Box className={classes.tabsContainer}>
+          <List>
+            {tabLabels.map((label, index) => (
+              <ListItem
+                button
+                key={index}
+                selected={tabValue === index}
+                onClick={() => handleTabChange(index)}
+              >
+                <ListItemText primary={label} />
+              </ListItem>
+            ))}
+          </List>
+        </Box>
+        <Box className={classes.tabPanel}>
+          <TabPanel value={tabValue} index={tabValue}>
+            {renderTabContent(tabValue)}
+          </TabPanel>
+        </Box>
+      </Paper>
+    </MainContainer>
+  );
+};
+
+export default Parametros;

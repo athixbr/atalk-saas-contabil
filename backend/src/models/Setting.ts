@@ -36,7 +36,7 @@ class Setting extends Model<Setting> {
   companyId: number;
 
   @BelongsTo(() => Company)
-  company: Company;
+  company: any;
 }
 
 export default Setting;

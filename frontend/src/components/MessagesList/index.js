@@ -109,6 +109,24 @@ const useStyles = makeStyles((theme) => ({
     marginTop: 12,
   },
 
+  highlightedMessage: {
+    animation: "$highlight 2s ease-in-out",
+    backgroundColor: "#fff59d !important",
+    border: "2px solid #fbc02d",
+  },
+
+  "@keyframes highlight": {
+    "0%": {
+      backgroundColor: "#fff59d",
+    },
+    "50%": {
+      backgroundColor: "#ffeb3b",
+    },
+    "100%": {
+      backgroundColor: "#fff59d",
+    },
+  },
+
   messageLeft: {
     marginRight: 20,
     marginTop: 2,
@@ -449,6 +467,7 @@ const MessagesList = ({
   ticket,
   ticketId,
   isGroup,
+  searchParam,
 }) => {
   const classes = useStyles();
 
@@ -457,6 +476,7 @@ const MessagesList = ({
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
   const lastMessageRef = useRef();
+  const firstMatchRef = useRef();
 
   const [selectedMessage, setSelectedMessage] = useState({});
   const { setReplyingMessage } = useContext(ReplyMessageContext);
@@ -479,6 +499,40 @@ const MessagesList = ({
   const { user } = useContext(AuthContext);
   const userQueueIds = user.queues.map((q) => q.id);
   const companyId = user.companyId;
+
+  // Função para verificar se mensagem contém termo de busca
+  const messageMatchesSearch = (message) => {
+    if (!searchParam || !message.body) return false;
+    const matches = message.body.toLowerCase().includes(searchParam.toLowerCase());
+    if (matches) {
+      console.log('🔍 Mensagem encontrada:', { 
+        messageId: message.id, 
+        body: message.body.substring(0, 50), 
+        searchParam 
+      });
+    }
+    return matches;
+  };
+
+  // Estado para controlar primeira mensagem encontrada
+  const [firstMatchId, setFirstMatchId] = useState(null);
+
+  useEffect(() => {
+    console.log('🔎 MessagesList recebeu searchParam:', searchParam);
+    console.log('📊 Total de mensagens:', messagesList.length);
+    
+    if (searchParam && messagesList.length > 0) {
+      const firstMatch = messagesList.find(msg => messageMatchesSearch(msg));
+      if (firstMatch) {
+        console.log('✅ Primeira mensagem encontrada:', firstMatch.id);
+        setFirstMatchId(firstMatch.id);
+      } else {
+        console.log('❌ Nenhuma mensagem encontrada com o termo');
+      }
+    } else {
+      setFirstMatchId(null);
+    }
+  }, [searchParam, messagesList]);
 
   useEffect(() => {
 
@@ -545,11 +599,15 @@ const MessagesList = ({
   }, [pageNumber, ticketId, selectedQueuesMessage]);
 
   useEffect(() => {
+    if (!ticketId) return;
+
     const socket = socketConnection({ companyId, userId: user.id });
 
-    socket.on("connect", () => socket.emit("joinChatBox", `${ticket.id}`));
+    socket.on("connect", () => socket.emit("joinChatBox", `${ticketId}`));
 
     socket.on(`company-${companyId}-appMessage`, (data) => {
+      if (data.message && data.message.ticketId !== ticketId) return;
+
       if (data.action === "create") {
         dispatch({ type: "ADD_MESSAGE", payload: data.message });
         scrollToBottom();
@@ -564,7 +622,6 @@ const MessagesList = ({
     });
 
     return () => {
-      // if (socket?.status === "connected")
       socket.disconnect();
     };
   }, [ticketId]);
@@ -607,6 +664,21 @@ const MessagesList = ({
       lastMessageRef.current.scrollIntoView({});
     }
   };
+
+  const scrollToFirstMatch = () => {
+    if (firstMatchRef.current) {
+      firstMatchRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  };
+
+  // Scroll para primeira mensagem encontrada quando searchParam mudar
+  useEffect(() => {
+    if (searchParam && messagesList.length > 0) {
+      setTimeout(() => {
+        scrollToFirstMatch();
+      }, 500);
+    }
+  }, [searchParam, messagesList]);
 
   const handleScroll = (e) => {
     if (!hasMore) return;
@@ -696,7 +768,10 @@ const MessagesList = ({
           controls
         />
       );
-    } else {
+    }
+
+    if (message.mediaType === "application" || message.mediaType === "document") {
+      const fileName = message.body || message.mediaUrl?.split('/').pop() || 'arquivo';
       return (
         <>
           <div className={classes.downloadMedia}>
@@ -709,11 +784,31 @@ const MessagesList = ({
             >
               Download
             </Button>
+            <div style={{ marginTop: '8px', fontSize: '0.875rem', color: '#666', wordBreak: 'break-word' }}>
+              📄 {fileName}
+            </div>
           </div>
           <Divider />
         </>
       );
     }
+    
+    return (
+      <>
+        <div className={classes.downloadMedia}>
+          <Button
+            startIcon={<GetApp />}
+            color="primary"
+            variant="outlined"
+            target="_blank"
+            href={message.mediaUrl}
+          >
+            Download
+          </Button>
+        </div>
+        <Divider />
+      </>
+    );
   };
 
   const renderMessageAck = (message) => {
@@ -956,7 +1051,10 @@ const MessagesList = ({
               <div id="messageReactionIconContainer">
                 <Stack direction={'row'} spacing={0.5} alignItems={'center'} >
                   <div
-                    className={classes.messageLeft}
+                    ref={message.id === firstMatchId ? firstMatchRef : null}
+                    className={clsx(classes.messageLeft, {
+                      [classes.highlightedMessage]: messageMatchesSearch(message)
+                    })}
                     title={message.queueId && message.queue?.name}
                     onDoubleClick={(e) => hanldeReplyMessage(e, message)}
                   >
@@ -1022,6 +1120,24 @@ const MessagesList = ({
                       [classes.textContentItemDeleted]: message.isDeleted,
                     })}>
                       {message.quotedMsg && renderQuotedMessage(message)}
+                      
+                      {message.fromCampaign && (
+                        <div style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          backgroundColor: '#e3f2fd',
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                          color: '#1976d2',
+                          marginBottom: '4px'
+                        }}>
+                          <span>📢</span>
+                          <span>Campanha</span>
+                        </div>
+                      )}
 
                       {(message.mediaType === "image" && path.basename(message.mediaUrl) === message.body) || (message.mediaType !== "audio" && message.mediaType != "reactionMessage" && message.mediaType != "locationMessage" && message.mediaType !== "contactMessage") && (
                         <MarkdownWrapper>{(lgpdDeleteMessage && message.isDeleted) ? "🚫 _Mensagem apagada_ " : message.body}</MarkdownWrapper>
@@ -1066,7 +1182,11 @@ const MessagesList = ({
               {renderTicketsSeparator(message, index)}
               {renderMessageDivider(message, index)}
               <div
-                className={message.isPrivate ? classes.messageRightPrivate : classes.messageRight}
+                ref={message.id === firstMatchId ? firstMatchRef : null}
+                className={clsx(
+                  message.isPrivate ? classes.messageRightPrivate : classes.messageRight,
+                  { [classes.highlightedMessage]: messageMatchesSearch(message) }
+                )}
                 title={message.queueId && message.queue?.name}
                 onDoubleClick={(e) => hanldeReplyMessage(e, message)}
               >
@@ -1111,6 +1231,24 @@ const MessagesList = ({
                   {/* {message.isEdited && (`Mensagem Editada`)} */}
 
                   {message.quotedMsg && renderQuotedMessage(message)}
+                  
+                  {message.fromCampaign && (
+                    <div style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      backgroundColor: '#e3f2fd',
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      color: '#1976d2',
+                      marginBottom: '4px'
+                    }}>
+                      <span>📢</span>
+                      <span>Campanha</span>
+                    </div>
+                  )}
 
                   {(message.mediaType === "image" && path.basename(message.mediaUrl) === message.body) || (message.mediaType !== "audio" && message.mediaType != "reactionMessage" && message.mediaType != "locationMessage" && message.mediaType !== "contactMessage") && (
                     <MarkdownWrapper>{message.body}</MarkdownWrapper>

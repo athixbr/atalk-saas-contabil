@@ -40,7 +40,7 @@ class FilesOptions extends Model<FilesOptions> {
   updatedAt: Date;
 
   @BelongsTo(() => Files)
-  file: Files;
+  file: any;
 }
 
 export default FilesOptions;

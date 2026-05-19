@@ -72,30 +72,30 @@ class Contact extends Model<Contact> {
   updatedAt: Date;
 
   @HasMany(() => Ticket)
-  tickets: Ticket[];
+  tickets: any[];
 
   @HasMany(() => ContactCustomField)
-  extraInfo: ContactCustomField[];
+  extraInfo: any[];
 
   @HasMany(() => ContactTag)
-  contactTags: ContactTag[];
+  contactTags: any[];
 
   @BelongsToMany(() => Tag, () => ContactTag)
-  tags: Tag[];
+  tags: any[];
 
   @ForeignKey(() => Company)
   @Column
   companyId: number;
 
   @BelongsTo(() => Company)
-  company: Company;
+  company: any;
 
   @HasMany(() => Schedule, {
     onUpdate: "CASCADE",
     onDelete: "CASCADE",
     hooks: true
   })
-  schedules: Schedule[];
+  schedules: any[];
 
   @Column
   remoteJid: string;

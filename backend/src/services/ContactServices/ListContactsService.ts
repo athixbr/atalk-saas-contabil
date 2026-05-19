@@ -1,3 +1,6 @@
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 import { Sequelize, Op, Filterable } from "sequelize";
 import Contact from "../../models/Contact";
 import Ticket from "../../models/Ticket";

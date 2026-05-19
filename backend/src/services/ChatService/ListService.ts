@@ -1,3 +1,6 @@
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 import { Op } from "sequelize";
 import Chat from "../../models/Chat";
 import ChatUser from "../../models/ChatUser";

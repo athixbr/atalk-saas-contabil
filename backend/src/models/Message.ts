@@ -48,12 +48,29 @@ class Message extends Model<Message> {
 
   @Column(DataType.STRING)
   get mediaUrl(): string | null {
-    if (this.getDataValue("mediaUrl")) {
-      
-      return `${process.env.BACKEND_URL}${process.env.PROXY_PORT ?`:${process.env.PROXY_PORT}`:""}/public/company${this.companyId}/${this.getDataValue("mediaUrl")}`;
-
+    const raw = this.getDataValue("mediaUrl");
+    if (!raw) return null;
+    // Arquivos novos: URL completa do DO Spaces CDN
+    if (raw.startsWith("https://") || raw.startsWith("http://")) {
+      // NÃO usar new URL() — ele interpreta # como fragmento e trunca o path.
+      // Localiza o início do path (terceira barra) e encoda cada segmento via string.
+      const doubleSlash = raw.indexOf("//");
+      const pathStart = raw.indexOf("/", doubleSlash + 2);
+      if (pathStart === -1) return raw;
+      const origin = raw.substring(0, pathStart);
+      const rawPath = raw.substring(pathStart); // ex: /company2/file[#x].pdf
+      const encodedPath = rawPath
+        .split("/")
+        .map(seg => {
+          // Decodifica primeiro para evitar duplo encoding, depois re-encoda
+          try { seg = decodeURIComponent(seg); } catch (_) {}
+          return encodeURIComponent(seg);
+        })
+        .join("/");
+      return `${origin}${encodedPath}`;
     }
-    return null;
+    // Arquivos antigos: monta URL do backend local (retrocompatível)
+    return `${process.env.BACKEND_URL}${process.env.PROXY_PORT ? `:${process.env.PROXY_PORT}` : ""}/public/company${this.companyId}/${raw}`;
   }
 
   @Column
@@ -75,42 +92,42 @@ class Message extends Model<Message> {
   quotedMsgId: string;
 
   @BelongsTo(() => Message, "quotedMsgId")
-  quotedMsg: Message;
+  quotedMsg: any;
 
   @ForeignKey(() => Ticket)
   @Column
   ticketId: number;
 
   @BelongsTo(() => Ticket)
-  ticket: Ticket;
+  ticket: any;
 
   @ForeignKey(() => TicketTraking)
   @Column
   ticketTrakingId: number;
 
   @BelongsTo(() => TicketTraking, "ticketTrakingId")
-  ticketTraking: TicketTraking;
+  ticketTraking: any;
 
   @ForeignKey(() => Contact)
   @Column
   contactId: number;
 
   @BelongsTo(() => Contact, "contactId")
-  contact: Contact;
+  contact: any; // any prevents circular __metadata TDZ
 
   @ForeignKey(() => Company)
   @Column
   companyId: number;
 
   @BelongsTo(() => Company)
-  company: Company;
+  company: any;
 
   @ForeignKey(() => Queue)
   @Column
   queueId: number;
 
   @BelongsTo(() => Queue)
-  queue: Queue;
+  queue: any;
   
   @Column
   wid: string;

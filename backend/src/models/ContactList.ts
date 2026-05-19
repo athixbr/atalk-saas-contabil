@@ -34,14 +34,14 @@ class ContactList extends Model<ContactList> {
   companyId: number;
 
   @BelongsTo(() => Company)
-  company: Company;
+  company: any;
 
   @HasMany(() => ContactListItem, {
     onUpdate: "CASCADE",
     onDelete: "CASCADE",
     hooks: true
   })
-  contacts: ContactListItem[];
+  contacts: any[];
 }
 
 export default ContactList;

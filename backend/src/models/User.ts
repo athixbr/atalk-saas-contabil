@@ -59,7 +59,7 @@ class User extends Model<User> {
   whatsappId: number;
 
   @BelongsTo(() => Whatsapp)
-  whatsapp: Whatsapp;
+  whatsapp: any;
 
   @Column
   super: boolean;
@@ -113,20 +113,20 @@ class User extends Model<User> {
   companyId: number;
 
   @BelongsTo(() => Company)
-  company: Company;
+  company: any;
 
   @HasMany(() => Ticket)
-  tickets: Ticket[];
+  tickets: any[];
 
   @BelongsToMany(() => Queue, () => UserQueue)
-  queues: Queue[];
+  queues: any[];
 
   @HasMany(() => QuickMessage, {
     onUpdate: "CASCADE",
     onDelete: "CASCADE",
     hooks: true
   })
-  quickMessages: QuickMessage[];
+  quickMessages: any[];
 
   @BeforeUpdate
   @BeforeCreate

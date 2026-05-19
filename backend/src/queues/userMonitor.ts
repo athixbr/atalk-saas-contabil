@@ -1,5 +1,8 @@
 import Queue from "bull";
 import * as Sentry from "@sentry/node";
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 import { QueryTypes } from "sequelize";
 import { isNil } from "lodash";
 

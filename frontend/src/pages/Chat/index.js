@@ -169,6 +169,13 @@ function Chat(props) {
     };
   }, []);
 
+  // Solicita permissão para notificações
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
+
   useEffect(() => {
     if (isMounted.current) {
       findChats().then((data) => {
@@ -247,7 +254,50 @@ function Chat(props) {
             return chat;
           });
           setChats(changedChats);
-          scrollToBottomRef.current();
+          scrollToBottomRef.current();          
+          // Notificação do navegador se não for mensagem do próprio usuário
+          if (data.newMessage.senderId !== user.id && document.hidden) {
+            if ("Notification" in window && Notification.permission === "granted") {
+              const senderName = data.newMessage.sender?.name || "Alguém";
+              const notification = new Notification("Nova mensagem - Chat Interno", {
+                body: `${senderName}: ${data.newMessage.message}`,
+                icon: "/favicon.ico",
+                tag: `chat-${currentChat.id}`,
+                renotify: true
+              });
+              notification.onclick = () => {
+                window.focus();
+                notification.close();
+              };
+            }
+          }          
+          // Notificação do navegador se não for mensagem do próprio usuário
+          if (data.newMessage.senderId !== user.id && document.hidden) {
+            const senderName = data.newMessage.sender?.name || "Alguém";
+            const notification = new Notification("Nova mensagem - Chat Interno", {
+              body: `${senderName}: ${data.newMessage.message}`,
+              icon: "/favicon.ico",
+              tag: `chat-${currentChat.id}`,
+              renotify: true
+            });
+            notification.onclick = () => {
+              window.focus();
+              notification.close();
+            };
+          }
+        }
+
+        if (data.action === "delete-message") {
+          setMessages((prev) => prev.filter((msg) => msg.id !== data.messageId));
+          const changedChats = chats.map((chat) => {
+            if (chat.id === currentChat.id) {
+              return {
+                ...data.chat,
+              };
+            }
+            return chat;
+          });
+          setChats(changedChats);
         }
 
         if (data.action === "update") {
@@ -319,6 +369,14 @@ function Chat(props) {
   const findChats = async () => {
     try {
       const { data } = await api.get("/chats");
+      // Ordenar chats pela data da última mensagem (mais recente primeiro)
+      if (data.records && Array.isArray(data.records)) {
+        data.records.sort((a, b) => {
+          const dateA = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt) : new Date(a.updatedAt);
+          const dateB = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt) : new Date(b.updatedAt);
+          return dateB - dateA;
+        });
+      }
       return data;
     } catch (err) {
       console.log(err);
@@ -411,6 +469,7 @@ function Chat(props) {
           <Grid className={classes.gridItemTab} md={12} item>
             {isObject(currentChat) && has(currentChat, "id") && (
               <ChatMessages
+                chat={currentChat}
                 scrollToBottomRef={scrollToBottomRef}
                 pageInfo={messagesPageInfo}
                 messages={messages}

@@ -1,0 +1,44 @@
+# Git
+.git
+.gitignore
+
+# Dependências (reconstruídas no build)
+node_modules
+
+# Build anterior
+dist
+
+# Uploads e mídias (71 GB — não entra na imagem, usa volume)
+public
+
+# Logs
+logs
+*.log
+
+# Segredos — nunca entram na imagem
+.env
+.env.test
+.env.migration
+
+# Cache WhatsApp Web
+.wwebjs_cache
+.wwebjs_auth
+
+# Arquivos grandes de dados
+migrate-progress.json
+backup_atalk_*.backup
+*.backup
+
+# Scripts de manutenção avulsos (não necessários no container)
+setup/seed-initial.cjs
+setup/setup-db.sh
+
+# OS
+.DS_Store
+desktop.ini
+
+# Arquivos acidentais
+ql*
+e()
+et
+ycopg2

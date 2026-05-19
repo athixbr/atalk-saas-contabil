@@ -1,3 +1,6 @@
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 import { Filterable } from "sequelize";
 import sequelize from "../../database/index";
 import TicketTraking from "../../models/TicketTraking";

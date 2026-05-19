@@ -43,9 +43,133 @@ import LogTicket from "../models/LogTicket";
 import Prompt from "../models/Prompt";
 import Plantao from "../models/Plantao";
 
-// eslint-disable-next-line
-const dbConfig = require("../config/database");
-// import dbConfig from "../config/database";
+import AdiantamentoFolha from "../models/AdiantamentoFolha";
+import AgendamentoCertidao from "../models/AgendamentoCertidao";
+import AnotacaoEmpresa from "../models/AnotacaoEmpresa";
+import Billing from "../models/Billing";
+import BillingAttachment from "../models/BillingAttachment";
+import BillingHistory from "../models/BillingHistory";
+import CampaignGrupo from "../models/CampaignGrupo";
+import CampaignGrupoConfig from "../models/CampaignGrupoConfig";
+import CampaignGrupoGroup from "../models/CampaignGrupoGroup";
+import CargoSocio from "../models/CargoSocio";
+import CategoriaCliente from "../models/CategoriaCliente";
+import Certidao from "../models/Certidao";
+import CertificadoDigital from "../models/CertificadoDigital";
+import Checklist from "../models/Checklist";
+import ChecklistItem from "../models/ChecklistItem";
+import Cliente from "../models/Cliente";
+import ClienteCNAE from "../models/ClienteCNAE";
+import ClienteCertidao from "../models/ClienteCertidao";
+import ClienteContato from "../models/ClienteContato";
+import ClienteRedeSocial from "../models/ClienteRedeSocial";
+import ClienteSocio from "../models/ClienteSocio";
+import ClienteViewPreference from "../models/ClienteViewPreference";
+import ClusterCliente from "../models/ClusterCliente";
+import ControleCliente from "../models/ControleCliente";
+import ControleClienteHistorico from "../models/ControleClienteHistorico";
+import ControleConfig from "../models/ControleConfig";
+import ControleNotificacao from "../models/ControleNotificacao";
+import Controles from "../models/Controles";
+import CrmBusinessType from "../models/CrmBusinessType";
+import CrmClient from "../models/CrmClient";
+import CrmInteraction from "../models/CrmInteraction";
+import CrmLead from "../models/CrmLead";
+import CrmSource from "../models/CrmSource";
+import CrmStage from "../models/CrmStage";
+import CrmTask from "../models/CrmTask";
+import CrmTaskCategory from "../models/CrmTaskCategory";
+import CrmTaskStage from "../models/CrmTaskStage";
+import CrmTaxRegime from "../models/CrmTaxRegime";
+import DemaisIdentificadores from "../models/DemaisIdentificadores";
+import Departamento from "../models/Departamento";
+import DepartamentoUsuario from "../models/DepartamentoUsuario";
+import DistribuicaoLucros from "../models/DistribuicaoLucros";
+import EnvioCorrespondencia from "../models/EnvioCorrespondencia";
+import EscritorioGestor from "../models/EscritorioGestor";
+import GedActivityLog from "../models/GedActivityLog";
+import GedComment from "../models/GedComment";
+import GedFile from "../models/GedFile";
+import GedFileVersion from "../models/GedFileVersion";
+import GedFolder from "../models/GedFolder";
+import GedShare from "../models/GedShare";
+import GrupoCliente from "../models/GrupoCliente";
+import GrupoServico from "../models/GrupoServico";
+import Holerite from "../models/Holerite";
+import Integrations from "../models/Integrations";
+import KnowledgeBaseArticle from "../models/KnowledgeBaseArticle";
+import KnowledgeBaseArticleTag from "../models/KnowledgeBaseArticleTag";
+import KnowledgeBaseAttachment from "../models/KnowledgeBaseAttachment";
+import KnowledgeBaseCategory from "../models/KnowledgeBaseCategory";
+import KnowledgeBaseComment from "../models/KnowledgeBaseComment";
+import KnowledgeBaseRating from "../models/KnowledgeBaseRating";
+import KnowledgeBaseTag from "../models/KnowledgeBaseTag";
+import KnowledgeBaseVideo from "../models/KnowledgeBaseVideo";
+import LocalizacaoCliente from "../models/LocalizacaoCliente";
+import LogCertidao from "../models/LogCertidao";
+import ModalFechBPO from "../models/ModalFechBPO";
+import ModalidadeFechamentoContabil from "../models/ModalidadeFechamentoContabil";
+import ModalidadeFechamentoDP from "../models/ModalidadeFechamentoDP";
+import ModalidadeFechamentoFiscal from "../models/ModalidadeFechamentoFiscal";
+import Parcelamentos from "../models/Parcelamentos";
+import ParcelamentosParcela from "../models/ParcelamentosParcela";
+import PerfilCargo from "../models/PerfilCargo";
+import PeriodicidadeCliente from "../models/PeriodicidadeCliente";
+import PorteEstadual from "../models/PorteEstadual";
+import PorteFederal from "../models/PorteFederal";
+import PorteMunicipal from "../models/PorteMunicipal";
+import Prazo from "../models/Prazo";
+import Prioridade from "../models/Prioridade";
+import QueueOption from "../models/QueueOption";
+import RegimeTributarioEstadual from "../models/RegimeTributarioEstadual";
+import RegimeTributarioFederal from "../models/RegimeTributarioFederal";
+import RegimeTributarioMunicipal from "../models/RegimeTributarioMunicipal";
+import ResponsavelDepartamento from "../models/ResponsavelDepartamento";
+import SedeCliente from "../models/SedeCliente";
+import Segmento from "../models/Segmento";
+import ServicosExtraordinarios from "../models/ServicosExtraordinarios";
+import Socio from "../models/Socio";
+import Status from "../models/Status";
+import StatusCliente from "../models/StatusCliente";
+import StatusComplementar from "../models/StatusComplementar";
+import StatusControle from "../models/StatusControle";
+import TagServico from "../models/TagServico";
+import Tags from "../models/Tags";
+import TagsParametros from "../models/TagsParametros";
+import TarefaChecklist from "../models/TarefaChecklist";
+import TarefaConfig from "../models/TarefaConfig";
+import TarefaConfigChecklist from "../models/TarefaConfigChecklist";
+import TarefaDocumento from "../models/TarefaDocumento";
+import TarefaEntregaMensal from "../models/TarefaEntregaMensal";
+import TarefaFinanceiro from "../models/TarefaFinanceiro";
+import TarefaGerada from "../models/TarefaGerada";
+import TarefaGeradaHistorico from "../models/TarefaGeradaHistorico";
+import TarefaInfoGeral from "../models/TarefaInfoGeral";
+import TarefaNotificacao from "../models/TarefaNotificacao";
+import TarefaPrazoConfig from "../models/TarefaPrazoConfig";
+import TarefaRecorrente from "../models/TarefaRecorrente";
+import TarefaRecorrenteCliente from "../models/TarefaRecorrenteCliente";
+import TarefaRecorrenteSocio from "../models/TarefaRecorrenteSocio";
+import TarefaRecorrenteUsuario from "../models/TarefaRecorrenteUsuario";
+import Task from "../models/Task";
+import TaskFile from "../models/TaskFile";
+import TaskHistory from "../models/TaskHistory";
+import TemplateLeitura from "../models/TemplateLeitura";
+import TicketInteractions from "../models/TicketInteractions";
+import TicketMetrics from "../models/TicketMetrics";
+import TicketUserMetrics from "../models/TicketUserMetrics";
+import TierCliente from "../models/TierCliente";
+import TipoCliente from "../models/TipoCliente";
+import TipoDocumento from "../models/TipoDocumento";
+import TipoServico from "../models/TipoServico";
+import UserClientesPreference from "../models/UserClientesPreference";
+import UserClientesSavedFilter from "../models/UserClientesSavedFilter";
+import VolumeBPO from "../models/VolumeBPO";
+import VolumeContabil from "../models/VolumeContabil";
+import VolumeDP from "../models/VolumeDP";
+import VolumeFiscal from "../models/VolumeFiscal";
+import WhatsappGroup from "../models/WhatsappGroup";
+import dbConfig from "../config/database";
 
 const sequelize = new Sequelize(dbConfig);
 
@@ -93,6 +217,132 @@ const models = [
   LogTicket,
   Prompt,
   Plantao,
+  AdiantamentoFolha,
+  AgendamentoCertidao,
+  AnotacaoEmpresa,
+  Billing,
+  BillingAttachment,
+  BillingHistory,
+  CampaignGrupo,
+  CampaignGrupoConfig,
+  CampaignGrupoGroup,
+  CargoSocio,
+  CategoriaCliente,
+  Certidao,
+  CertificadoDigital,
+  Checklist,
+  ChecklistItem,
+  Cliente,
+  ClienteCNAE,
+  ClienteCertidao,
+  ClienteContato,
+  ClienteRedeSocial,
+  ClienteSocio,
+  ClienteViewPreference,
+  ClusterCliente,
+  ControleCliente,
+  ControleClienteHistorico,
+  ControleConfig,
+  ControleNotificacao,
+  Controles,
+  CrmBusinessType,
+  CrmClient,
+  CrmInteraction,
+  CrmLead,
+  CrmSource,
+  CrmStage,
+  CrmTask,
+  CrmTaskCategory,
+  CrmTaskStage,
+  CrmTaxRegime,
+  DemaisIdentificadores,
+  Departamento,
+  DepartamentoUsuario,
+  DistribuicaoLucros,
+  EnvioCorrespondencia,
+  EscritorioGestor,
+  GedActivityLog,
+  GedComment,
+  GedFile,
+  GedFileVersion,
+  GedFolder,
+  GedShare,
+  GrupoCliente,
+  GrupoServico,
+  Holerite,
+  Integrations,
+  KnowledgeBaseArticle,
+  KnowledgeBaseArticleTag,
+  KnowledgeBaseAttachment,
+  KnowledgeBaseCategory,
+  KnowledgeBaseComment,
+  KnowledgeBaseRating,
+  KnowledgeBaseTag,
+  KnowledgeBaseVideo,
+  LocalizacaoCliente,
+  LogCertidao,
+  ModalFechBPO,
+  ModalidadeFechamentoContabil,
+  ModalidadeFechamentoDP,
+  ModalidadeFechamentoFiscal,
+  Parcelamentos,
+  ParcelamentosParcela,
+  PerfilCargo,
+  PeriodicidadeCliente,
+  PorteEstadual,
+  PorteFederal,
+  PorteMunicipal,
+  Prazo,
+  Prioridade,
+  QueueOption,
+  RegimeTributarioEstadual,
+  RegimeTributarioFederal,
+  RegimeTributarioMunicipal,
+  ResponsavelDepartamento,
+  SedeCliente,
+  Segmento,
+  ServicosExtraordinarios,
+  Socio,
+  Status,
+  StatusCliente,
+  StatusComplementar,
+  StatusControle,
+  TagServico,
+  Tags,
+  TagsParametros,
+  TarefaChecklist,
+  TarefaConfig,
+  TarefaConfigChecklist,
+  TarefaDocumento,
+  TarefaEntregaMensal,
+  TarefaFinanceiro,
+  TarefaGerada,
+  TarefaGeradaHistorico,
+  TarefaInfoGeral,
+  TarefaNotificacao,
+  TarefaPrazoConfig,
+  TarefaRecorrente,
+  TarefaRecorrenteCliente,
+  TarefaRecorrenteSocio,
+  TarefaRecorrenteUsuario,
+  Task,
+  TaskFile,
+  TaskHistory,
+  TemplateLeitura,
+  TicketInteractions,
+  TicketMetrics,
+  TicketUserMetrics,
+  TierCliente,
+  TipoCliente,
+  TipoDocumento,
+  TipoServico,
+  UserClientesPreference,
+  UserClientesSavedFilter,
+  VolumeBPO,
+  VolumeContabil,
+  VolumeDP,
+  VolumeFiscal,
+  WhatsappGroup,
 ];
 
 sequelize.addModels(models);

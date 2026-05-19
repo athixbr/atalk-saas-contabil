@@ -27,8 +27,12 @@ import {
   Tab,
   Tabs,
   Paper,
-  Box
+  Box,
+  Typography,
+  Chip,
+  Tooltip
 } from "@material-ui/core";
+import { Alert } from "@material-ui/lab";
 
 import api from "../../services/api";
 import { i18n } from "../../translate/i18n";
@@ -99,7 +103,7 @@ const SessionSchema = Yup.object().shape({
     .required("Required"),
 });
 
-const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
+const WhatsAppModal = ({ open, onClose, whatsAppId, fixedProvider }) => {
   const classes = useStyles();
   const [autoToken, setAutoToken] = useState("");
 
@@ -117,7 +121,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
     isDefault: false,
     token: "",
     maxUseBotQueues: 3,
-    provider: "beta",
+    provider: fixedProvider ? fixedProvider : "baileys",
     expiresTicket: 0,
     allowGroup: false,
     groupAsTicket: "disabled",
@@ -504,6 +508,132 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
                       </Grid>
                     </div>
 
+                    {/* SELEÇÃO DE PROVIDER */}
+                    <div className={classes.multFieldLine} style={{ marginTop: 20 }}>
+                      <Grid container spacing={2}>
+                        {!fixedProvider && (
+                          <Grid item xs={12} md={6}>
+                            <FormControl
+                              variant="outlined"
+                              margin="dense"
+                              fullWidth
+                              className={classes.formControl}
+                            >
+                              <InputLabel id="provider-selection-label">
+                                API/Provider WhatsApp
+                              </InputLabel>
+                              <Field
+                                as={Select}
+                                label="API/Provider WhatsApp"
+                                labelId="provider-selection-label"
+                                id="provider"
+                                name="provider"
+                              >
+                                <MenuItem value={"baileys"}>
+                                  📦 Baileys Estável (Padrão)
+                                </MenuItem>
+                                <MenuItem value={"wwebjs"}>
+                                  🆕 API WhatsApp 2026 - Recomendado
+                                </MenuItem>
+                                <MenuItem value={"baileys2026"}>
+                                  ⚡ Baileys 2026 Avançado
+                                </MenuItem>
+                                <MenuItem value={"evolution"}>
+                                  🔗 Evolution API
+                                </MenuItem>
+                              </Field>
+                            </FormControl>
+                          </Grid>
+                        )}
+
+                        {( !fixedProvider || fixedProvider === 'wwebjs') && (
+                          <Grid item xs={12} md={6}>
+                            <Paper style={{ padding: 15, backgroundColor: '#f5f5f5', minHeight: 100 }} elevation={0}>
+                              {fixedProvider === 'wwebjs' ? (
+                                <>
+                                  <Typography variant="body2" style={{ fontWeight: 600, marginBottom: 8, color: '#1976d2' }}>
+                                    🚀 API WhatsApp 2026
+                                  </Typography>
+                                  <Typography variant="caption" display="block">
+                                    ✅ Tecnologia mais recente<br/>
+                                    ✅ Suporte completo a grupos<br/>
+                                    ✅ Menor risco de bloqueio<br/>
+                                    ✅ Polls, Stories, Reactions<br/>
+                                    ℹ️ Consome ~400MB RAM
+                                  </Typography>
+                                </>
+                              ) : (
+                                <>
+                                  {values.provider === 'baileys' && (
+                                    <>
+                                      <Typography variant="body2" style={{ fontWeight: 600, marginBottom: 8 }}>
+                                        📦 Baileys Estável
+                                      </Typography>
+                                      <Typography variant="caption" display="block">
+                                        ✅ Leve e rápido<br/>
+                                        ✅ Baixo consumo (50MB RAM)<br/>
+                                        ⚠️ Recursos básicos
+                                      </Typography>
+                                    </>
+                                  )}
+                                  {values.provider === 'wwebjs' && (
+                                    <>
+                                      <Typography variant="body2" style={{ fontWeight: 600, marginBottom: 8, color: '#1976d2' }}>
+                                        🚀 API WhatsApp 2026
+                                      </Typography>
+                                      <Typography variant="caption" display="block">
+                                        ✅ Tecnologia mais recente<br/>
+                                        ✅ Suporte completo a grupos<br/>
+                                        ✅ Menor risco de bloqueio<br/>
+                                        ✅ Polls, Stories, Reactions<br/>
+                                        ℹ️ Consome ~400MB RAM
+                                      </Typography>
+                                    </>
+                                  )}
+                                  {values.provider === 'baileys2026' && (
+                                    <>
+                                      <Typography variant="body2" style={{ fontWeight: 600, marginBottom: 8 }}>
+                                        ⚡ Baileys 2026 Avançado
+                                      </Typography>
+                                      <Typography variant="caption" display="block">
+                                        ✅ Alta performance<br/>
+                                        ✅ Protocolo mais recente<br/>
+                                        ⚠️ Requer microserviço ESM
+                                      </Typography>
+                                    </>
+                                  )}
+                                  {values.provider === 'evolution' && (
+                                    <>
+                                      <Typography variant="body2" style={{ fontWeight: 600, marginBottom: 8 }}>
+                                        🔗 Evolution API
+                                      </Typography>
+                                      <Typography variant="caption" display="block">
+                                        ✅ REST API completa<br/>
+                                        ✅ Multi-instância nativa<br/>
+                                        ✅ Gerenciamento avançado<br/>
+                                        ⚠️ Requer serviço externo
+                                      </Typography>
+                                    </>
+                                  )}
+                                </>
+                              )}
+                            </Paper>
+                          </Grid>
+                        )}
+                      </Grid>
+
+                      {((!fixedProvider && values.provider === 'wwebjs') || fixedProvider === 'wwebjs') && (
+                        <Grid container spacing={2} style={{ marginTop: 10 }}>
+                          <Grid item xs={12}>
+                            <Alert severity="info" icon="ℹ️">
+                              <strong>Requisitos da API 2026:</strong> Esta API consome aproximadamente 400MB de RAM por conexão. 
+                              Recomendada para até 10 conexões simultâneas em servidores com 4GB RAM.
+                            </Alert>
+                          </Grid>
+                        </Grid>
+                      )}
+
+                    </div>
 
                     <div className={classes.importMessage}>
                       <div className={classes.multFieldLine}>

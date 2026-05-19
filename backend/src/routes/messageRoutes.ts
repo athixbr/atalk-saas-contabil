@@ -21,5 +21,6 @@ messageRoutes.get("/messages-allMe", isAuth, MessageController.allMe);
 messageRoutes.post('/message/forward', isAuth, MessageController.forwardMessage)
 
 messageRoutes.post("/messages/edit/:messageId", isAuth, MessageController.edit);
+messageRoutes.post("/messages/redownload/:messageId", isAuth, MessageController.redownloadMedia);
 
 export default messageRoutes;

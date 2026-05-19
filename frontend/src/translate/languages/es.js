@@ -253,12 +253,17 @@ const messages = {
 			},
 			showTicketOpenModal:{
 				title: {
-				  header: "Servicio existente"
+				  header: "⚠️ Ticket en Atención"
 				},
 				form: {
-				  message: "Hay un ticket abierto para este contacto:",
-				  user: "Agente",
-				  queue: "Fila"
+				  message: "Este contacto ya está siendo atendido:",
+				  user: "Agente Responsable",
+				  queue: "Cola de Atención",
+				  instructions: "El ticket se liberará automáticamente después de 1 hora de inactividad, o puede solicitar la transferencia ahora.",
+				},
+				buttons: {
+				  wait: "⏳ Esperar Finalización",
+				  requestTransfer: "🔄 Solicitar Transferencia",
 				},
 			  },
 			  showTicketLogModal:{
@@ -266,13 +271,19 @@ const messages = {
 				  header: "Historico"
 				},
 				options: {
-				  create: 'Ticket creado.',
-				  chatBot: 'ChatBot iniciado.',
-				  queue: ' - Fila definida.',
-				  open: 'iniciou la atención.',
-				  access: 'accesó el ticket.',
-				  transfered: 'transferió el ticket.',
-				  receivedTransfer: 'recibió el ticket transferido.'
+				  create: '✅ Ticket creado.',
+				  chatBot: '🤖 ChatBot iniciado.',
+				  queue: ' - 📋 Fila definida.',
+				  open: '🎧 iniciou la atención.',
+				  pending: '⏳ Atención pendiente.',
+				  access: '👁️ accesó el ticket.',
+				  transfered: '➡️ transferió el ticket.',
+				  receivedTransfer: '⬅️ recibió el ticket transferido.',
+				  inactivityReturn: '⏰ Ticket devuelto a la cola por inactividad (1 hora sin respuesta).',
+				  blockedAccess: '🚫 intentó acceder al ticket en atención.',
+				  autoClose: '🔒 Ticket cerrado automáticamente.',
+				  closed: ' ✔️ cerró la atención.',
+				  adminTakeOver: '👮 Administrador asumió el ticket.'
 				},
 			  },
 			whatsappModal: {
@@ -541,6 +552,7 @@ const messages = {
 				  passwordDefault: "Contraseña",
 				  numberAttendants: "Usuarios",
 				  numberConections: "Conexiones",
+				  plan: "Plan",
 				},
 				buttons: {
 				  okAdd: "Agregar",
@@ -1220,6 +1232,8 @@ const messages = {
 				},
 				buttons: {
 				  add: "Agregar empresa",
+				  edit: "Editar empresa",
+				  delete: "Eliminar empresa",
 				},
 				toasts: {
 				  deleted: "Empresa excluida satisfactoriamente.",

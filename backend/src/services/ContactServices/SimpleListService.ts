@@ -1,5 +1,8 @@
 import Contact from "../../models/Contact";
 import AppError from "../../errors/AppError";
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 import { FindOptions, Op } from "sequelize";
 
 export interface SearchContactParams {

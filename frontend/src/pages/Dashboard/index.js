@@ -29,7 +29,6 @@ import Chart from "./Chart";
 import ButtonWithSpinner from "../../components/ButtonWithSpinner";
 
 import CardCounter from "../../components/Dashboard/CardCounter";
-import TableAttendantsStatus from "../../components/Dashboard/TableAttendantsStatus";
 import { isArray } from "lodash";
 
 import useDashboard from "../../hooks/useDashboard";
@@ -43,11 +42,7 @@ import { isEmpty } from "lodash";
 import moment from "moment";
 import { Card, CardContent } from "@mui/material";
 import { Typography } from "@material-ui/core";
-// import TableMediaStatus from "../../components/Dashboard/TableMediaStatus";
-import TableTempMedioStatus from "../../components/Dashboard/TableTempoMedioStatus";
-import TableTempWaitStatus from "../../components/Dashboard/TableTempoWaitStatus";
 import api from "../../services/api";
-// import { getInformations } from "../../components/Dashboard/TableTempoMedioStatus";
 
 
 const useStyles = makeStyles((theme) => ({
@@ -80,6 +75,9 @@ const useStyles = makeStyles((theme) => ({
   },
   alignRight: {
     textAlign: "right",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "flex-end",
   },
   fullWidth: {
     width: "100%",
@@ -87,6 +85,37 @@ const useStyles = makeStyles((theme) => ({
   selectContainer: {
     width: "100%",
     textAlign: "left",
+  },
+  statsCard: {
+    borderRadius: "15px",
+    boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+    transition: "transform 0.2s, box-shadow 0.2s",
+    "&:hover": {
+      transform: "translateY(-5px)",
+      boxShadow: "0 8px 30px rgba(0,0,0,0.12)",
+    },
+  },
+  filterCard: {
+    borderRadius: "20px",
+    boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+    marginTop: "20px",
+    background: "linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)",
+  },
+  chartCard: {
+    borderRadius: "20px",
+    boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+    height: "100%",
+    transition: "transform 0.2s",
+    "&:hover": {
+      transform: "translateY(-3px)",
+      boxShadow: "0 8px 30px rgba(0,0,0,0.12)",
+    },
+  },
+  sectionTitle: {
+    marginBottom: "15px",
+    fontWeight: 600,
+    color: "#1A4783",
+    fontSize: "1.2rem",
   },
 }));
 
@@ -619,97 +648,75 @@ const Dashboard = () => {
           </Grid>
 
 
-          <Grid item xs={12} sm={6} md={6}>
-            {attendants.length ? (
-              <TableAttendantsStatus
-                attendants={attendants}
-                loading={loading}
-                dataini={dateFrom}
-                dataFinal={dateTo}
-              />
-            ) : null}
-
-          </Grid>
-
-          <Grid item xs={12} sm={3} md={3}>
-            {attendants.length ? (
-              <TableTempMedioStatus
-                attendants={attendants}
-                loading={loading}
-                dataini={dateFrom}
-                dataFinal={dateTo}
-                reload={clickFilter} //Jhonnatan Criou isso aqui também
-              />
-
-            ) : null}
-          </Grid>
-
-          <Grid item xs={12} sm={3} md={3}>
-            {attendants.length ? (
-              <TableTempWaitStatus
-                attendants={attendants}
-                loading={loading}
-                dataini={dateFrom}
-                dataFinal={dateTo}
-                reload={clickFilter}
-              />
-            ) : null}
-          </Grid>
-
-
-          {/* Informativo da data de Vecimento */}
-
-
-          <Grid item xs={4} sm={7} md={4}>
-            <FormControl className={classes.selectContainer}>
-              <InputLabel id="period-selector-label">Tipo de Filtro</InputLabel>
-              <Select
-                labelId="period-selector-label"
-                value={filterType}
-                onChange={(e) => handleChangeFilterType(e.target.value)}
-              >
-                <MenuItem value={1}>Filtro por Data</MenuItem>
-                <MenuItem value={2}>Filtro por Período</MenuItem>
-              </Select>
-              <FormHelperText>Selecione o período desejado</FormHelperText>
-            </FormControl>
-          </Grid>
-
-          {renderFilters()}
-
-          <Grid item xs={2} sm={6} md={2} className={classes.alignRight}>
-            <ButtonWithSpinner
-              loading={loading}
-              onClick={handleFilterButtonClick}
-              // onClick={() => fetchData()}
-              // variant="contained"
-              // color="primary"
-              style={{ backgroundColor: "#1A4783", color: "white" }}
-            >
-              Filtrar
-            </ButtonWithSpinner>
-          </Grid>
-
-
-          <Grid item xs={12} sm={12} md={6}>
-            <Card style={{ borderRadius: "20px" }}>
+          {/* Seção de Filtros */}
+          <Grid item xs={12} md={12}>
+            <Card className={classes.filterCard}>
               <CardContent>
+                <Typography className={classes.sectionTitle}>
+                  Filtros de Período
+                </Typography>
+                <Grid container spacing={3}>
+                  <Grid item xs={12} sm={4} md={4}>
+                    <FormControl className={classes.selectContainer}>
+                      <InputLabel id="period-selector-label">Tipo de Filtro</InputLabel>
+                      <Select
+                        labelId="period-selector-label"
+                        value={filterType}
+                        onChange={(e) => handleChangeFilterType(e.target.value)}
+                      >
+                        <MenuItem value={1}>Filtro por Data</MenuItem>
+                        <MenuItem value={2}>Filtro por Período</MenuItem>
+                      </Select>
+                      <FormHelperText>Selecione o tipo de filtro desejado</FormHelperText>
+                    </FormControl>
+                  </Grid>
+
+                  {renderFilters()}
+
+                  <Grid item xs={12} sm={2} md={2} className={classes.alignRight}>
+                    <ButtonWithSpinner
+                      loading={loading}
+                      onClick={handleFilterButtonClick}
+                      style={{ backgroundColor: "#1A4783", color: "white" }}
+                    >
+                      Filtrar
+                    </ButtonWithSpinner>
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+
+
+          {/* Seção de Gráficos */}
+          <Grid item xs={12} sm={12} md={6}>
+            <Card className={classes.chartCard}>
+              <CardContent>
+                <Typography className={classes.sectionTitle}>
+                  Atendimentos por Fila
+                </Typography>
                 <ChartsQueue />
               </CardContent>
             </Card>
           </Grid>
 
           <Grid item xs={12} sm={12} md={6}>
-            <Card style={{ borderRadius: "20px" }}>
+            <Card className={classes.chartCard}>
               <CardContent>
+                <Typography className={classes.sectionTitle}>
+                  Atendimentos por Usuário
+                </Typography>
                 <ChartsUser />
               </CardContent>
             </Card>
           </Grid>
 
           <Grid item xs={12} sm={12} md={12}>
-            <Card style={{ borderRadius: "20px" }}>
+            <Card className={classes.chartCard}>
               <CardContent>
+                <Typography className={classes.sectionTitle}>
+                  Avaliação dos Atendimentos
+                </Typography>
                 <ChartsDate />
               </CardContent>
             </Card>

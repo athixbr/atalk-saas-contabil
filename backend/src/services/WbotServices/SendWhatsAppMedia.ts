@@ -3,6 +3,7 @@ import * as Sentry from "@sentry/node";
 import fs, { unlink, unlinkSync } from "fs";
 import { exec } from "child_process";
 import path from "path";
+import os from "os";
 import ffmpegPath from "@ffmpeg-installer/ffmpeg";
 import AppError from "../../errors/AppError";
 import GetTicketWbot from "../../helpers/GetTicketWbot";
@@ -12,6 +13,7 @@ import Contact from "../../models/Contact";
 import { getWbot } from "../../libs/wbot";
 import CreateMessageService from "../MessageServices/CreateMessageService";
 import formatBody from "../../helpers/Mustache";
+import { ensureLocalFile, isSpacesUrl, cdnUrlToKey } from "../../helpers/uploadToSpaces";
 interface Request {
   media: Express.Multer.File;
   ticket: Ticket;
@@ -21,17 +23,16 @@ interface Request {
   isForwarded?: boolean;
 }
 
-const publicFolder = path.resolve(__dirname, "..", "..", "..", "public");
+const publicFolder = path.resolve(__dirname, "..", "..", "..", "..", "public");
 
 const processAudio = async (audio: string, companyId: string): Promise<string> => {
-  const outputAudio = path.join(publicFolder, `company${companyId}`,`${new Date().getTime()}.mp3`);
+  const outputAudio = path.join(os.tmpdir(), `atalk-audio-${new Date().getTime()}.mp3`);
   
   return new Promise((resolve, reject) => {
     exec(
       `${ffmpegPath.path} -i "${audio}" -vn -ab 128k -ar 44100 -f ipod ${outputAudio} -y`,
       (error, _stdout, _stderr) => {
         if (error) reject(error);
-        // fs.unlinkSync(audio);
         resolve(outputAudio);
       }
     );
@@ -39,13 +40,12 @@ const processAudio = async (audio: string, companyId: string): Promise<string> =
 };
 
 const processAudioFile = async (audio: string, companyId: string): Promise<string> => {
-  const outputAudio = `${publicFolder}/company${companyId}/${new Date().getTime()}.mp3`;
+  const outputAudio = path.join(os.tmpdir(), `atalk-audiof-${new Date().getTime()}.mp3`);
   return new Promise((resolve, reject) => {
     exec(
       `${ffmpegPath.path} -i "${audio}" -vn -ar 44100 -ac 2 -b:a 192k "${outputAudio}"`,
       (error, _stdout, _stderr) => {
         if (error) reject(error);
-        // fs.unlinkSync(audio);
         resolve(outputAudio);
       }
     );
@@ -130,81 +130,90 @@ const SendWhatsAppMedia = async ({
 }: Request): Promise<WAMessage> => {
   try {
     const wbot = await getWbot(ticket.whatsappId);
-    const companyId = ticket.companyId.toString()
+    const companyId = ticket.companyId.toString();
 
-    const pathMedia = media.path;
+    // Garante que o arquivo esteja disponível localmente.
+    // Para arquivos novos (no Spaces), faz download para /tmp se necessário.
+    // media.filename pode ser CDN URL (novo) ou só o nome (antigo).
+    const cdnRef = isSpacesUrl(media.filename) ? media.filename : null;
+    const resolvedPath = await ensureLocalFile(media.path, cdnRef || `company${companyId}/${media.filename}`);
+    const isTemp = resolvedPath !== media.path; // baixou do Spaces para /tmp
+
     const typeMessage = media.mimetype.split("/")[0];
     let options: AnyMessageContent;
     let bodyTicket = "";
-    const bodyMedia = formatBody(body,ticket);
-    
+    const bodyMedia = formatBody(body, ticket);
+
     if (typeMessage === "video") {
       options = {
-        video: fs.readFileSync(pathMedia),
+        video: fs.readFileSync(resolvedPath),
         caption: bodyMedia,
-        fileName: media.originalname.replace('/', '-'),
-        contextInfo: { forwardingScore: isForwarded ? 2 : 0, isForwarded: isForwarded },
-        // gifPlayback: true
+        fileName: media.originalname.replace("/", "-"),
+        contextInfo: { forwardingScore: isForwarded ? 2 : 0, isForwarded: isForwarded }
       };
-      bodyTicket = "🎥 Arquivo de vídeo"
+      bodyTicket = "🎥 Arquivo de vídeo";
     } else if (typeMessage === "audio") {
-      const typeAudio = true; //media.originalname.includes("audio-record-site");
-      if (typeAudio) {
-        const convert = await processAudio(media.path, companyId);
-        options = {
-          audio: fs.readFileSync(convert),
-          mimetype: typeAudio ? "audio/mp4" : media.mimetype,
-          ptt: true,
-          caption: bodyMedia,
-          contextInfo: { forwardingScore: isForwarded ? 2 : 0, isForwarded: isForwarded },
-        };
-        unlinkSync(convert);
-      } else {
-        const convert = await processAudio(media.path, companyId);
-        options = {
-          audio: fs.readFileSync(convert),
-          mimetype:  "audio/mp4",
-          ptt: true,
-          caption: bodyMedia,
-          contextInfo: { forwardingScore: isForwarded ? 2 : 0, isForwarded: isForwarded },
-        };
-        unlinkSync(convert);
-      }
-      bodyTicket = "🎵 Arquivo de áudio"
+      const convert = await processAudio(resolvedPath, companyId);
+      options = {
+        audio: fs.readFileSync(convert),
+        mimetype: "audio/mp4",
+        ptt: true,
+        caption: bodyMedia,
+        contextInfo: { forwardingScore: isForwarded ? 2 : 0, isForwarded: isForwarded }
+      };
+      fs.existsSync(convert) && unlinkSync(convert);
+      bodyTicket = "🎵 Arquivo de áudio";
     } else if (typeMessage === "document" || typeMessage === "text") {
       options = {
-        document: fs.readFileSync(pathMedia),
+        document: fs.readFileSync(resolvedPath),
         caption: bodyMedia,
-        fileName: media.originalname.replace('/', '-'),
+        fileName: media.originalname.replace("/", "-"),
         mimetype: media.mimetype,
-        contextInfo: { forwardingScore: isForwarded ? 2 : 0, isForwarded: isForwarded },
-      };      
-      bodyTicket = "📂 Documento"
+        contextInfo: { forwardingScore: isForwarded ? 2 : 0, isForwarded: isForwarded }
+      };
+      bodyTicket = "📂 Documento";
     } else if (typeMessage === "application") {
       options = {
-        document: fs.readFileSync(pathMedia),
+        document: fs.readFileSync(resolvedPath),
         caption: bodyMedia,
-        fileName: media.originalname.replace('/', '-'),
+        fileName: media.originalname.replace("/", "-"),
         mimetype: media.mimetype,
-        contextInfo: { forwardingScore: isForwarded ? 2 : 0, isForwarded: isForwarded },
+        contextInfo: { forwardingScore: isForwarded ? 2 : 0, isForwarded: isForwarded }
       };
-      bodyTicket = "📎 Outros anexos"
+      bodyTicket = "📎 Outros anexos";
     } else {
       options = {
-        image: fs.readFileSync(pathMedia),
+        image: fs.readFileSync(resolvedPath),
         caption: bodyMedia,
-        contextInfo: { forwardingScore: isForwarded ? 2 : 0, isForwarded: isForwarded },
+        contextInfo: { forwardingScore: isForwarded ? 2 : 0, isForwarded: isForwarded }
       };
-      bodyTicket = "📎 Outros anexos"
+      bodyTicket = "📎 Outros anexos";
     }
+
+    // Limpa arquivos temporários (temp do upload ou download do Spaces)
+    if (isTemp || (media.path && media.path.startsWith(os.tmpdir()))) {
+      try { fs.existsSync(resolvedPath) && fs.unlinkSync(resolvedPath); } catch (_) {}
+    }
+    if (media.path && media.path !== resolvedPath && media.path.startsWith(os.tmpdir())) {
+      try { fs.existsSync(media.path) && fs.unlinkSync(media.path); } catch (_) {}
+    }
+    // Limpa arquivo local da pasta public se já foi enviado para Spaces
+    if (isSpacesUrl(media.filename) && media.path && !media.path.startsWith(os.tmpdir())) {
+      try { fs.existsSync(media.path) && fs.unlinkSync(media.path); } catch (_) {}
+    }
+
     if (isPrivate) {
+      const backendUrl = process.env.BACKEND_URL || "";
+      const mediaUrl = isSpacesUrl(media.filename)
+        ? media.filename
+        : `${backendUrl}/public/company${companyId}/${media.filename}`;
       const messageData = {
-        wid: `PVT${companyId}${ticket.id}${body.substring(0,6)}`,
+        wid: `PVT${companyId}${ticket.id}${body.substring(0, 6)}`,
         ticketId: ticket.id,
         contactId: undefined,
         body: bodyMedia,
         fromMe: true,
-        mediaUrl: media.filename,
+        mediaUrl,
         mediaType: media.mimetype.split("/")[0],
         read: true,
         quotedMsgId: null,
@@ -215,32 +224,50 @@ const SendWhatsAppMedia = async ({
         ticketTrakingId: null,
         isPrivate
       };
-
-      await CreateMessageService({ messageData, companyId: ticket.companyId});
-      
-      return
+      await CreateMessageService({ messageData, companyId: ticket.companyId });
+      return;
     }
 
-    const contactNumber = await Contact.findByPk(ticket.contactId)
-    
+    const contactNumber = await Contact.findByPk(ticket.contactId);
     let number: string;
-
     if (contactNumber.remoteJid && contactNumber.remoteJid !== "" && contactNumber.remoteJid.includes("@")) {
       number = contactNumber.remoteJid;
     } else {
-      number = `${contactNumber.number}@${
-        ticket.isGroup ? "g.us" : "s.whatsapp.net"
-      }`;
+      number = `${contactNumber.number}@${ticket.isGroup ? "g.us" : "s.whatsapp.net"}`;
     }
-    
-    const sentMessage = await wbot.sendMessage(
-      number,
-      {
-        ...options
-      }
-    );
 
-    await ticket.update({ lastMessage: formatBody(body !== media.filename ? formatBody(body,ticket) : bodyMedia, ticket), imported:null });
+    const sentMessage = await wbot.sendMessage(number, { ...options });
+    await ticket.update({ lastMessage: bodyTicket || media.originalname, imported: null });
+
+    // Salva imediatamente no banco e emite socket para o frontend mostrar a mensagem
+    if (sentMessage?.key?.id) {
+      const mediaUrl = isSpacesUrl(media.filename)
+        ? media.filename
+        : `${process.env.BACKEND_URL || ""}/public/company${companyId}/${media.filename}`;
+      const messageData = {
+        wid: sentMessage.key.id,
+        ticketId: ticket.id,
+        contactId: undefined,
+        body: bodyMedia || media.originalname,
+        fromMe: true,
+        mediaUrl,
+        mediaType: media.mimetype.split("/")[0],
+        read: true,
+        quotedMsgId: null,
+        ack: 1,
+        remoteJid: sentMessage.key.remoteJid,
+        participant: null,
+        dataJson: JSON.stringify(sentMessage),
+        ticketTrakingId: null,
+        isPrivate: false,
+        isForwarded
+      };
+      try {
+        await CreateMessageService({ messageData, companyId: ticket.companyId });
+      } catch (saveErr) {
+        console.warn("[SendWhatsAppMedia] Falha ao salvar mensagem no banco:", saveErr?.message);
+      }
+    }
 
     return sentMessage;
   } catch (err) {

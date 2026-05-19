@@ -221,7 +221,8 @@ const TicketsListCustom = (props) => {
         queueIds: JSON.stringify(selectedQueueIds),
         whatsappIds: JSON.stringify(whatsappIds),
         statusFilter: JSON.stringify(statusFilter),
-        userFilter
+        userFilter,
+        forceSearch
     });
 
 
@@ -377,6 +378,7 @@ const TicketsListCustom = (props) => {
                                 <TicketListItem
                                     ticket={ticket}
                                     key={ticket.id}
+                                    searchParam={searchParam}
                                 // handleChangeTab={handleChangeTab}
                                 />
                             ))}

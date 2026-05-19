@@ -1,3 +1,6 @@
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 import { Op, literal, fn, col } from "sequelize";
 import Tag from "../../models/Tag";
 import ContactTag from "../../models/ContactTag";

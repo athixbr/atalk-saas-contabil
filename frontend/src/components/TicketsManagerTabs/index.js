@@ -1,10 +1,10 @@
 import React, {  useContext, useEffect, useRef, useState } from "react";
-import { useHistory } from "react-router-dom";
+import { useHistory, useLocation } from "react-router-dom";
 
 import { makeStyles } from "@material-ui/core/styles";
 import Paper from "@material-ui/core/Paper";
 import SearchIcon from "@material-ui/icons/Search";
-import { Add, ClearAllRounded, DoneAll, Facebook, Group, Instagram, OfflineBolt, WhatsApp } from "@material-ui/icons";
+import { Add, Clear, ClearAllRounded, DoneAll, Facebook, Group, Instagram, OfflineBolt, WhatsApp } from "@material-ui/icons";
 import InputBase from "@material-ui/core/InputBase";
 import Tabs from "@material-ui/core/Tabs";
 import Tab from "@material-ui/core/Tab";
@@ -168,6 +168,7 @@ const useStyles = makeStyles((theme) => ({
 const TicketsManagerTabs = () => {
   const classes = useStyles();
   const history = useHistory();
+  const location = useLocation();
 
   const [searchParam, setSearchParam] = useState("");
   const [tab, setTab] = useState("open");
@@ -187,7 +188,7 @@ const TicketsManagerTabs = () => {
   const [selectedTags, setSelectedTags] = useState([]);
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [selectedWhatsapp, setSelectedWhatsapp] = useState([]);
-  // const [forceSearch, setForceSearch] = useState(false);
+  const [forceSearch, setForceSearch] = useState(0);
   const [selectedStatus, setSelectedStatus] = useState([]);
   const [filter, setFilter] = useState(false);
   // const [open, setOpen] = useState(false);
@@ -212,8 +213,58 @@ const TicketsManagerTabs = () => {
     if (tab === "search") {
       searchInputRef.current.focus();
     }
-    // setForceSearch(!forceSearch)
+  }, [tab]);
+
+  useEffect(() => {
+    const handleTicketTransferred = () => {
+      setForceSearch(prev => prev + 1);
+    };
+    window.addEventListener('ticket:transferred', handleTicketTransferred);
+    return () => {
+      window.removeEventListener('ticket:transferred', handleTicketTransferred);
+    };
   }, []);
+
+  // Detectar contactId na URL e abrir ticket automaticamente
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const contactId = params.get('contactId');
+    const autoOpen = params.get('autoOpen');
+
+    if (contactId && autoOpen === 'true') {
+      handleOpenContactTicket(contactId);
+      // Limpar parâmetros da URL após processar
+      history.replace('/tickets');
+    }
+  }, [location.search]);
+
+  const handleOpenContactTicket = async (contactId) => {
+    try {
+      // Buscar tickets abertos do contato
+      const { data } = await api.get(`/tickets`, {
+        params: {
+          contactId: contactId,
+          status: 'open',
+          pageNumber: 1
+        }
+      });
+
+      if (data.tickets && data.tickets.length > 0) {
+        // Se existe ticket aberto, navegar para ele
+        const ticket = data.tickets[0];
+        history.push(`/tickets/${ticket.id}`);
+      } else {
+        // Se não existe ticket aberto, abrir modal de novo ticket com contato pré-selecionado
+        setNewTicketModalOpen(true);
+        // Você pode adicionar lógica para pré-selecionar o contato no modal
+        // Isso depende de como o NewTicketModal está estruturado
+      }
+    } catch (error) {
+      console.error("Erro ao buscar ticket do contato:", error);
+      // Se houver erro, apenas abrir modal de novo ticket
+      setNewTicketModalOpen(true);
+    }
+  };
 
 
   let searchTimeout;
@@ -229,9 +280,18 @@ const TicketsManagerTabs = () => {
       return;
     }
 
+    setTab("search");
     searchTimeout = setTimeout(() => {
       setSearchParam(searchedTerm);
     }, 500);
+  };
+
+  const handleClearSearch = () => {
+    if (searchInputRef.current) {
+      searchInputRef.current.value = "";
+    }
+    setSearchParam("");
+    setTab("open");
   };
 
   // const handleBack = React.useCallback(() => {
@@ -361,9 +421,19 @@ const TicketsManagerTabs = () => {
           className={classes.searchInput}
           inputRef={searchInputRef}
           placeholder={i18n.t("tickets.search.placeholder")}
-          type="search"
+          type="text"
           onChange={handleSearch}
         />
+        {searchParam && (
+          <IconButton
+            size="small"
+            aria-label="limpar pesquisa"
+            onClick={handleClearSearch}
+            style={{ padding: 4, color: "grey" }}
+          >
+            <Clear fontSize="small" />
+          </IconButton>
+        )}
         <IconButton color="primary"
           aria-label="upload picture"
           component="span"
@@ -439,36 +509,6 @@ const TicketsManagerTabs = () => {
               />
             )}
           />
-          <SpeedDial
-            ariaLabel="Menu Actions"
-            className={classes.speedDial}
-            // hidden={hidden}
-            size="small"
-            icon={<OfflineBolt />}
-
-          >
-            {user.profile === 'admin' && (
-              <SpeedDialAction
-                icon={<DoneAll style={{ color: 'green' }} />}
-                className={classes.closeAllFab}
-                tooltipTitle={<span style={tooltipTitleStyle}>{i18n.t("ticketsManager.buttons.close")}&nbsp;Todos</span>}
-                tooltipOpen
-                onClick={(event) => {
-                  // handleClosed();
-                  handleSnackbarOpen();
-                }}
-              />
-            )}
-            <SpeedDialAction
-              icon={<Add style={{ color: '#25D366' }} />}
-              tooltipTitle={<span style={tooltipTitleStyle}>{i18n.t("ticketsManager.buttons.new")}&nbsp;Ticket</span>}
-              tooltipOpen
-              onClick={() => {
-                // handleClosed();
-                setNewTicketModalOpen(true);
-              }}
-            />
-          </SpeedDial>
         </>
         <TicketsQueueSelect
           style={{ marginLeft: 6 }}
@@ -606,7 +646,7 @@ const TicketsManagerTabs = () => {
             selectedQueueIds={selectedQueueIds}
             updateCount={(val) => setOpenCount(val)}
             style={applyPanelStyle("open")}
-            forceSearch={false}
+            forceSearch={forceSearch}
           />
           <TicketsList
             status="pending"
@@ -614,7 +654,7 @@ const TicketsManagerTabs = () => {
             showAll={user.profile === "admin" ? showAllTickets : false}
             updateCount={(val) => setPendingCount(val)}
             style={applyPanelStyle("pending")}
-            forceSearch={false}
+            forceSearch={forceSearch}
 
           />
           <TicketsList
@@ -623,7 +663,7 @@ const TicketsManagerTabs = () => {
             selectedQueueIds={selectedQueueIds}
             updateCount={(val) => setGroupingCount(val)}
             style={applyPanelStyle("group")}
-            forceSearch={false}
+            forceSearch={forceSearch}
 
           />
         </Paper>

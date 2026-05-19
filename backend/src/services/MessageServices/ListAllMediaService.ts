@@ -1,4 +1,7 @@
 import Message from "../../models/Message";
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 import { Op, fn, col, where } from "sequelize";
 
 interface Request {

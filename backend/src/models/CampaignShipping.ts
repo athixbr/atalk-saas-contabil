@@ -58,10 +58,10 @@ class CampaignShipping extends Model<CampaignShipping> {
   updatedAt: Date;
 
   @BelongsTo(() => ContactListItem)
-  contact: ContactListItem;
+  contact: any;
 
   @BelongsTo(() => Campaign)
-  campaign: Campaign;
+  campaign: any;
 }
 
 export default CampaignShipping;

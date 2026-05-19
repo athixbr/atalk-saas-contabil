@@ -1,4 +1,7 @@
 import sequelize from "../../database/index";
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 import { QueryTypes } from "sequelize";
 
 interface Return {

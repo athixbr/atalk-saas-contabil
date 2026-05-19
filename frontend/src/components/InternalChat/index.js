@@ -102,8 +102,7 @@ export const ChatModal = ({
 
   const handleSave = async () => {
     try {
-
-      if (!title) {
+      if (!title || title.trim() === "") {
         alert("Por favor, preencha o título da conversa.");
         return;
       }
@@ -116,17 +115,20 @@ export const ChatModal = ({
       if (type === "edit") {
         await api.put(`/chats/${chat.id}`, {
           users,
-          title,
+          title: title.trim(),
         });
       } else {
         const { data } = await api.post("/chats", {
           users,
-          title,
+          title: title.trim(),
         });
         handleLoadNewChat(data);
       }
       handleClose();
-    } catch (err) { }
+    } catch (err) {
+      console.error("Erro ao salvar chat:", err);
+      alert("Erro ao salvar conversa. Tente novamente.");
+    }
   };
 
   return (
@@ -162,7 +164,12 @@ export const ChatModal = ({
         <Button onClick={handleClose} color="primary">
           Fechar
         </Button>
-        <Button onClick={handleSave} color="primary" variant="contained">
+        <Button 
+          onClick={handleSave} 
+          color="primary" 
+          variant="contained"
+          disabled={!users || users.length === 0 || !title || title.trim() === ""}
+        >
           Salvar
         </Button>
       </DialogActions>
@@ -392,6 +399,7 @@ function InternalChat(props) {
           <Grid className={classes.gridItemTab} md={12} item>
             {isObject(currentChat) && has(currentChat, "id") && (
               <ChatMessages
+                chat={currentChat}
                 scrollToBottomRef={scrollToBottomRef}
                 pageInfo={messagesPageInfo}
                 messages={messages}
@@ -441,6 +449,9 @@ function InternalChat(props) {
               open={showDialog}
               chat={currentChat}
               handleLoadNewChat={(data) => {
+                // Adiciona o novo chat à lista
+                setChats((prev) => [data, ...prev]);
+                // Seleciona o novo chat
                 setMessages([]);
                 setMessagesPage(1);
                 setCurrentChat(data);

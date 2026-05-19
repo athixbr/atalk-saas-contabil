@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useContext } from "react";
 
 import * as Yup from "yup";
 import { Formik, Form, Field } from "formik";
@@ -28,8 +28,12 @@ import {
   InputLabel,
   MenuItem,
   Select,
+  Chip,
+  Box,
+  Typography,
 } from "@material-ui/core";
 import ConfirmationModal from "../ConfirmationModal";
+import { AuthContext } from "../../context/Auth/AuthContext";
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -72,18 +76,48 @@ const AnnouncementSchema = Yup.object().shape({
 
 const AnnouncementModal = ({ open, onClose, announcementId, reload }) => {
   const classes = useStyles();
+  const { user } = useContext(AuthContext);
 
   const initialState = {
     title: "",
     text: "",
     priority: 3,
     status: true,
+    tipo: "announcement",
+    usuariosIds: [],
+    departamentosIds: [],
+    expirationDays: 0,
   };
 
   const [confirmationOpen, setConfirmationOpen] = useState(false);
   const [announcement, setAnnouncement] = useState(initialState);
   const [attachment, setAttachment] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
   const attachmentFile = useRef(null);
+
+  useEffect(() => {
+    if (open && user?.profile === "admin") {
+      loadUsersAndDepartments();
+    }
+  }, [open, user]);
+
+  const loadUsersAndDepartments = async () => {
+    try {
+      setLoadingUsers(true);
+      const [usersRes, deptsRes] = await Promise.all([
+        api.get("/users"),
+        api.get("/departamentos")
+      ]);
+      setUsers(usersRes.data.users || []);
+      setDepartments(deptsRes.data.departamentos || []);
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
 
   useEffect(() => {
     try {
@@ -114,6 +148,18 @@ const AnnouncementModal = ({ open, onClose, announcementId, reload }) => {
   };
 
   const handleSaveAnnouncement = async (values) => {
+    // Validar notificação de admin
+    if (values.tipo === "admin_notification") {
+      if (!values.usuariosIds || (values.usuariosIds.length === 0 && !values.departamentosIds)) {
+        toast.error("Selecione pelo menos um usuário ou departamento");
+        return;
+      }
+      if (!values.departamentosIds || (values.departamentosIds.length === 0 && !values.usuariosIds)) {
+        toast.error("Selecione pelo menos um usuário ou departamento");
+        return;
+      }
+    }
+
     const announcementData = { ...values };
     try {
       if (announcementId) {
@@ -278,6 +324,99 @@ const AnnouncementModal = ({ open, onClose, announcementId, reload }) => {
                       </Field>
                     </FormControl>
                   </Grid>
+
+                  {/* Campos para notificações de admin */}
+                  {user?.profile === "admin" && (
+                    <>
+                      <Grid xs={12} item>
+                        <FormControl variant="outlined" margin="dense" fullWidth>
+                          <InputLabel id="tipo-selection-label">
+                            Tipo de Notificação
+                          </InputLabel>
+                          <Field
+                            as={Select}
+                            label="Tipo de Notificação"
+                            labelId="tipo-selection-label"
+                            id="tipo"
+                            name="tipo"
+                          >
+                            <MenuItem value="announcement">Comunicado</MenuItem>
+                            <MenuItem value="admin_notification">Notificação para Usuários</MenuItem>
+                          </Field>
+                        </FormControl>
+                      </Grid>
+
+                      {values.tipo === "admin_notification" && (
+                        <>
+                          <Grid xs={12} item>
+                            <FormControl variant="outlined" margin="dense" fullWidth disabled={loadingUsers}>
+                              <InputLabel id="usuarios-selection-label">
+                                Usuários
+                              </InputLabel>
+                              <Field
+                                as={Select}
+                                label="Usuários"
+                                labelId="usuarios-selection-label"
+                                id="usuariosIds"
+                                name="usuariosIds"
+                                multiple
+                              >
+                                {users.map((u) => (
+                                  <MenuItem key={u.id} value={u.id}>
+                                    {u.name}
+                                  </MenuItem>
+                                ))}
+                              </Field>
+                            </FormControl>
+                          </Grid>
+
+                          <Grid xs={12} item>
+                            <FormControl variant="outlined" margin="dense" fullWidth disabled={loadingUsers}>
+                              <InputLabel id="departamentos-selection-label">
+                                Departamentos
+                              </InputLabel>
+                              <Field
+                                as={Select}
+                                label="Departamentos"
+                                labelId="departamentos-selection-label"
+                                id="departamentosIds"
+                                name="departamentosIds"
+                                multiple
+                              >
+                                {departments.map((d) => (
+                                  <MenuItem key={d.id} value={d.id}>
+                                    {d.nome}
+                                  </MenuItem>
+                                ))}
+                              </Field>
+                            </FormControl>
+                          </Grid>
+
+                          <Grid xs={12} item>
+                            <FormControl variant="outlined" margin="dense" fullWidth>
+                              <InputLabel id="expiration-selection-label">
+                                Expiração (dias)
+                              </InputLabel>
+                              <Field
+                                as={Select}
+                                label="Expiração (dias)"
+                                labelId="expiration-selection-label"
+                                id="expirationDays"
+                                name="expirationDays"
+                              >
+                                <MenuItem value={0}>Sem expiração</MenuItem>
+                                <MenuItem value={1}>1 dia</MenuItem>
+                                <MenuItem value={3}>3 dias</MenuItem>
+                                <MenuItem value={7}>7 dias</MenuItem>
+                                <MenuItem value={15}>15 dias</MenuItem>
+                                <MenuItem value={30}>30 dias</MenuItem>
+                              </Field>
+                            </FormControl>
+                          </Grid>
+                        </>
+                      )}
+                    </>
+                  )}
                   {(announcement.mediaPath || attachment) && (
                     <Grid xs={12} item>
                       <Button startIcon={<AttachFileIcon />}>

@@ -57,16 +57,16 @@ class Schedule extends Model<Schedule> {
   updatedAt: Date;
 
   @BelongsTo(() => Contact, "contactId")
-  contact: Contact;
+  contact: any; // any prevents circular __metadata TDZ
 
   @BelongsTo(() => Ticket)
-  ticket: Ticket;
+  ticket: any;
 
   @BelongsTo(() => User)
-  user: User;
+  user: any;
 
   @BelongsTo(() => Company)
-  company: Company;
+  company: any;
 }
 
 export default Schedule;

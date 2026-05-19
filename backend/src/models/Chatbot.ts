@@ -36,7 +36,7 @@ class Chatbot extends Model<Chatbot> {
   queueId: number;
 
   @BelongsTo(() => Queue)
-  queue: Queue;
+  queue: any;
 
   @ForeignKey(() => Chatbot)
   @Column
@@ -46,10 +46,10 @@ class Chatbot extends Model<Chatbot> {
   isAgent: boolean;
 
   @BelongsTo(() => Chatbot)
-  mainChatbot: Chatbot;
+  mainChatbot: any;
 
   @HasMany(() => Chatbot)
-  options: Chatbot[];
+  options: any[];
 
   @CreatedAt
   createdAt: Date;
@@ -69,21 +69,21 @@ class Chatbot extends Model<Chatbot> {
   optUserId: number;
 
   @BelongsTo(() => User)
-  user: User;
+  user: any;
 
   @ForeignKey(() => QueueIntegrations)
   @Column
   optIntegrationId: number;
 
   @BelongsTo(() => QueueIntegrations)
-  queueIntegrations: QueueIntegrations;
+  queueIntegrations: any;
 
   @ForeignKey(() => Files)
   @Column
   optFileId: number;
 
   @BelongsTo(() => Files)
-  file: Files;
+  file: any;
 
   @Default(false)
   @Column

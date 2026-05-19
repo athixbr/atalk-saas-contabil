@@ -1,23 +1,20 @@
 import * as fsp from 'fs/promises';
 import path from "path";
 import * as fs from "fs";
-const filePath = 'caminho/do/seu/arquivo.txt';
 
 export async function addLogs({fileName, text, forceNewFile=false}) {
-        const logs = path.resolve(__dirname, "..","..", "logs");  
+        const logs = path.resolve(__dirname, "..", "..", "..", "logs");  
 
     try {
-
-        console.log(logs)
         if (!fs.existsSync(logs)) {
-          fs.mkdirSync(logs);
+          fs.mkdirSync(logs, { recursive: true });
         }
     } catch (error) {
 
     }
 
+  const filePath = path.resolve(logs, fileName);
   try {
-    const filePath  = path.resolve(logs,fileName)
     if(forceNewFile){
       await fsp.writeFile(filePath,  `${text} \n`);
       console.log(`Novo Arquivo de log adicionado ${filePath}\n \n ${text}`);

@@ -1,5 +1,8 @@
 /* eslint-disable import/no-extraneous-dependencies */
 /* eslint-disable camelcase */
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 import { QueryTypes } from "sequelize";
 import * as _ from "lodash";
 import sequelize from "../../database";

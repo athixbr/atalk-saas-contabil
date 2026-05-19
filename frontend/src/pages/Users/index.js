@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useReducer, useContext } from "react";
+import React, { useState, useEffect, useReducer, useContext, useCallback, useRef } from "react";
 import { toast } from "react-toastify";
+import { useHistory } from "react-router-dom";
 
 import { makeStyles } from "@material-ui/core/styles";
 import Paper from "@material-ui/core/Paper";
@@ -16,7 +17,8 @@ import InputAdornment from "@material-ui/core/InputAdornment";
 
 import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
 import EditIcon from "@material-ui/icons/Edit";
-import { AccountCircle } from "@material-ui/icons";
+import { AccountCircle, Assignment, Description } from "@material-ui/icons";
+import { Tooltip } from "@material-ui/core";
 
 import MainContainer from "../../components/MainContainer";
 import MainHeader from "../../components/MainHeader";
@@ -41,17 +43,8 @@ const backendUrl = getBackendUrl();
 const reducer = (state, action) => {
   if (action.type === "LOAD_USERS") {
     const users = action.payload;
-    const newUsers = [];
-
-    users.forEach((user) => {
-      const userIndex = state.findIndex((u) => u.id === user.id);
-      if (userIndex !== -1) {
-        state[userIndex] = user;
-      } else {
-        newUsers.push(user);
-      }
-    });
-
+    const existingIds = new Set(state.map(u => u.id));
+    const newUsers = users.filter(user => !existingIds.has(user.id));
     return [...state, ...newUsers];
   }
 
@@ -60,8 +53,12 @@ const reducer = (state, action) => {
     const userIndex = state.findIndex((u) => u.id === user.id);
 
     if (userIndex !== -1) {
-      state[userIndex] = user;
-      return [...state];
+      // Immutable update - create new array with updated user
+      return [
+        ...state.slice(0, userIndex),
+        user,
+        ...state.slice(userIndex + 1)
+      ];
     } else {
       return [user, ...state];
     }
@@ -69,12 +66,8 @@ const reducer = (state, action) => {
 
   if (action.type === "DELETE_USER") {
     const userId = action.payload;
-
-    const userIndex = state.findIndex((u) => u.id === userId);
-    if (userIndex !== -1) {
-      state.splice(userIndex, 1);
-    }
-    return [...state];
+    // Immutable delete - filter instead of splice
+    return state.filter(u => u.id !== userId);
   }
 
   if (action.type === "RESET") {
@@ -93,6 +86,7 @@ const useStyles = makeStyles((theme) => ({
 
 const Users = () => {
   const classes = useStyles();
+  const history = useHistory();
 
   const [loading, setLoading] = useState(false);
   const [pageNumber, setPageNumber] = useState(1);
@@ -105,6 +99,7 @@ const Users = () => {
   const [users, dispatch] = useReducer(reducer, []);
   const { user: loggedInUser } = useContext(AuthContext)
   const { profileImage } = loggedInUser;
+  const scrollTimeoutRef = useRef(null);
 
   useEffect(() => {
     dispatch({ type: "RESET" });
@@ -182,19 +177,38 @@ const Users = () => {
     setPageNumber(1);
   };
 
-  const loadMore = () => {
-    setPageNumber((prevState) => prevState + 1);
+  const handlePerfilCargo = (userId) => {
+    history.push(`/users/perfil-cargo/${userId}`);
   };
 
-  const handleScroll = (e) => {
-    if (!hasMore || loading) return;
-    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-    if (scrollHeight - (scrollTop + 100) < clientHeight) {
-      loadMore();
+  const handleHolerites = (userId) => {
+    history.push(`/users/holerites/${userId}`);
+  };
+
+  const loadMore = useCallback(() => {
+    if (!loading && hasMore) {
+      setPageNumber((prevState) => prevState + 1);
     }
-  };
+  }, [loading, hasMore]);
 
-  const renderProfileImage = (user) => {
+  const handleScroll = useCallback((e) => {
+    if (!hasMore || loading) return;
+    
+    // Clear previous timeout to debounce scroll events
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+    
+    scrollTimeoutRef.current = setTimeout(() => {
+      const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+      // Only trigger when truly at bottom (no threshold to avoid multiple triggers)
+      if (scrollTop + clientHeight >= scrollHeight - 5) {
+        loadMore();
+      }
+    }, 100); // 100ms debounce
+  }, [hasMore, loading, loadMore]);
+
+  const renderProfileImage = useCallback((user) => {
     if (user.id === loggedInUser.id ) {
       return (
         <Avatar
@@ -216,7 +230,7 @@ const Users = () => {
     return (
       <AccountCircle />
     )
-  };
+  }, [loggedInUser.id, profileImage, classes.userAvatar]);
   
   return (
     <MainContainer>
@@ -279,6 +293,7 @@ const Users = () => {
               <TableCell align="center">{i18n.t("users.table.name")}</TableCell>
               <TableCell align="center">{i18n.t("users.table.email")}</TableCell>
               <TableCell align="center">{i18n.t("users.table.profile")}</TableCell>
+              <TableCell align="center">Departamentos</TableCell>
               <TableCell align="center">{i18n.t("users.table.startWork")}</TableCell>
               <TableCell align="center">{i18n.t("users.table.endWork")}</TableCell>
               <TableCell align="center">{i18n.t("users.table.actions")}</TableCell>
@@ -300,25 +315,60 @@ const Users = () => {
                   <TableCell align="center">{user.name}</TableCell>
                   <TableCell align="center">{user.email}</TableCell>
                   <TableCell align="center">{user.profile}</TableCell>
+                  <TableCell align="center">
+                    {user.departamentos && user.departamentos.length > 0 ? (
+                      user.departamentos.map((dept, index) => (
+                        <span key={dept.id}>
+                          {dept.nome}
+                          {dept.DepartamentoUsuario?.isCoordenador && ' 👑'}
+                          {index < user.departamentos.length - 1 ? ', ' : ''}
+                        </span>
+                      ))
+                    ) : '-'}
+                  </TableCell>
                   <TableCell align="center">{user.startWork}</TableCell>
                   <TableCell align="center">{user.endWork}</TableCell>
                   <TableCell align="center">
-                    <IconButton
-                      size="small"
-                      onClick={() => handleEditUser(user)}
-                    >
-                      <EditIcon />
-                    </IconButton>
+                    <Tooltip title="Editar Usuário">
+                      <IconButton
+                        size="small"
+                        onClick={() => handleEditUser(user)}
+                      >
+                        <EditIcon />
+                      </IconButton>
+                    </Tooltip>
 
-                    <IconButton
-                      size="small"
-                      onClick={(e) => {
-                        setConfirmModalOpen(true);
-                        setDeletingUser(user);
-                      }}
-                    >
-                      <DeleteOutlineIcon />
-                    </IconButton>
+                    <Tooltip title="Perfil de Cargo">
+                      <IconButton
+                        size="small"
+                        color="primary"
+                        onClick={() => handlePerfilCargo(user.id)}
+                      >
+                        <Assignment />
+                      </IconButton>
+                    </Tooltip>
+
+                    <Tooltip title="Holerites">
+                      <IconButton
+                        size="small"
+                        color="default"
+                        onClick={() => handleHolerites(user.id)}
+                      >
+                        <Description />
+                      </IconButton>
+                    </Tooltip>
+
+                    <Tooltip title="Deletar Usuário">
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          setConfirmModalOpen(true);
+                          setDeletingUser(user);
+                        }}
+                      >
+                        <DeleteOutlineIcon />
+                      </IconButton>
+                    </Tooltip>
                   </TableCell>
                 </TableRow>
               ))}

@@ -18,8 +18,7 @@ import Whatsapp from "./Whatsapp";
 import Rating from "./Files";
 import Message from "./Message";
 import Queue from "./Queue";
-import Contact from './Contact';
-
+import Contact from "./Contact";
 @Table({
   tableName: "TicketTraking"
 })
@@ -34,21 +33,21 @@ class TicketTraking extends Model<TicketTraking> {
   ticketId: number;
 
   @BelongsTo(() => Ticket)
-  ticket: Ticket;
+  ticket: any;
 
   @ForeignKey(() => Company)
   @Column
   companyId: number;
 
   @BelongsTo(() => Company)
-  company: Company;
+  company: any;
 
   @ForeignKey(() => Whatsapp)
   @Column
   whatsappId: number;
 
   @BelongsTo(() => Whatsapp)
-  whatsapp: Whatsapp;
+  whatsapp: any;
 
   @ForeignKey(() => User)
   @Column
@@ -58,7 +57,7 @@ class TicketTraking extends Model<TicketTraking> {
   rated: boolean;
 
   @BelongsTo(() => User)
-  user: User;
+  user: any;
 
   @CreatedAt
   createdAt: Date;
@@ -89,17 +88,17 @@ class TicketTraking extends Model<TicketTraking> {
   contactId: number;
 
   @BelongsTo(() => Contact)
-  contact: Contact;
+  contact: any; // any prevents circular __metadata TDZ
 
   @ForeignKey(() => Queue)
   @Column
   queueId: number;
 
   @BelongsTo(() => Queue)
-  queue: Queue;
+  queue: any;
 
   @HasMany(() => Message)
-  message: Message[];
+  message: any[];
 
   @Column
   status: string;

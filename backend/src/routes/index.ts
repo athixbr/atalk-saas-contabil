@@ -39,6 +39,43 @@ import companySettingsRoutes from "./companySettingsRoutes";
 import passwordRoutes from "./passwordRoutes";
 import promptRoutes from "./promptRouter";
 import PlantaoRoutes from "./plantaoRoutes";
+import ticketMetricsRoutes from "./ticketMetricsRoutes";
+import tarefasGeradasRoutes from "./tarefasGeradasRoutes";
+import tarefasRecorrentesRoutes from "./tarefasRecorrentesRoutes";
+import tarefaConfigRoutes from "./tarefaConfigRoutes";
+import controleClienteRoutes from "./controleClienteRoutes";
+import controleConfigRoutes from "./controleConfigRoutes";
+import clienteRoutes from "./clienteRoutes";
+import socioRoutes from "./socioRoutes";
+import departamentoRoutes from "./departamentoRoutes";
+import parametrosRoutes from "./parametrosRoutes";
+import modeloParametrosRoutes from "./modeloParametrosRoutes";
+import taskRoutes from "./taskRoutes";
+import checklistRoutes from "./checklistRoutes";
+import tipoServicoRoutes from "./tipoServicoRoutes";
+import grupoServicoRoutes from "./grupoServicoRoutes";
+import certidaoRoutes from "./certidaoRoutes";
+import gedRoutes from "./gedRoutes";
+import knowledgeBaseArticleRoutes from "./knowledgeBaseArticleRoutes";
+import knowledgeBaseCategoryRoutes from "./knowledgeBaseCategoryRoutes";
+import crmLeadRoutes from "./crmLeadRoutes";
+import crmTaskRoutes from "./crmTaskRoutes";
+import crmClientRoutes from "./crmClientRoutes";
+import crmInteractionRoutes from "./crmInteractionRoutes";
+import crmStageRoutes from "./crmStageRoutes";
+import crmSourceRoutes from "./crmSourceRoutes";
+import crmTaskCategoryRoutes from "./crmTaskCategoryRoutes";
+import crmTaskStageRoutes from "./crmTaskStageRoutes";
+import crmBusinessTypeRoutes from "./crmBusinessTypeRoutes";
+import crmTaxRegimeRoutes from "./crmTaxRegimeRoutes";
+import perfilCargoRoutes from "./perfilCargoRoutes";
+import billingRoutes from "./billingRoutes";
+import campaignGrupoRoutes from "./campaignGrupoRoutes";
+import clienteViewPreferenceRoutes from "./clienteViewPreferenceRoutes";
+import userClientesPreferencesRoutes from "./userClientesPreferencesRoutes";
+import whatsappGroupRoutes from "./whatsappGroupRoutes";
+import wwebjsRoutes from "./wwebjsRoutes";
+import documentReaderRoutes from "./documentReaderRoutes";
 
 const routes = Router();
 
@@ -81,7 +118,57 @@ routes.use("/api", apiCompanyRoutes);
 routes.use("/api", apiContactRoutes);
 routes.use(passwordRoutes);
 routes.use(PlantaoRoutes);
+routes.use(companySettingsRoutes);
+routes.use(ticketMetricsRoutes);
 
-routes.use(companySettingsRoutes)
+// Módulo de Tarefas e Controles
+routes.use(tarefasGeradasRoutes);
+routes.use(tarefasRecorrentesRoutes);
+routes.use(tarefaConfigRoutes);
+routes.use(controleClienteRoutes);
+routes.use(controleConfigRoutes);
+routes.use(taskRoutes);
+routes.use(checklistRoutes);
+
+// Módulo de Clientes e Departamentos
+routes.use(clienteRoutes);
+routes.use(socioRoutes);
+routes.use(departamentoRoutes);
+routes.use(parametrosRoutes);
+routes.use(modeloParametrosRoutes);
+routes.use(clienteViewPreferenceRoutes);
+routes.use(userClientesPreferencesRoutes);
+
+// Módulo de Serviços
+routes.use(tipoServicoRoutes);
+routes.use(grupoServicoRoutes);
+
+// Módulo de Certidões e Documentos
+routes.use(certidaoRoutes);
+routes.use(gedRoutes);
+routes.use(documentReaderRoutes);
+
+// Base de Conhecimento
+routes.use(knowledgeBaseArticleRoutes);
+routes.use(knowledgeBaseCategoryRoutes);
+
+// CRM
+routes.use(crmLeadRoutes);
+routes.use(crmTaskRoutes);
+routes.use(crmClientRoutes);
+routes.use(crmInteractionRoutes);
+routes.use(crmStageRoutes);
+routes.use(crmSourceRoutes);
+routes.use(crmTaskCategoryRoutes);
+routes.use(crmTaskStageRoutes);
+routes.use(crmBusinessTypeRoutes);
+routes.use(crmTaxRegimeRoutes);
+
+// Outros módulos
+routes.use(perfilCargoRoutes);
+routes.use(billingRoutes);
+routes.use(campaignGrupoRoutes);
+routes.use(whatsappGroupRoutes);
+routes.use(wwebjsRoutes);
 
 export default routes;

@@ -66,31 +66,82 @@ const QrcodeModal = ({ open, onClose, whatsAppId }) => {
   const { user } = useContext(AuthContext);
   const classes = useStyles();
 
+  // Log para debug
+  useEffect(() => {
+    console.log('QrcodeModal: Renderizado', {
+      open,
+      whatsAppId,
+      userLoaded: !!user,
+      companyId: user?.companyId,
+      userId: user?.id,
+      qrCodePresent: !!qrCode,
+      qrCodeLength: qrCode?.length || 0
+    });
+  }, [open, whatsAppId, user, qrCode]);
+
   useEffect(() => {
     const fetchSession = async () => {
-      if (!whatsAppId) return;
+      if (!whatsAppId || !user?.companyId) {
+        console.log('QrcodeModal: Aguardando user carregar antes de buscar QR code...', {
+          whatsAppId,
+          userLoaded: !!user,
+          companyId: user?.companyId
+        });
+        return;
+      }
 
       try {
+        console.log('QrcodeModal: Buscando QR code da API para whatsappId:', whatsAppId);
         const { data } = await api.get(`/whatsapp/${whatsAppId}`);
+        console.log('QrcodeModal: Dados recebidos da API:', {
+          id: data.id,
+          name: data.name,
+          status: data.status,
+          qrcodeLength: data.qrcode?.length || 0,
+          qrcodePresent: !!data.qrcode
+        });
         setQrCode(data.qrcode);
       } catch (err) {
         toastError(err);
       }
     };
     fetchSession();
-  }, [whatsAppId]);
+  }, [whatsAppId, user?.companyId]);
 
   useEffect(() => {
-    if (!whatsAppId) return;
+    if (!whatsAppId || !user?.companyId || !user?.id) {
+      console.log('QrcodeModal: Aguardando dados do usuário...', {
+        whatsAppId,
+        companyId: user?.companyId,
+        userId: user?.id
+      });
+      return;
+    }
+    
     const companyId = user.companyId;
     const socket = socketConnection({ companyId, userId: user.id });
 
+    console.log('QrcodeModal: Conectando socket para whatsAppId:', whatsAppId, 'company:', companyId, 'user:', user.id);
+
     socket.on(`company-${companyId}-whatsappSession`, (data) => {
-      if (data.action === "update" && data.session.id === whatsAppId) {
+      console.log('QrcodeModal: Evento socket recebido:', {
+        action: data.action,
+        sessionId: data.session?.id,
+        sessionIdType: typeof data.session?.id,
+        whatsAppId: whatsAppId,
+        whatsAppIdType: typeof whatsAppId,
+        match: String(data.session?.id) === String(whatsAppId),
+        qrcodePresent: !!data.session?.qrcode,
+        qrcodeLength: data.session?.qrcode?.length || 0
+      });
+
+      if (data.action === "update" && String(data.session.id) === String(whatsAppId)) {
+        console.log('QrcodeModal: Atualizando QR code!');
         setQrCode(data.session.qrcode);
       }
 
       if (data.action === "update" && data.session.qrcode === "") {
+        console.log('QrcodeModal: QR code vazio, fechando modal');
         onClose();
       }
     });
@@ -98,7 +149,7 @@ const QrcodeModal = ({ open, onClose, whatsAppId }) => {
     return () => {
       socket.disconnect();
     };
-  }, [whatsAppId, onClose,user]);
+  }, [whatsAppId, onClose, user?.companyId, user?.id]);
 
   return (
     <Dialog
@@ -113,12 +164,12 @@ const QrcodeModal = ({ open, onClose, whatsAppId }) => {
           <div style={{ marginRight: "20px" }}>
             {/* Título maior adicionado */}
             <Typography variant="h2" className={classes.title}>
-              Acessar WhatsApp no Whaticket
+              Acessar WhatsApp no Atalk
             </Typography>
 
             {/* Texto adicional abaixo */}
             <Typography variant="body1" color="textPrimary" className={classes.subText}>
-              Envie mensagens privadas para seus clientes diretamente pelo WhatsApp no Whaticket.
+              Envie mensagens privadas para seus clientes diretamente pelo WhatsApp no Atalk.
             </Typography>
 
             {/* Passo a passo */}
@@ -141,7 +192,12 @@ const QrcodeModal = ({ open, onClose, whatsAppId }) => {
           </div>
           <div className={classes.qrCodeContainer}>
             {qrCode ? (
-              <QRCode value={qrCode} size={256} />
+              <>
+                <QRCode value={qrCode} size={256} />
+                <p style={{ marginTop: '10px', fontSize: '12px', color: '#666' }}>
+                  QR Code carregado (length: {qrCode.length})
+                </p>
+              </>
             ) : (
               <span>Aguardando pelo QR Code</span>
             )}

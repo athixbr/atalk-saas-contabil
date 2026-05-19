@@ -1,3 +1,6 @@
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 import { Op } from "sequelize";
 import Prompt from "../../models/Prompt";
 import Queue from "../../models/Queue";

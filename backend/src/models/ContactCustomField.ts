@@ -29,7 +29,7 @@ class ContactCustomField extends Model<ContactCustomField> {
   contactId: number;
 
   @BelongsTo(() => Contact)
-  contact: Contact;
+  contact: any; // any prevents circular __metadata TDZ
 
   @CreatedAt
   createdAt: Date;

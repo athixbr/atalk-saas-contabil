@@ -3,6 +3,7 @@ import path, { join } from "path";
 import { promisify } from "util";
 import { readFile, writeFile } from "fs";
 import fs from "fs";
+import os from "os";
 import * as Sentry from "@sentry/node";
 import { isNil, isNull } from "lodash";
 import ffmpeg from "fluent-ffmpeg";
@@ -18,6 +19,7 @@ import {
   extractMessageContent,
   getContentType,
   GroupMetadata,
+  isLidUser,
   jidNormalizedUser,
   delay,
   MessageUpsertType,
@@ -32,6 +34,7 @@ import Ticket from "../../models/Ticket";
 import Message from "../../models/Message";
 
 import { getIO } from "../../libs/socket";
+import { resolveLidJid, storeLidMapping } from "../../libs/lidCache";
 import CreateMessageService from "../MessageServices/CreateMessageService";
 import { logger } from "../../utils/logger";
 import CreateOrUpdateContactService from "../ContactServices/CreateOrUpdateContactService";
@@ -50,6 +53,9 @@ import FindOrCreateATicketTrakingService from "../TicketServices/FindOrCreateATi
 import VerifyCurrentSchedule from "../CompanyService/VerifyCurrentSchedule";
 import Campaign from "../../models/Campaign";
 import CampaignShipping from "../../models/CampaignShipping";
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 import { Op } from "sequelize";
 import { campaignQueue, parseToMilliseconds, randomValue } from "../../queues";
 import User from "../../models/User";
@@ -70,6 +76,7 @@ import QueueIntegrations from "../../models/QueueIntegrations";
 import ShowFileService from "../FileServices/ShowService";
 import typebotListener from "../TypebotServices/typebotListener";
 import { provider } from './providers';
+import { uploadBufferToSpaces, buildSpacesKey } from "../../helpers/uploadToSpaces";
 
 const request = require("request");
 
@@ -359,18 +366,33 @@ const getSenderMessage = (
   return senderId && jidNormalizedUser(senderId);
 };
 
+/**
+ * Resolve JID em formato @lid para o número real @s.whatsapp.net
+ * Prioridade: 1) Map em memória (imediato), 2) Redis (persistênte)
+ */
+const resolveJidToPhone = async (jid: string): Promise<string> => {
+  if (!jid || !isLidUser(jid)) return jid;
+  const resolved = await resolveLidJid(jid);
+  return resolved || jid; // fallback: usa o LID (merge acontece via contacts.upsert)
+};
+
 const getContactMessage = async (msg: proto.IWebMessageInfo, wbot: Session) => {
   const isGroup = msg.key.remoteJid.includes("g.us");
-  const rawNumber = msg.key.remoteJid.replace(/\D/g, "");
-  return isGroup
-    ? {
-      id: getSenderMessage(msg, wbot),
-      name: msg.pushName
-    }
-    : {
-      id: msg.key.remoteJid,
+
+  if (isGroup) {
+    // Para mensagens de grupo, o remetente pode ser @lid no Baileys v7
+    let senderId = getSenderMessage(msg, wbot);
+    senderId = await resolveJidToPhone(senderId);
+    return { id: senderId, name: msg.pushName };
+  } else {
+    // Para mensagens diretas, o remoteJid pode ser @lid
+    const resolvedJid = await resolveJidToPhone(msg.key.remoteJid);
+    const rawNumber = resolvedJid.replace(/\D/g, "");
+    return {
+      id: resolvedJid,
       name: msg.key.fromMe ? rawNumber : msg.pushName
     };
+  }
 };
 
 const getMineType = (msg: proto.IWebMessageInfo): IMineTypeMessage => {
@@ -396,7 +418,7 @@ const downloadMedia = async (msg: proto.IWebMessageInfo, isImported: Date = null
   let buffer
   try {
     buffer = await downloadMediaMessage(
-      msg,
+      msg as any,
       'buffer',
       {}
     )
@@ -408,7 +430,12 @@ const downloadMedia = async (msg: proto.IWebMessageInfo, isImported: Date = null
       console.error('Erro ao baixar mídia:', err);
     }
 
-    // Trate o erro de acordo com as suas necessidades
+    return null;
+  }
+
+  if (!buffer) {
+    console.error('Buffer de mídia vazio após download');
+    return null;
   }
 
   let filename = getMediaName(msg);
@@ -440,26 +467,97 @@ const verifyContact = async (
   companyId: number
 ): Promise<Contact> => {
 
+  const isGroup = msgContact.id.includes("g.us");
+  const isLid = isLidUser(msgContact.id);
+
+  // --- Tratamento especial para contatos @lid (Baileys v7 privacy) ---
+  if (isLid) {
+    // 1. Tentar resolver do cache (memória → Redis)
+    const originalLid = msgContact.id;
+    const resolvedJid = await resolveLidJid(msgContact.id);
+    if (resolvedJid) {
+      // Cache resolveu: trocar o JID pelo número real e processar normalmente
+      msgContact = { ...msgContact, id: resolvedJid };
+      logger.info(`[LID] verifyContact: ${originalLid} resolvido via cache → ${resolvedJid}`);
+
+      // Sincroniza o placeholder no banco antes de chamar CreateOrUpdateContact.
+      // Sem isso, CreateOrUpdateContact não acha o placeholder pelo número real (ainda
+      // tem os dígitos do LID) nem pelo remoteJid (ainda tem @lid) e cria um contato
+      // duplicado — que só seria fundido depois pelo applyLidMapping.
+      const phoneNumber = resolvedJid.replace(/\D/g, "");
+      const lidPlaceholder = await Contact.findOne({
+        where: { remoteJid: originalLid, companyId }
+      });
+      if (lidPlaceholder && (lidPlaceholder.number !== phoneNumber || lidPlaceholder.remoteJid !== resolvedJid)) {
+        await lidPlaceholder.update({ number: phoneNumber, remoteJid: resolvedJid });
+        logger.info(`[LID] verifyContact: placeholder id=${lidPlaceholder.id} atualizado ${originalLid} → ${resolvedJid}`);
+      }
+    } else {
+      // 2. Cache vazio: buscar no banco pelo remoteJid=lidJid (contato já visto antes)
+      const existingByLid = await Contact.findOne({
+        where: { remoteJid: msgContact.id, companyId }
+      });
+      if (existingByLid) {
+        // Já existe placeholder para esse LID — retorna sem criar duplicata
+        return existingByLid;
+      }
+
+      // 3. Tentar achar contato real pelo pushName para evitar duplicata
+      //    Só usa se o nome for único nesta empresa (não ambíguo)
+      if (msgContact.name) {
+        const byName = await Contact.findAll({
+          where: { name: msgContact.name, companyId },
+          order: [["updatedAt", "DESC"]],
+          limit: 2
+        });
+        if (byName.length === 1) {
+          // Nome único → associa o LID a esse contato e retorna ele
+          const realContact = byName[0];
+          await realContact.update({ remoteJid: msgContact.id });
+          await storeLidMapping(msgContact.id, `${realContact.number}@s.whatsapp.net`);
+          logger.info(`[LID] verifyContact: ${msgContact.id} associado ao contato ${realContact.id} via pushName "${msgContact.name}"`);
+          return realContact;
+        }
+      }
+
+      // 4. Nenhuma correspondência — criar placeholder (será fundido via lid-mapping.update)
+      logger.info(`[LID] verifyContact: ${msgContact.id} sem resolução, criando placeholder`);
+    }
+  }
+  // --- fim tratamento LID ---
+
+  const isLidFinal = isLidUser(msgContact.id); // pode ter mudado após resolução
+
+  // Para @lid não resolvido: não tenta buscar foto (WhatsApp rejeita @lid)
   let profilePicUrl: string;
-  try {
-    profilePicUrl = await wbot.profilePictureUrl(msgContact.id, "image");
-  } catch (e) {
-    Sentry.captureException(e);
+  if (isLidFinal) {
     profilePicUrl = `${process.env.FRONTEND_URL}/nopicture.png`;
+  } else {
+    try {
+      profilePicUrl = await wbot.profilePictureUrl(msgContact.id, "image");
+    } catch (e) {
+      Sentry.captureException(e);
+      profilePicUrl = `${process.env.FRONTEND_URL}/nopicture.png`;
+    }
+  }
+
+  let number: string;
+  if (isGroup) {
+    number = msgContact.id.replace("@g.us", "");
+  } else if (isLidFinal) {
+    number = msgContact.id.replace(/\D/g, "");
+  } else {
+    number = msgContact.id.replace(/\D/g, "");
   }
 
   const contactData = {
-    name: msgContact.name || msgContact.id.replace(/\D/g, ""),
-    number: msgContact.id.replace(/\D/g, ""),
+    name: msgContact.name || number,
+    number,
     profilePicUrl,
-    isGroup: msgContact.id.includes("g.us"),
+    isGroup,
     companyId,
     remoteJid: msgContact.id
   };
-
-  if (contactData.isGroup) {
-    contactData.number = msgContact.id.replace("@g.us", "");
-  }
 
   const contact = CreateOrUpdateContactService(contactData);
 
@@ -534,7 +632,12 @@ export const verifyMediaMessage = async (
       throw new Error("ERR_WAPP_DOWNLOAD_MEDIA");
     }
 
-    // if (!media.filename || media.mimetype === "audio/mp4") {
+    if (!media.data) {
+      logger.warn(`ERR_WAPP_DOWNLOAD_MEDIA: buffer vazio para ${media.filename}`);
+      throw new Error("ERR_WAPP_DOWNLOAD_MEDIA");
+    }
+
+
     //   const ext = media.mimetype === "audio/mp4" ? "m4a" : media.mimetype.split("/")[1].split(";")[0];
     //   media.filename = `${new Date().getTime()}.${ext}`;
     // } else {
@@ -557,60 +660,61 @@ export const verifyMediaMessage = async (
     }
 
 
+    const backendUrl = process.env.BACKEND_URL || "";
+    let mediaStoredUrl = `${backendUrl}/public/company${companyId}/${media.filename}`;
+
     try {
+      const buffer = Buffer.isBuffer(media.data)
+        ? media.data
+        : Buffer.from(media.data.toString("base64"), "base64");
 
-
-
-      const folder = path.resolve(__dirname, "..", "..", "..", "public", `company${companyId}`);
-
-      // const folder = `public/company${companyId}`; // Correção adicionada por Altemir 16-08-2023
-      if (!fs.existsSync(folder)) {
-        fs.mkdirSync(folder, { recursive: true }); // Correção adicionada por Altemir 16-08-2023
-        fs.chmodSync(folder, 0o777)
+      // Upload para DigitalOcean Spaces
+      try {
+        const spacesKey = buildSpacesKey(companyId, media.filename);
+        const cdnUrl = await uploadBufferToSpaces(buffer, spacesKey, media.mimetype);
+        mediaStoredUrl = cdnUrl;
+      } catch (spacesErr) {
+        // Fallback: salva localmente se Spaces falhar
+        logger.warn(`[Spaces] Falha no upload, salvando localmente: ${spacesErr.message}`);
+        const localPublic = path.resolve(__dirname, "..", "..", "..", "..", "public");
+        const companyDir = path.join(localPublic, `company${companyId}`);
+        fs.mkdirSync(companyDir, { recursive: true });
+        fs.writeFileSync(path.join(companyDir, media.filename), buffer);
+        mediaStoredUrl = `${backendUrl}/public/company${companyId}/${media.filename}`;
       }
 
-      await writeFileAsync(join(folder, media.filename), media.data.toString('base64'), "base64") // Correção adicionada por Altemir 16-08-2023
-
-        .then(() => {
-          console.log("Arquivo salvo com sucesso!");
-
-          const inputFile = path.join(folder, media.filename);
-          let outputFile: string;
-
-          if (inputFile.endsWith(".mpeg")) {
-            outputFile = inputFile.replace(".mpeg", ".mp3");
-          } else if (inputFile.endsWith(".ogg")) {
-            outputFile = inputFile.replace(".ogg", ".mp3");
-          } else {
-            // Trate outros formatos de arquivo conforme necessário
-            console.error("Formato de arquivo não suportado:", inputFile);
-            return;
-          }
-
-
-
-          return new Promise<void>((resolve, reject) => {
-            ffmpeg(inputFile)
-              .toFormat("mp3")
-              .save(outputFile)
-              .on("end", () => {
-                resolve();
-              })
-              .on("error", (err: any) => {
-                reject(err);
-              });
-          });
-        })
-        .then(() => {
-          console.log("Conversão concluída!");
-          // Aqui você pode fazer o que desejar com o arquivo MP3 convertido.
-        })
-
+      // Conversão de áudio ogg/mpeg → mp3 via temp file (não bloqueante)
+      const isAudio = media.filename.endsWith(".ogg") || media.filename.endsWith(".mpeg");
+      if (isAudio) {
+        const tempIn = path.join(os.tmpdir(), `atalk-audio-${Date.now()}-${media.filename}`);
+        const mp3Filename = media.filename.replace(/\.(ogg|mpeg)$/, ".mp3");
+        const tempOut = path.join(os.tmpdir(), `atalk-audio-${Date.now()}-${mp3Filename}`);
+        fs.writeFileSync(tempIn, buffer);
+        new Promise<void>((resolve, reject) => {
+          ffmpeg(tempIn)
+            .toFormat("mp3")
+            .save(tempOut)
+            .on("end", async () => {
+              try {
+                const mp3Buffer = fs.readFileSync(tempOut);
+                const mp3Key = buildSpacesKey(companyId, mp3Filename);
+                await uploadBufferToSpaces(mp3Buffer, mp3Key, "audio/mpeg");
+              } catch (_) {}
+              fs.existsSync(tempIn) && fs.unlinkSync(tempIn);
+              fs.existsSync(tempOut) && fs.unlinkSync(tempOut);
+              resolve();
+            })
+            .on("error", (err: any) => {
+              fs.existsSync(tempIn) && fs.unlinkSync(tempIn);
+              reject(err);
+            });
+        }).catch((err: any) => logger.warn(`Conversão mp3 falhou: ${err.message}`));
+      }
     } catch (err) {
-      Sentry.setExtra('Erro media', { companyId: companyId, ticket, contact, media, quotedMsg });
+      Sentry.setExtra("Erro media salvar local", { companyId, ticket, contact, media, quotedMsg });
       Sentry.captureException(err);
       logger.error(err);
-      console.log(msg)
+      console.log(msg);
     }
 
     const body = getBodyMessage(msg);
@@ -622,7 +726,7 @@ export const verifyMediaMessage = async (
       body: body || media.filename,
       fromMe: msg.key.fromMe,
       read: msg.key.fromMe,
-      mediaUrl: media.filename,
+      mediaUrl: mediaStoredUrl,
       mediaType: media.mimetype.split("/")[0],
       quotedMsgId: quotedMsg?.id,
       ack: msg.status,
@@ -1077,7 +1181,7 @@ const verifyQueue = async (
 
     if (!isNil(queues[0].fileListId)) {
       try {
-        const publicFolder = path.resolve(__dirname, "..", "..", "..", "public");
+        const publicFolder = path.resolve(__dirname, "..", "..", "..", "..", "public");
 
         const files = await ShowFileService(queues[0].fileListId, ticket.companyId)
 
@@ -1384,7 +1488,7 @@ const verifyQueue = async (
 
       if (!isNil(choosenQueue.fileListId)) {
         try {
-          const publicFolder = path.resolve(__dirname, "..", "..", "..", "public");
+          const publicFolder = path.resolve(__dirname, "..", "..", "..", "..", "public");
 
           const files = await ShowFileService(choosenQueue.fileListId, ticket.companyId)
 
@@ -1943,7 +2047,7 @@ export const handleMessageIntegration = async (
         await sendDialogflowAwswer(
           wbot,
           ticket,
-          msg,
+          msg as any,
           ticket.contact,
           inputAudio,
           companyId,
@@ -2082,6 +2186,11 @@ const handleMessage = async (
 
 
     const contact = await verifyContact(msgContact, wbot, companyId);
+
+    if (!contact) {
+      logger.warn(`[handleMessage] Contato não pôde ser criado/encontrado para ${msgContact?.id}, mensagem ignorada`);
+      return;
+    }
 
     let unreadMessages = 0;
     let ticket = null;
@@ -2900,7 +3009,7 @@ const filterMessages = (msg: WAMessage): boolean => {
       WAMessageStubType.E2E_DEVICE_CHANGED,
       WAMessageStubType.E2E_IDENTITY_CHANGED,
       WAMessageStubType.CIPHERTEXT
-    ].includes(msg.messageStubType as WAMessageStubType)
+    ].includes(msg.messageStubType as typeof WAMessageStubType[keyof typeof WAMessageStubType])
   )
     return false;
 
@@ -2909,6 +3018,11 @@ const filterMessages = (msg: WAMessage): boolean => {
 
 const wbotMessageListener = (wbot: Session, companyId: number): void => {
   wbot.ev.on("messages.upsert", async (messageUpsert: ImessageUpsert) => {
+
+    // Ignorar mensagens do histórico (type='append') para não processar mensagens
+    // antigas como novas ao reconectar — principal causa de tickets/mensagens duplicados.
+    // type='notify' = mensagem nova em tempo real (única que deve acionar bot/ticket).
+    if (messageUpsert.type !== "notify") return;
 
     const messages = messageUpsert.messages
       .filter(filterMessages)
@@ -2948,7 +3062,7 @@ const wbotMessageListener = (wbot: Session, companyId: number): void => {
 
 
       if (message.key.remoteJid?.endsWith("@g.us")) {
-        handleMsgAck(message, 2)
+        handleMsgAck(message as any, 2)
       }
 
     });
@@ -3020,10 +3134,38 @@ const wbotMessageListener = (wbot: Session, companyId: number): void => {
         profilePicUrl
       };
 
-      const contact = await CreateOrUpdateContactService(contactData);
-
+      await CreateOrUpdateContactService(contactData);
     });
-  })
+  });
+
+  // Quando o bot entrar em um grupo novo ou reconectar e receber lista de grupos
+  wbot.ev.on("groups.upsert", async (groupList: GroupMetadata[]) => {
+    if (!groupList || groupList.length === 0) return;
+    for (const group of groupList) {
+      try {
+        const number = group.id.replace(/\D/g, "");
+        const nameGroup = group.subject || number;
+
+        let profilePicUrl: string;
+        try {
+          profilePicUrl = await wbot.profilePictureUrl(group.id, "image");
+        } catch (e) {
+          profilePicUrl = `${process.env.FRONTEND_URL}/nopicture.png`;
+        }
+
+        await CreateOrUpdateContactService({
+          name: nameGroup,
+          number,
+          isGroup: true,
+          companyId,
+          remoteJid: group.id,
+          profilePicUrl
+        });
+      } catch (err) {
+        Sentry.captureException(err);
+      }
+    }
+  });
 
 };
 

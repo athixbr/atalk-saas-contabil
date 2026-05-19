@@ -24,14 +24,24 @@ const ModalImageCors = ({ imageUrl }) => {
 	useEffect(() => {
 		if (!imageUrl) return;
 		const fetchImage = async () => {
-			const { data, headers } = await api.get(imageUrl, {
-				responseType: "blob",
-			});
-			const url = window.URL.createObjectURL(
-				new Blob([data], { type: headers["content-type"] })
-			);
-			setBlobUrl(url);
-			setFetching(false);
+			try {
+				// CDN URLs (Digital Ocean Spaces) are public — fetch directly
+				const isCdn = imageUrl.includes("digitaloceanspaces.com") || imageUrl.includes("cdn.digitaloceanspaces.com");
+				if (isCdn) {
+					setBlobUrl(imageUrl);
+					return;
+				}
+				const { data, headers } = await api.get(imageUrl, { responseType: "arraybuffer" });
+				const url = window.URL.createObjectURL(
+					new Blob([data], { type: headers["content-type"] })
+				);
+				setBlobUrl(url);
+			} catch (err) {
+				// Fallback: usa a URL direta sem autenticação
+				setBlobUrl(imageUrl);
+			} finally {
+				setFetching(false);
+			}
 		};
 		fetchImage();
 	}, [imageUrl]);

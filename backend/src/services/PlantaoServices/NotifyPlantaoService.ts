@@ -1,3 +1,6 @@
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 import { col, fn, literal, Op } from "sequelize";
 import Plantao from "../../models/Plantao";
 import Whatsapp from "../../models/Whatsapp";

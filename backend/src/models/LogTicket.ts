@@ -39,7 +39,7 @@ class LogTicket extends Model<LogTicket> {
   ticketId: number;
 
   @BelongsTo(() => Ticket)
-  ticket: Ticket;
+  ticket: any;
 
   @ForeignKey(() => User)
   @Default(null)
@@ -48,14 +48,14 @@ class LogTicket extends Model<LogTicket> {
   userId: number;
 
   @BelongsTo(() => User)
-  user: User;
+  user: any;
 
   @ForeignKey(() => Queue)
   @Column
   queueId: number;
 
   @BelongsTo(() => Queue)
-  queue: Queue;
+  queue: any;
 }
 
 export default LogTicket;

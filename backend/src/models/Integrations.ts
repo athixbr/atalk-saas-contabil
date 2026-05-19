@@ -6,13 +6,11 @@ import {
     PrimaryKey,
     Default,
     DataType,
-    HasMany,
     AutoIncrement,
     BelongsTo,
     ForeignKey,
     Column
 } from "sequelize-typescript";
-import Queue from "./Queue";
 import Company from "./Company";
 
 @Table
@@ -70,11 +68,8 @@ class Integrations extends Model<Integrations> {
 
     @Column
     initialCurrentMonth: number;
-    @HasMany(() => Queue)
-    queues: Queue[];
-  
     @BelongsTo(() => Company)
-    company: Company;
+    company: any;
   
 }
 

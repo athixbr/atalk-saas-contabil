@@ -37,10 +37,10 @@ class ChatUser extends Model<ChatUser> {
   updatedAt: Date;
 
   @BelongsTo(() => Chat)
-  chat: Chat;
+  chat: any;
 
   @BelongsTo(() => User)
-  user: User;
+  user: any;
 }
 
 export default ChatUser;

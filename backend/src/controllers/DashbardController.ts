@@ -4,6 +4,9 @@ import { TicketsAttendance } from "../services/ReportService/TicketsAttendance";
 import { TicketsDayService } from "../services/ReportService/TicketsDayService";
 import TicketsQueuesService from "../services/TicketServices/TicketsQueuesService";
 import TicketTraking from "../models/TicketTraking";
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 import { Op, QueryTypes } from "sequelize";
 import { endOfDay, parseISO, startOfDay } from "date-fns";
 import sequelize from "../database";

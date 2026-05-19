@@ -267,12 +267,17 @@ const messages = {
       },
       showTicketOpenModal: {
         title: {
-          header: "Atendimento Existente",
+          header: "⚠️ Ticket em Atendimento",
         },
         form: {
-          message: "Este contato já está em atendimento:",
-          user: "Atendente",
-          queue: "Fila",
+          message: "Este contato já está sendo atendido:",
+          user: "Atendente Responsável",
+          queue: "Fila de Atendimento",
+          instructions: "O ticket será liberado automaticamente após 1 hora de inatividade, ou você pode solicitar a transferência agora.",
+        },
+        buttons: {
+          wait: "⏳ Aguardar Finalização",
+          requestTransfer: "🔄 Solicitar Transferência",
         },
       },
       showTicketLogModal: {
@@ -280,14 +285,19 @@ const messages = {
           header: "Logs",
         },
         options: {
-          create: "Ticket criado.",
-          chatBot: "ChatBot iniciado.",
-          queue: " - Fila definida.",
-          open: " iniciou o atendimento.",
-          pending: " Atendimento pendente.",
-          access: "acessou o ticket.",
-          transfered: "transferiu o ticket.",
-          receivedTransfer: "recebeu o ticket transferido.",
+          create: "✅ Ticket criado.",
+          chatBot: "🤖 ChatBot iniciado.",
+          queue: " - 📋 Fila definida.",
+          open: " 🎧 iniciou o atendimento.",
+          pending: " ⏳ Atendimento pendente.",
+          access: "👁️ acessou o ticket.",
+          transfered: "➡️ transferiu o ticket.",
+          receivedTransfer: "⬅️ recebeu o ticket transferido.",
+          inactivityReturn: "⏰ Ticket retornado para fila por inatividade (1 hora sem resposta).",
+          blockedAccess: "🚫 tentou acessar ticket em atendimento.",
+          autoClose: "🔒 Ticket encerrado automaticamente.",
+          closed: " ✔️ encerrou o atendimento.",
+          adminTakeOver: "👮 Administrador assumiu o ticket.",
         },
       },
       whatsappModal: {
@@ -651,13 +661,14 @@ const messages = {
           passwordDefault: "Senha",
           numberAttendants: "Usuários",
           numberConections: "Conexões",
+          plan: "Plano",
         },
         buttons: {
           okAdd: "Adicionar",
           okEdit: "Salvar",
           cancel: "Cancelar",
         },
-        success: "Empresa salvo com sucesso.",
+        success: "Empresa salva com sucesso.",
       },
       scheduleModal: {
         title: {
@@ -1383,9 +1394,11 @@ const messages = {
         },
         buttons: {
           add: "Adicionar empresa",
+          edit: "Editar empresa",
+          delete: "Excluir empresa",
         },
         toasts: {
-          deleted: "Empresa excluído com sucesso.",
+          deleted: "Empresa excluída com sucesso.",
         },
         confirmationModal: {
           deleteTitle: "Excluir",

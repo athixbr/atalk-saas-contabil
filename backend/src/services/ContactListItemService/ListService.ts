@@ -1,3 +1,6 @@
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 import { Sequelize, Op } from "sequelize";
 import ContactListItem from "../../models/ContactListItem";
 

@@ -1,5 +1,11 @@
 import AppError from "../../errors/AppError";
 
+// @ts-ignore
+
+// @ts-ignore
+
+// @ts-ignore
+
 import { Op } from "sequelize";
 import GetDefaultWhatsApp from "../../helpers/GetDefaultWhatsApp";
 import GetDefaultWhatsAppByUser from "../../helpers/GetDefaultWhatsAppByUser";

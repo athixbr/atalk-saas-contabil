@@ -30,3 +30,10 @@ yarn.lock
 
 /backups/*
 backups/*
+
+# Logs
+build-output.log
+build.log
+
+# One-off scripts
+create-tabs-parametros.sh

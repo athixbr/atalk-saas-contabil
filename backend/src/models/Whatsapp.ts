@@ -94,20 +94,20 @@ class Whatsapp extends Model<Whatsapp> {
   updatedAt: Date;
 
   @HasMany(() => Ticket)
-  tickets: Ticket[];
+  tickets: any[];
 
   @BelongsToMany(() => Queue, () => WhatsappQueue)
   queues: Array<Queue & { WhatsappQueue: WhatsappQueue }>;
 
   @HasMany(() => WhatsappQueue)
-  whatsappQueues: WhatsappQueue[];
+  whatsappQueues: any[];
 
   @ForeignKey(() => Company)
   @Column
   companyId: number;
 
   @BelongsTo(() => Company)
-  company: Company;
+  company: any;
 
   @Column
   token: string;
@@ -152,7 +152,7 @@ class Whatsapp extends Model<Whatsapp> {
   promptId: number;
 
   @BelongsTo(() => Prompt)
-  prompt: Prompt;
+  prompt: any;
 
   @Column
   timeInactiveMessage: string;
@@ -202,7 +202,7 @@ class Whatsapp extends Model<Whatsapp> {
   integrationId: number;
 
   @BelongsTo(() => QueueIntegrations)
-  queueIntegrations: QueueIntegrations;
+  queueIntegrations: any;
 
   @Column({
     type: DataType.JSONB

@@ -1,4 +1,7 @@
 import { FindOptions } from "sequelize/types";
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 import { Op } from "sequelize";
 import AppError from "../../errors/AppError";
 import Message from "../../models/Message";
@@ -7,10 +10,12 @@ import ShowTicketService from "../TicketServices/ShowTicketService";
 import Queue from "../../models/Queue";
 
 import { Sequelize } from "sequelize-typescript";
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 import { QueryTypes } from "sequelize";
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const dbConfig = require("../../config/database");
+import dbConfig from "../../config/database";
 const sequelize = new Sequelize(dbConfig);
 
 interface Request {

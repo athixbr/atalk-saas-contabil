@@ -1,20 +1,101 @@
+# Dependencies
 node_modules
-public/*
+
+# Build output
 dist
-!public/.gitkeep
+
+# Environment
 .env
 .env.test
+.env.migration
 
+# Uploads / media (stored in S3/Spaces or local volume)
+public/*
+!public/.gitkeep
+
+# OS
+.DS_Store
+
+# Logs
+logs/
+*.log
+migrate.log
+
+# WhatsApp session cache
+.wwebjs_cache/
+.wwebjs_auth/
+
+# Large data / progress files
+migrate-progress.json
+backup_atalk_*.backup
+*.backup
+
+# Package locks
 package-lock.json
 yarn.lock
 yarn-error.log
 
-/src/config/sentry.js
-
-# Ignore test-related files
+# Test coverage
 /coverage.data
 /coverage/
 
+# Backups folder
 /backups/*
 backups/*
 
+# Sentry generated config
+/src/config/sentry.js
+
+# One-off SQL patch files (belong in src/database/migrations)
+*.sql
+
+# One-off shell scripts
+apply-*.sh
+fix-and-restart.sh
+force-disconnect-wwebjs.sh
+disconnect-wwebjs.js
+rollback-baileys.sh
+run-migration.sh
+install-ged.sh
+create-services-parametros.sh
+generate-frontend-tabs.sh
+generate-services.sh
+generate-services.js
+
+# Utility/debug scripts (not part of the app)
+clientes.js
+diag-*.cjs
+download-*.cjs
+recover-*.cjs
+migrate-to-spaces.cjs
+test-spaces-*.js
+test-spaces-*.cjs
+regenerar-tarefas-controles.js
+populate-crm-data.sql
+
+# Build fix scripts (except fix-esm-imports.cjs which is part of build)
+clean-duplicate-imports.cjs
+fix-circular-models.cjs
+fix-cjs-imports.cjs
+fix-contact-imports.cjs
+fix-all-circular-tdz.cjs
+fix-sequelize-imports.cjs
+fix-sequelize-ts-errors.cjs
+merge-cjs-imports.cjs
+prepare-esm-migration.cjs
+
+# PM2 / migration configs not needed in repo
+ecosystem-migrate.config.cjs
+ecosystem.config.cjs
+pm2-migration.json
+controller-methods.txt
+
+# Accidentally created files (commands run as filenames)
+ql*
+e()
+et
+ycopg2
+
+# Local one-off tools (root level)
+/scripts/
+/migrations/

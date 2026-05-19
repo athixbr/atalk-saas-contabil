@@ -78,7 +78,7 @@ class Queue extends Model<Queue> {
   companyId: number;
 
   @BelongsTo(() => Company)
-  company: Company;
+  company: any;
 
   @BelongsToMany(() => Whatsapp, () => WhatsappQueue)
   whatsapps: Array<Whatsapp & { WhatsappQueue: WhatsappQueue }>;
@@ -91,21 +91,21 @@ class Queue extends Model<Queue> {
     onUpdate: "DELETE",
     hooks: true
   })
-  chatbots: Chatbot[];
+  chatbots: any[];
 
   @ForeignKey(() => QueueIntegrations)
   @Column
   integrationId: number;
 
   @BelongsTo(() => QueueIntegrations)
-  queueIntegrations: QueueIntegrations;
+  queueIntegrations: any;
 
   @ForeignKey(() => Files)
   @Column
   fileListId: number;
 
   @BelongsTo(() => Files)
-  files: Files;
+  files: any;
 
   @Default(false)
   @Column
@@ -116,7 +116,7 @@ class Queue extends Model<Queue> {
   promptId: number;
 
   @BelongsTo(() => Prompt)
-  prompt: Prompt;
+  prompt: any;
 
 }
 

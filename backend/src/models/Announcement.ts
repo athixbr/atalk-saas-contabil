@@ -55,7 +55,7 @@ class Announcement extends Model<Announcement> {
   updatedAt: Date;
 
   @BelongsTo(() => Company)
-  company: Company;
+  company: any;
 }
 
 export default Announcement;

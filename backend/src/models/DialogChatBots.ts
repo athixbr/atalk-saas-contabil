@@ -36,7 +36,7 @@ class DialogChatBots extends Model<DialogChatBots> {
   chatbotId: number;
 
   @BelongsTo(() => Chatbot)
-  chatbots: Chatbot;
+  chatbots: any;
 
   @CreatedAt
   createdAt: Date;

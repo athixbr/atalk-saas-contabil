@@ -31,10 +31,20 @@ export function UsersFilter({ onFiltered, initialUsers }) {
   const loadUsers = async () => {
     try {
       const { data } = await api.get(`/users/list`);
-      const userList = data.map((u) => ({ id: u.id, name: u.name }));
-      setUsers(userList);
+      console.log('Usuários carregados:', data);
+      // O endpoint retorna { users: [...] }
+      const usersList = data.users || data;
+      if (Array.isArray(usersList)) {
+        const userList = usersList.map((u) => ({ id: u.id, name: u.name }));
+        setUsers(userList);
+      } else {
+        console.error('Resposta de usuários inválida:', data);
+        setUsers([]);
+      }
     } catch (err) {
+      console.error('Erro ao carregar usuários:', err);
       toastError(err);
+      setUsers([]);
     }
   };
 

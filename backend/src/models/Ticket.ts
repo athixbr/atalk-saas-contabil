@@ -61,48 +61,48 @@ class Ticket extends Model<Ticket> {
   userId: number;
 
   @BelongsTo(() => User)
-  user: User;
+  user: any;
 
   @ForeignKey(() => Contact)
   @Column
   contactId: number;
 
   @BelongsTo(() => Contact)
-  contact: Contact;
+  contact: any; // any prevents circular __metadata TDZ
 
   @ForeignKey(() => Whatsapp)
   @Column
   whatsappId: number;
 
   @BelongsTo(() => Whatsapp)
-  whatsapp: Whatsapp;
+  whatsapp: any;
 
   @ForeignKey(() => Queue)
   @Column
   queueId: number;
 
   @BelongsTo(() => Queue)
-  queue: Queue;
+  queue: any;
 
   @Default(false)
   @Column
   isBot: boolean;
 
   @HasMany(() => Message)
-  messages: Message[];
+  messages: any[];
 
   @HasMany(() => TicketTag)
-  ticketTags: TicketTag[];
+  ticketTags: any[];
 
   @BelongsToMany(() => Tag, () => TicketTag)
-  tags: Tag[];
+  tags: any[];
 
   @ForeignKey(() => Company)
   @Column
   companyId: number;
 
   @BelongsTo(() => Company)
-  company: Company;
+  company: any;
 
   @Default(uuidv4())
   @Column
@@ -132,7 +132,7 @@ class Ticket extends Model<Ticket> {
   promptId: number;
 
   @BelongsTo(() => Prompt)
-  prompt: Prompt;
+  prompt: any;
 
   @Default(false)
   @Column
@@ -164,7 +164,7 @@ class Ticket extends Model<Ticket> {
   integrationId: number;
 
   @BelongsTo(() => QueueIntegrations)
-  queueIntegration: QueueIntegrations;
+  queueIntegration: any;
 
   @Column
   typebotSessionId: string;

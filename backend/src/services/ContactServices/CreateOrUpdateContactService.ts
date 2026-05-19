@@ -24,6 +24,9 @@ interface Request {
   remoteJid?: string;
 }
 
+/** Mutex por número/remoteJid para evitar criação duplicada de contatos */
+const _contactCreationLocks = new Map<string, Promise<Contact>>();
+
 const CreateOrUpdateContactService = async ({
   name,
   number: rawNumber,
@@ -35,16 +38,14 @@ const CreateOrUpdateContactService = async ({
   extraInfo = [],
   remoteJid = ""
 }: Request): Promise<Contact> => {
+  let contact: Contact | null = null;
   try {
 
-    const publicFolder = path.resolve(__dirname, "..", "..", "..", "public");
+    const publicFolder = path.resolve(__dirname, "..", "..", "..", "..", "public");
 
     const number = isGroup ? rawNumber : rawNumber.replace(/[^0-9]/g, "");
     
     const io = getIO();
-    let contact: Contact | null;
-
-    const updateImage = contact?.profilePicUrl || "" !== profilePicUrl;
 
     contact = await Contact.findOne({
       where: {
@@ -52,6 +53,25 @@ const CreateOrUpdateContactService = async ({
         companyId
       }
     });
+
+    // Se não achou pelo número, tenta pelo remoteJid
+    // Cobre: grupos com formato de ID mudado no Baileys v7,
+    // e contatos cujo JID mudou de @s.whatsapp.net para @lid ou vice-versa
+    if (!contact && remoteJid) {
+      contact = await Contact.findOne({
+        where: {
+          remoteJid,
+          companyId
+        }
+      });
+      // Se achou pelo remoteJid, atualiza o número para o novo formato
+      if (contact) {
+        contact.number = number;
+      }
+    }
+
+    // Calcula após buscar o contato para comparação correta
+    const updateImage = (contact?.profilePicUrl || "") !== profilePicUrl;
 
     if (contact) {
       contact.remoteJid = remoteJid; 
@@ -68,28 +88,52 @@ const CreateOrUpdateContactService = async ({
         contact
       });
     } else {
+      // Mutex para evitar race condition ao criar contato
+      // (dois eventos simultâneos para o mesmo número criariam duplicatas)
+      const lockKey = `contact:${companyId}:${remoteJid || number}`;
+      const pendingCreate = _contactCreationLocks.get(lockKey);
+      if (pendingCreate) {
+        logger.debug(`[CreateOrUpdateContact] Aguardando lock de criação para ${lockKey}`);
+        contact = await pendingCreate;
+      } else {
+        const createPromise = (async () => {
+          // Re-verifica após obter o lock — outro processo pode ter criado
+          const recheck = await Contact.findOne({
+            where: remoteJid
+              ? { remoteJid, companyId }
+              : { number, companyId }
+          });
+          if (recheck) {
+            logger.info(`[CreateOrUpdateContact] Contato ${recheck.id} criado por processo concorrente para ${number || remoteJid}`);
+            return recheck;
+          }
 
-      const settings = await CompaniesSettings.findOne({where:{companyId}})
+          const settings = await CompaniesSettings.findOne({where:{companyId}});
+          const { acceptAudioMessageContact } = settings || {} as any;
 
-      const { acceptAudioMessageContact } = settings
+          const created = await Contact.create({
+            name,
+            number,
+            email,
+            isGroup,
+            extraInfo,
+            companyId,
+            channel,
+            acceptAudioMessage: acceptAudioMessageContact === 'enabled' ? true : false,
+            remoteJid,
+            urlPicture: profilePicUrl
+          });
 
-      contact = await Contact.create({
-        name,
-        number,  
-        email,
-        isGroup,
-        extraInfo,
-        companyId,
-        channel,
-        acceptAudioMessage: acceptAudioMessageContact === 'enabled' ? true : false,
-        remoteJid,
-        urlPicture: profilePicUrl
-      });
+          io.emit(`company-${companyId}-contact`, {
+            action: "create",
+            contact: created
+          });
+          return created;
+        })().finally(() => _contactCreationLocks.delete(lockKey));
 
-      io.emit(`company-${companyId}-contact`, {
-        action: "create",
-        contact
-      });
+        _contactCreationLocks.set(lockKey, createPromise);
+        contact = await createPromise;
+      }
     }
 
     const folder =  path.resolve(publicFolder , `company${companyId}`,"contacts") 
@@ -128,6 +172,7 @@ const CreateOrUpdateContactService = async ({
     return contact;
   } catch (err) {
     logger.error("Error to find or create a contact:", err);
+    return contact ?? null;
   }
 };
 

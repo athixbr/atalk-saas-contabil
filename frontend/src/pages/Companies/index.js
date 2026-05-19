@@ -10,6 +10,10 @@ import TableBody from "@material-ui/core/TableBody";
 import TableCell from "@material-ui/core/TableCell";
 import TableHead from "@material-ui/core/TableHead";
 import TableRow from "@material-ui/core/TableRow";
+import IconButton from "@material-ui/core/IconButton";
+import Tooltip from "@material-ui/core/Tooltip";
+import EditIcon from "@material-ui/icons/Edit";
+import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
 
 import MainContainer from "../../components/MainContainer";
 import MainHeader from "../../components/MainHeader";
@@ -166,13 +170,13 @@ const Companies = () => {
     const handleDeleteCompany = async (companyId) => {
         try {
             await api.delete(`/companies/${companyId}`);
+            dispatch({ type: "DELETE_COMPANIES", payload: companyId });
             toast.success(i18n.t("compaies.toasts.deleted"));
         } catch (err) {
             toastError(err);
         }
         setDeletingCompany(null);
-        setSearchParam("");
-        setPageNumber(1);
+        setConfirmModalOpen(false);
     };
 
     const loadMore = () => {
@@ -221,6 +225,14 @@ const Companies = () => {
 
     const renderExternalApi = (row) => {
         return row.useExternalApi === false ? "Não" : "Sim";
+    };
+
+    const formatDiskUsage = (bytes) => {
+        if (!bytes && bytes !== 0) return "-";
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+        if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+        return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
     };
 
     const rowStyle = (record) => {
@@ -277,6 +289,7 @@ const Companies = () => {
                             <TableCell align="center">{i18n.t("compaies.table.createdAt")}</TableCell>
                             <TableCell align="center">{i18n.t("compaies.table.dueDate")}</TableCell>
                             <TableCell align="center">{i18n.t("compaies.table.lastLogin")}</TableCell>
+                            <TableCell align="center">Disco</TableCell>
                             {/* <TableCell align="center">{i18n.t("compaies.table.numberAttendants")}</TableCell> */}
                             {/* <TableCell align="center">{i18n.t("compaies.table.numberConections")}</TableCell> */}
                             {/* <TableCell align="center">{i18n.t("compaies.table.numberQueues")}</TableCell> */}
@@ -287,7 +300,7 @@ const Companies = () => {
                             {/* <TableCell align="center">{i18n.t("compaies.table.useExternalApi")}</TableCell> */}
                             {/* <TableCell align="center">{i18n.t("compaies.table.useInternalChat")}</TableCell> */}
                             {/* <TableCell align="center">{i18n.t("compaies.table.useSchedules")}</TableCell> */}
-                            {/* <TableCell align="center">{i18n.t("compaies.table.actions")}</TableCell> */}
+                            <TableCell align="center">{i18n.t("compaies.table.actions")}</TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
@@ -303,6 +316,28 @@ const Companies = () => {
                                     <TableCell align="center">{dateToClient(company.createdAt)}</TableCell>
                                     <TableCell align="center">{dateToClient(company.dueDate)}<br /><span>{company.recurrence}</span></TableCell>
                                     <TableCell align="center">{datetimeToClient(company.lastLogin)}</TableCell>
+                                    <TableCell align="center">{formatDiskUsage(company.diskUsage)}</TableCell>
+                                    <TableCell align="center">
+                                        <Tooltip title={i18n.t("compaies.buttons.edit")}>
+                                            <IconButton
+                                                size="small"
+                                                onClick={() => handleEditCompany(company)}
+                                            >
+                                                <EditIcon />
+                                            </IconButton>
+                                        </Tooltip>
+                                        <Tooltip title={i18n.t("compaies.buttons.delete")}>
+                                            <IconButton
+                                                size="small"
+                                                onClick={() => {
+                                                    setDeletingCompany(company);
+                                                    setConfirmModalOpen(true);
+                                                }}
+                                            >
+                                                <DeleteOutlineIcon />
+                                            </IconButton>
+                                        </Tooltip>
+                                    </TableCell>
                                 </TableRow>
                             ))}
                             {loading && <TableRowSkeleton columns={4} />}

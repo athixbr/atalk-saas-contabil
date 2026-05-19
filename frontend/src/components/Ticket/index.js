@@ -19,6 +19,7 @@ import { EditMessageProvider } from "../../context/EditingMessage/EditingMessage
 
 import toastError from "../../errors/toastError";
 import { AuthContext } from "../../context/Auth/AuthContext";
+import { TicketsContext } from "../../context/Tickets/TicketsContext";
 import { TagsContainer } from "../TagsContainer";
 import { socketConnection } from "../../services/socket";
 import { isNil } from 'lodash';
@@ -61,6 +62,92 @@ const useStyles = makeStyles((theme) => ({
     }),
     marginRight: 0,
   },
+  
+  warningBanner: {
+    backgroundColor: "#fff3cd",
+    color: "#856404",
+    padding: "12px 20px",
+    borderLeft: "4px solid #ffc107",
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    fontWeight: "500",
+    fontSize: "14px",
+    boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+    animation: "$slideDown 0.3s ease-in-out",
+  },
+  
+  adminBanner: {
+    backgroundColor: "#d1ecf1",
+    color: "#0c5460",
+    padding: "12px 20px",
+    borderLeft: "4px solid #17a2b8",
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    fontWeight: "500",
+    fontSize: "14px",
+    boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+  },
+  
+  "@keyframes slideDown": {
+    from: {
+      transform: "translateY(-100%)",
+      opacity: 0,
+    },
+    to: {
+      transform: "translateY(0)",
+      opacity: 1,
+    },
+  },
+  
+  dropOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(66, 133, 244, 0.95)",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 9999,
+    pointerEvents: "none",
+    animation: "$fadeIn 0.2s ease-in",
+  },
+  
+  dropContent: {
+    textAlign: "center",
+    color: "#fff",
+  },
+  
+  dropIcon: {
+    fontSize: "80px",
+    marginBottom: "20px",
+    animation: "$bounce 1s infinite",
+  },
+  
+  dropText: {
+    fontSize: "24px",
+    fontWeight: "bold",
+    marginBottom: "10px",
+  },
+  
+  dropSubtext: {
+    fontSize: "16px",
+    opacity: 0.9,
+  },
+  
+  "@keyframes fadeIn": {
+    from: { opacity: 0 },
+    to: { opacity: 1 },
+  },
+  
+  "@keyframes bounce": {
+    "0%, 100%": { transform: "translateY(0)" },
+    "50%": { transform: "translateY(-20px)" },
+  },
 }));
 
 const Ticket = () => {
@@ -70,12 +157,17 @@ const Ticket = () => {
   const currentTicketId = useRef(ticketId);
 
   const { user } = useContext(AuthContext);
+  const { currentTicket } = useContext(TicketsContext);
   const isMounted = useRef(true);
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [contact, setContact] = useState({});
   const [ticket, setTicket] = useState({});
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragFiles, setDragFiles] = useState([]);
+  const dragCounter = useRef(0);
+  const messageInputRef = useRef(null);
 
 
 
@@ -134,6 +226,20 @@ const Ticket = () => {
       }
     });
 
+    // Notificação quando admin assume o ticket
+    socket.on(`company-${companyId}-ticket-takeover`, (data) => {
+      if (data.action === "adminTakeOver" && data.ticket.id === ticket.id) {
+        toast.warning(`⚠️ ${data.message} - O ticket foi assumido por um administrador.`, {
+          position: "top-center",
+          autoClose: 5000,
+        });
+        // Redirecionar para lista de tickets
+        setTimeout(() => {
+          history.push("/tickets");
+        }, 2000);
+      }
+    });
+
     socket.on(`company-${companyId}-contact`, (data) => {
       if (data.action === "update") {
         setContact((prevState) => {
@@ -148,7 +254,7 @@ const Ticket = () => {
     return () => {
       socket.disconnect();
     };
-  }, [ticketId, ticket]);
+  }, [ticketId, ticket, history, user.companyId, user.id]);
 
   const handleDrawerOpen = () => {
     setDrawerOpen(true);
@@ -156,6 +262,55 @@ const Ticket = () => {
 
   const handleDrawerClose = () => {
     setDrawerOpen(false);
+  };
+
+  // Handlers para Drag & Drop
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    dragCounter.current++;
+    
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    dragCounter.current--;
+    
+    if (dragCounter.current === 0) {
+      setIsDragging(false);
+    }
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setIsDragging(false);
+    dragCounter.current = 0;
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const files = Array.from(e.dataTransfer.files);
+      setDragFiles(files);
+      
+      // Dispara evento customizado para o MessageInput processar os arquivos
+      const event = new CustomEvent('ticketFileDrop', { 
+        detail: { files } 
+      });
+      window.dispatchEvent(event);
+      
+      toast.success(`📎 ${files.length} arquivo(s) adicionado(s)`);
+    }
   };
 
   const renderTicketInfo = () => {
@@ -169,6 +324,36 @@ const Ticket = () => {
       );
     }
   };
+  
+  const renderWarningBanner = () => {
+    // Se o ticket está em atendimento por outro usuário
+    if (ticket.status === "open" && ticket.userId && ticket.userId !== user.id) {
+      const isAdmin = user.profile === "admin";
+      
+      if (isAdmin) {
+        return (
+          <div className={classes.adminBanner}>
+            <span style={{ fontSize: "20px" }}>👮</span>
+            <div>
+              <strong>Modo Administrador:</strong> Este ticket está sendo atendido por <strong>{ticket.user?.name}</strong>.
+              Você pode assumir o atendimento, mas o usuário será notificado.
+            </div>
+          </div>
+        );
+      } else {
+        return (
+          <div className={classes.warningBanner}>
+            <span style={{ fontSize: "20px" }}>⚠️</span>
+            <div>
+              <strong>Ticket em Atendimento:</strong> Este ticket está sendo atendido por <strong>{ticket.user?.name}</strong>.
+              Aguarde a finalização ou solicite transferência.
+            </div>
+          </div>
+        );
+      }
+    }
+    return null;
+  };
 
   const renderMessagesList = () => {
     return (
@@ -177,8 +362,9 @@ const Ticket = () => {
           ticket={ticket}
           ticketId={ticket.id}
           isGroup={ticket.isGroup}
+          searchParam={currentTicket?.searchParam}
         ></MessagesList>
-        <MessageInput ticketId={ticket.id} ticketStatus={ticket.status} />
+        <MessageInput ticketId={ticket.id} ticketStatus={ticket.status} ticket={ticket} />
       </>
     );
   };
@@ -194,13 +380,27 @@ const Ticket = () => {
         className={clsx(classes.mainWrapper, {
           [classes.mainWrapperShift]: drawerOpen,
         })}
+        onDragEnter={handleDragEnter}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
       >
+        {isDragging && (
+          <div className={classes.dropOverlay}>
+            <div className={classes.dropContent}>
+              <div className={classes.dropIcon}>📁</div>
+              <div className={classes.dropText}>Solte os arquivos aqui</div>
+              <div className={classes.dropSubtext}>Arraste e solte para enviar</div>
+            </div>
+          </div>
+        )}
         <TicketHeader loading={loading}>
           {renderTicketInfo()}
           <TicketActionButtons ticket={ticket} />
 
 
         </TicketHeader>
+        {renderWarningBanner()}
         <Paper>
           <TagsContainer contact={contact} ticket={ticket} />
         </Paper>

@@ -1,0 +1,630 @@
+import React, { useState, useEffect, useContext } from "react";
+import { useHistory } from "react-router-dom";
+import {
+  Paper,
+  Typography,
+  makeStyles,
+  Grid,
+  Card,
+  CardContent,
+  Button,
+  IconButton,
+  Tooltip,
+  Chip,
+  TextField,
+  InputAdornment,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Select,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  LinearProgress,
+} from "@material-ui/core";
+import {
+  Search as SearchIcon,
+  Edit as EditIcon,
+  History as HistoryIcon,
+  Link as LinkIcon,
+  LinkOff as UnlinkIcon,
+  PlayArrow as PlayArrowIcon,
+} from "@material-ui/icons";
+import { toast } from "react-toastify";
+import Pagination from "@material-ui/lab/Pagination";
+import api from "../../services/api";
+import { AuthContext } from "../../context/Auth/AuthContext";
+import { format, parseISO } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import ModalEditarDatas from "./components/ModalEditarDatas";
+import DrawerHistorico from "./components/DrawerHistorico";
+import ModalGerarTarefas from "./components/ModalGerarTarefas";
+
+const useStyles = makeStyles((theme) => ({
+  root: {
+    display: "flex",
+    flexDirection: "column",
+    height: "100%",
+    padding: theme.spacing(3),
+  },
+  header: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: theme.spacing(3),
+  },
+  addButton: {
+    background: "linear-gradient(135deg, #0596cd 0%, #047ba5 100%)",
+    color: "#fff",
+    "&:hover": {
+      background: "linear-gradient(135deg, #047ba5 0%, #035c7d 100%)",
+    },
+  },
+  chartPaper: {
+    padding: theme.spacing(3),
+    borderRadius: "16px",
+    height: "100%",
+  },
+  statsCard: {
+    padding: theme.spacing(3),
+    borderRadius: "16px",
+    height: "100%",
+    background: "linear-gradient(135deg, #f5f5f5 0%, #ffffff 100%)",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+  },
+  statsValue: {
+    fontSize: "2.5rem",
+    fontWeight: "bold",
+    marginBottom: theme.spacing(1),
+  },
+  statsLabel: {
+    color: theme.palette.text.secondary,
+    fontSize: "0.875rem",
+    textTransform: "uppercase",
+    letterSpacing: "0.5px",
+  },
+  tablePaper: {
+    padding: theme.spacing(3),
+    borderRadius: "16px",
+    marginTop: theme.spacing(3),
+  },
+  filtersContainer: {
+    padding: theme.spacing(2),
+    marginBottom: theme.spacing(2),
+    borderRadius: "16px",
+    backgroundColor: "#f5f5f5",
+  },
+  filterRow: {
+    display: "flex",
+    gap: theme.spacing(2),
+    marginBottom: theme.spacing(2),
+  },
+  filterField: {
+    minWidth: 200,
+    backgroundColor: "#fff",
+    borderRadius: "8px",
+  },
+  searchField: {
+    flex: 1,
+    backgroundColor: "#fff",
+    borderRadius: "8px",
+  },
+  pagination: {
+    marginTop: theme.spacing(3),
+    display: "flex",
+    justifyContent: "center",
+  },
+  tableHeader: {
+    backgroundColor: "#f5f5f5",
+    fontWeight: 600,
+  },
+  chipAtivo: {
+    backgroundColor: theme.palette.success.main,
+    color: "#fff",
+    fontWeight: 600,
+  },
+  chipInativo: {
+    backgroundColor: theme.palette.error.main,
+    color: "#fff",
+    fontWeight: 600,
+  },
+  actionButton: {
+    margin: theme.spacing(0.5),
+  },
+}));
+
+const CentralVinculos = () => {
+  const classes = useStyles();
+  const { user } = useContext(AuthContext);
+  const history = useHistory();
+
+  // Estados
+  const [vinculos, setVinculos] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(20);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+
+  // Estados de filtros
+  const [searchParam, setSearchParam] = useState("");
+  const [filtroAtivo, setFiltroAtivo] = useState("true");
+  const [controleConfigId, setControleConfigId] = useState("");
+  const [departamentoId, setDepartamentoId] = useState("");
+
+  // Estados de estatísticas
+  const [stats, setStats] = useState({
+    totalVinculos: 0,
+    vinculosAtivos: 0,
+    vinculosInativos: 0,
+    proximosVencimentos: [],
+  });
+
+  // Dados auxiliares
+  const [controles, setControles] = useState([]);
+  const [departamentos, setDepartamentos] = useState([]);
+
+  // Modais
+  const [openEditarDatasModal, setOpenEditarDatasModal] = useState(false);
+  const [openHistoricoDrawer, setOpenHistoricoDrawer] = useState(false);
+  const [openGerarTarefasModal, setOpenGerarTarefasModal] = useState(false);
+  const [vinculoSelecionado, setVinculoSelecionado] = useState(null);
+  const [confirmDeleteDialog, setConfirmDeleteDialog] = useState(false);
+
+  // Carregar vínculos
+  useEffect(() => {
+    carregarVinculos();
+  }, [page, searchParam, filtroAtivo, controleConfigId, departamentoId]);
+
+  // Carregar estatísticas
+  useEffect(() => {
+    carregarEstatisticas();
+  }, []);
+
+  // Carregar dados auxiliares
+  useEffect(() => {
+    carregarControles();
+    carregarDepartamentos();
+  }, []);
+
+  const carregarVinculos = async () => {
+    try {
+      setLoading(true);
+      const params = {
+        pageNumber: page,
+        pageSize,
+      };
+
+      if (searchParam) params.searchParam = searchParam;
+      if (filtroAtivo !== "") params.ativo = filtroAtivo;
+      if (controleConfigId) params.controleConfigId = controleConfigId;
+      if (departamentoId) params.departamentoId = departamentoId;
+
+      const { data } = await api.get("/controle-clientes/vinculos", { params });
+      
+      setVinculos(data.vinculos);
+      setTotalCount(data.count);
+      setTotalPages(Math.ceil(data.count / pageSize));
+    } catch (err) {
+      console.error("Erro ao carregar vínculos:", err);
+      toast.error("Erro ao carregar vínculos");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const carregarEstatisticas = async () => {
+    try {
+      const { data } = await api.get("/controle-clientes/estatisticas");
+      setStats(data);
+    } catch (err) {
+      console.error("Erro ao carregar estatísticas:", err);
+    }
+  };
+
+  const carregarControles = async () => {
+    try {
+      const { data } = await api.get("/controles-config");
+      setControles(data.controles || []);
+    } catch (err) {
+      console.error("Erro ao carregar controles:", err);
+    }
+  };
+
+  const carregarDepartamentos = async () => {
+    try {
+      const { data } = await api.get("/departamentos");
+      setDepartamentos(data.departamentos || []);
+    } catch (err) {
+      console.error("Erro ao carregar departamentos:", err);
+    }
+  };
+
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage);
+  };
+
+  const handleDesvincular = async (vinculo) => {
+    setVinculoSelecionado(vinculo);
+    setConfirmDeleteDialog(true);
+  };
+
+  const confirmarDesvincular = async () => {
+    if (!vinculoSelecionado) return;
+
+    try {
+      await api.delete(`/controle-clientes/vinculos/${vinculoSelecionado.id}`, {
+        data: {
+          observacao: "Desvinculado pela Central de Vínculos",
+          excluirDefinitivamente: false,
+        },
+      });
+      toast.success("Vínculo desativado com sucesso!");
+      setConfirmDeleteDialog(false);
+      setVinculoSelecionado(null);
+      carregarVinculos();
+      carregarEstatisticas();
+    } catch (err) {
+      console.error("Erro ao desvincular:", err);
+      toast.error("Erro ao desvincular controle");
+    }
+  };
+
+  const handleEditarDatas = (vinculo) => {
+    setVinculoSelecionado(vinculo);
+    setOpenEditarDatasModal(true);
+  };
+
+  const handleGerarTarefas = (vinculo) => {
+    setVinculoSelecionado(vinculo);
+    setOpenGerarTarefasModal(true);
+  };
+
+  const handleVerHistorico = (vinculo) => {
+    setVinculoSelecionado(vinculo);
+    setOpenHistoricoDrawer(true);
+  };
+
+  const handleSuccess = () => {
+    carregarVinculos();
+    carregarEstatisticas();
+  };
+
+  const formatarData = (data) => {
+    if (!data) return "-";
+    try {
+      return format(parseISO(data), "dd/MM/yyyy", { locale: ptBR });
+    } catch {
+      return "-";
+    }
+  };
+
+  return (
+    <div className={classes.root}>
+      {/* Header */}
+      <div className={classes.header}>
+        <Typography variant="h4" style={{ fontWeight: 600 }}>
+          Central de Vínculos - Controles x Clientes
+        </Typography>
+        <Button
+          variant="contained"
+          className={classes.addButton}
+          startIcon={<LinkIcon />}
+          onClick={() => history.push("/vincular-controles")}
+        >
+          Vincular Controles
+        </Button>
+      </div>
+
+      {/* Estatísticas */}
+      <Grid container spacing={3} style={{ marginBottom: 24 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper className={classes.statsCard}>
+            <Typography className={classes.statsValue} style={{ color: "#0596cd" }}>
+              {stats.totalVinculos}
+            </Typography>
+            <Typography className={classes.statsLabel}>
+              Total de Vínculos
+            </Typography>
+          </Paper>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper className={classes.statsCard}>
+            <Typography className={classes.statsValue} style={{ color: "#4caf50" }}>
+              {stats.vinculosAtivos}
+            </Typography>
+            <Typography className={classes.statsLabel}>
+              Vínculos Ativos
+            </Typography>
+          </Paper>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper className={classes.statsCard}>
+            <Typography className={classes.statsValue} style={{ color: "#f44336" }}>
+              {stats.vinculosInativos}
+            </Typography>
+            <Typography className={classes.statsLabel}>
+              Vínculos Inativos
+            </Typography>
+          </Paper>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper className={classes.statsCard}>
+            <Typography className={classes.statsValue} style={{ color: "#ff9800" }}>
+              {stats.proximosVencimentos?.length || 0}
+            </Typography>
+            <Typography className={classes.statsLabel}>
+              Vencendo em 30 dias
+            </Typography>
+          </Paper>
+        </Grid>
+      </Grid>
+
+      {/* Filtros */}
+      <Paper className={classes.filtersContainer}>
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={3}>
+            <TextField
+              fullWidth
+              label="Buscar cliente"
+              variant="outlined"
+              size="small"
+              value={searchParam}
+              onChange={(e) => setSearchParam(e.target.value)}
+              className={classes.filterField}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <FormControl fullWidth variant="outlined" size="small" className={classes.filterField}>
+              <InputLabel>Status</InputLabel>
+              <Select
+                value={filtroAtivo}
+                onChange={(e) => setFiltroAtivo(e.target.value)}
+                label="Status"
+              >
+                <MenuItem value="">Todos</MenuItem>
+                <MenuItem value="true">Ativos</MenuItem>
+                <MenuItem value="false">Inativos</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <FormControl fullWidth variant="outlined" size="small" className={classes.filterField}>
+              <InputLabel>Controle</InputLabel>
+              <Select
+                value={controleConfigId}
+                onChange={(e) => setControleConfigId(e.target.value)}
+                label="Controle"
+              >
+                <MenuItem value="">Todos</MenuItem>
+                {controles.map((controle) => (
+                  <MenuItem key={controle.id} value={controle.id}>
+                    {controle.nome}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <FormControl fullWidth variant="outlined" size="small" className={classes.filterField}>
+              <InputLabel>Departamento</InputLabel>
+              <Select
+                value={departamentoId}
+                onChange={(e) => setDepartamentoId(e.target.value)}
+                label="Departamento"
+              >
+                <MenuItem value="">Todos</MenuItem>
+                {departamentos.map((dep) => (
+                  <MenuItem key={dep.id} value={dep.id}>
+                    {dep.nome}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} md={1}>
+            <Button
+              fullWidth
+              variant="outlined"
+              onClick={() => {
+                setSearchParam("");
+                setFiltroAtivo("true");
+                setControleConfigId("");
+                setDepartamentoId("");
+                setPage(1);
+              }}
+            >
+              Limpar
+            </Button>
+          </Grid>
+        </Grid>
+      </Paper>
+
+      {/* Tabela */}
+      <Paper className={classes.tablePaper}>
+        {loading && <LinearProgress />}
+        
+        <TableContainer>
+          <Table>
+            <TableHead>
+              <TableRow className={classes.tableHeader}>
+                <TableCell><strong>Cliente</strong></TableCell>
+                <TableCell><strong>Controle</strong></TableCell>
+                <TableCell><strong>Data Início</strong></TableCell>
+                <TableCell><strong>Data Fim</strong></TableCell>
+                <TableCell><strong>Departamento</strong></TableCell>
+                <TableCell><strong>Responsável</strong></TableCell>
+                <TableCell><strong>Status</strong></TableCell>
+                <TableCell align="center"><strong>Ações</strong></TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {vinculos.map((vinculo) => (
+                <TableRow key={vinculo.id} hover>
+                  <TableCell>{vinculo.cliente?.nome || "-"}</TableCell>
+                  <TableCell>{vinculo.controleConfig?.nome || "-"}</TableCell>
+                  <TableCell>{formatarData(vinculo.dataInicio)}</TableCell>
+                  <TableCell>{formatarData(vinculo.dataFim)}</TableCell>
+                  <TableCell>{vinculo.departamento?.nome || "-"}</TableCell>
+                  <TableCell>{vinculo.usuario?.name || "-"}</TableCell>
+                  <TableCell>
+                    <Chip
+                      size="small"
+                      label={vinculo.ativo ? "Ativo" : "Inativo"}
+                      className={vinculo.ativo ? classes.chipAtivo : classes.chipInativo}
+                    />
+                  </TableCell>
+                  <TableCell align="center">
+                    <Tooltip title="Ver Histórico">
+                      <IconButton
+                        size="small"
+                        className={classes.actionButton}
+                        onClick={() => handleVerHistorico(vinculo)}
+                      >
+                        <HistoryIcon />
+                      </IconButton>
+                    </Tooltip>
+                    {vinculo.ativo && (
+                      <>
+                        <Tooltip title="Editar Datas">
+                          <IconButton
+                            size="small"
+                            className={classes.actionButton}
+                            color="primary"
+                            onClick={() => handleEditarDatas(vinculo)}
+                          >
+                            <EditIcon />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Gerar Tarefas">
+                          <IconButton
+                            size="small"
+                            className={classes.actionButton}
+                            style={{ color: "#4caf50" }}
+                            onClick={() => handleGerarTarefas(vinculo)}
+                          >
+                            <PlayArrowIcon />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Desvincular">
+                          <IconButton
+                            size="small"
+                            className={classes.actionButton}
+                            color="secondary"
+                            onClick={() => handleDesvincular(vinculo)}
+                          >
+                            <UnlinkIcon />
+                          </IconButton>
+                        </Tooltip>
+                      </>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+              {vinculos.length === 0 && !loading && (
+                <TableRow>
+                  <TableCell colSpan={8} align="center">
+                    <Typography variant="body2" color="textSecondary" style={{ padding: "40px 0" }}>
+                      Nenhum vínculo encontrado
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+
+        {/* Paginação */}
+        {totalPages > 1 && (
+          <div className={classes.pagination}>
+            <Pagination
+              count={totalPages}
+              page={page}
+              onChange={handleChangePage}
+              color="primary"
+              showFirstButton
+              showLastButton
+            />
+          </div>
+        )}
+        
+        <Typography
+          variant="caption"
+          color="textSecondary"
+          align="center"
+          style={{ display: "block", marginTop: 16 }}
+        >
+          {totalCount} vínculo{totalCount !== 1 ? "s" : ""} encontrado{totalCount !== 1 ? "s" : ""}
+        </Typography>
+      </Paper>
+
+      {/* Modais e Drawers */}
+      <ModalEditarDatas
+        open={openEditarDatasModal}
+        onClose={() => {
+          setOpenEditarDatasModal(false);
+          setVinculoSelecionado(null);
+        }}
+        vinculo={vinculoSelecionado}
+        onSuccess={handleSuccess}
+      />
+
+      <DrawerHistorico
+        open={openHistoricoDrawer}
+        onClose={() => {
+          setOpenHistoricoDrawer(false);
+          setVinculoSelecionado(null);
+        }}
+        vinculoId={vinculoSelecionado?.id}
+        clienteNome={vinculoSelecionado?.cliente?.nome}
+      />
+
+      <ModalGerarTarefas
+        open={openGerarTarefasModal}
+        onClose={() => {
+          setOpenGerarTarefasModal(false);
+          setVinculoSelecionado(null);
+        }}
+        vinculo={vinculoSelecionado}
+        onSuccess={handleSuccess}
+      />
+
+      {/* Dialog de Confirmação */}
+      <Dialog open={confirmDeleteDialog} onClose={() => setConfirmDeleteDialog(false)}>
+        <DialogTitle>Confirmar Desvinculação</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Deseja realmente desvincular o controle{" "}
+            <strong>"{vinculoSelecionado?.controleConfig?.nome}"</strong> do cliente{" "}
+            <strong>"{vinculoSelecionado?.cliente?.nome}"</strong>?
+          </Typography>
+          <Typography variant="caption" color="textSecondary" style={{ marginTop: 8, display: "block" }}>
+            O vínculo será desativado, mas não será excluído do histórico.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDeleteDialog(false)}>Cancelar</Button>
+          <Button onClick={confirmarDesvincular} color="secondary" variant="contained">
+            Confirmar Desvinculação
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </div>
+  );
+};
+
+export default CentralVinculos;

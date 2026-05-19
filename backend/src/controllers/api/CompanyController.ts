@@ -1,5 +1,8 @@
 import * as Yup from "yup";
 import { Request, Response } from "express";
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 import { Op } from "sequelize";
 import AppError from "../../errors/AppError";
 import Company from "../../models/Company";

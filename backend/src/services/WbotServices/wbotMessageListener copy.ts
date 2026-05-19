@@ -44,6 +44,9 @@ import FindOrCreateATicketTrakingService from "../TicketServices/FindOrCreateATi
 import VerifyCurrentSchedule from "../CompanyService/VerifyCurrentSchedule";
 import Campaign from "../../models/Campaign";
 import CampaignShipping from "../../models/CampaignShipping";
+// @ts-ignore
+// @ts-ignore
+// @ts-ignore
 import { Op } from "sequelize";
 import { campaignQueue, parseToMilliseconds, randomValue } from "../../queues";
 import User from "../../models/User";
@@ -363,7 +366,7 @@ const downloadMedia = async (msg: proto.IWebMessageInfo, isImported: Date = null
   let buffer
   try {
     buffer = await downloadMediaMessage(
-      msg,
+      msg as any,
       'buffer',
       {}
     )
@@ -1876,7 +1879,7 @@ export const handleMessageIntegration = async (
         await sendDialogflowAwswer(
           wbot,
           ticket,
-          msg,
+          msg as any,
           ticket.contact,
           inputAudio,
           companyId,
@@ -2691,7 +2694,7 @@ const filterMessages = (msg: WAMessage): boolean => {
       WAMessageStubType.E2E_DEVICE_CHANGED,
       WAMessageStubType.E2E_IDENTITY_CHANGED,
       WAMessageStubType.CIPHERTEXT
-    ].includes(msg.messageStubType as WAMessageStubType)
+    ].includes(msg.messageStubType as typeof WAMessageStubType[keyof typeof WAMessageStubType])
   )
     return false;
 
@@ -2734,7 +2737,7 @@ const wbotMessageListener = (wbot: Session, companyId: number): void => {
 
 
       if (message.key.remoteJid?.endsWith("@g.us")) {
-        handleMsgAck(message, 2)
+        handleMsgAck(message as any, 2)
       }
 
     });

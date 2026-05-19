@@ -27,7 +27,7 @@ class WhatsappQueue extends Model<WhatsappQueue> {
   updatedAt: Date;
 
   @BelongsTo(() => Queue)
-  queue: Queue;
+  queue: any; // any prevents circular __metadata TDZ
 }
 
 export default WhatsappQueue;

@@ -24,6 +24,7 @@ import ButtonWithSpinner from "../ButtonWithSpinner";
 import toastError from "../../errors/toastError";
 import useQueues from "../../hooks/useQueues";
 import UserStatusIcon from "../UserModal/statusIcon";
+import { TicketsContext } from "../../context/Tickets/TicketsContext";
 
 const useStyles = makeStyles((theme) => ({
   maxWidth: {
@@ -37,6 +38,7 @@ const filterOptions = createFilterOptions({
 
 const TransferTicketModalCustom = ({ modalOpen, onClose, ticketid, ticket }) => {
   const history = useHistory();
+  const { setCurrentTicket } = React.useContext(TicketsContext);
   const [options, setOptions] = useState([]);
   const [queues, setQueues] = useState([]);
   const [allQueues, setAllQueues] = useState([]);
@@ -78,10 +80,10 @@ const TransferTicketModalCustom = ({ modalOpen, onClose, ticketid, ticket }) => 
       setLoading(true);
       const fetchUsers = async () => {
         try {
-          const { data } = await api.get("/users/", {
+          const { data } = await api.get("/users/list", {
             params: { searchParam },
           });
-          setOptions(data.users);
+          setOptions(Array.isArray(data) ? data : (data.users || []));
           setLoading(false);
         } catch (err) {
           setLoading(false);
@@ -127,7 +129,9 @@ const TransferTicketModalCustom = ({ modalOpen, onClose, ticketid, ticket }) => 
 
       await api.put(`/tickets/${ticketid}`, data);
       setLoading(false);
-      history.push(`/tickets/`);
+      window.dispatchEvent(new Event('ticket:transferred'));
+      setCurrentTicket({ id: null, code: null });
+      history.push(`/tickets`);
       handleClose();
     } catch (err) {
       setLoading(false);

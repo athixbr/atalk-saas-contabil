@@ -53,7 +53,7 @@ class QueueIntegrations extends Model<QueueIntegrations> {
   companyId: number;
 
   @BelongsTo(() => Company)
-  company: Company;
+  company: any;
 
   @Column
   typebotSlug: string;

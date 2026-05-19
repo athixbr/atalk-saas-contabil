@@ -52,16 +52,16 @@ class Chat extends Model<Chat> {
   updatedAt: Date;
 
   @BelongsTo(() => Company)
-  company: Company;
+  company: any;
 
   @BelongsTo(() => User)
-  owner: User;
+  owner: any;
 
   @HasMany(() => ChatUser)
-  users: ChatUser[];
+  users: any[];
 
   @HasMany(() => ChatMessage)
-  messages: ChatMessage[];
+  messages: any[];
 
   @BeforeCreate
   static setUUID(chat: Chat) {

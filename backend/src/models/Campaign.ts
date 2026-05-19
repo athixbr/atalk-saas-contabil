@@ -84,24 +84,24 @@ class Campaign extends Model<Campaign> {
   companyId: number;
 
   @BelongsTo(() => Company)
-  company: Company;
+  company: any;
 
   @ForeignKey(() => ContactList)
   @Column
   contactListId: number;
 
   @BelongsTo(() => ContactList)
-  contactList: ContactList;
+  contactList: any;
 
   @ForeignKey(() => Whatsapp)
   @Column
   whatsappId: number;
 
   @BelongsTo(() => Whatsapp)
-  whatsapp: Whatsapp;
+  whatsapp: any;
 
   @HasMany(() => CampaignShipping)
-  shipping: CampaignShipping[];
+  shipping: any[];
 }
 
 export default Campaign;

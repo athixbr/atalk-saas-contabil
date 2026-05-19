@@ -1,360 +1,199 @@
-import { CssBaseline, MenuItem, Select } from "@material-ui/core";
-import Checkbox from "@material-ui/core/Checkbox";
-import FormControlLabel from "@material-ui/core/FormControlLabel";
-import Grid from "@material-ui/core/Grid";
-import LinearProgress from "@material-ui/core/LinearProgress";
-import Link from "@material-ui/core/Link";
-import { makeStyles } from "@material-ui/core/styles";
-import TextField from "@material-ui/core/TextField";
-import Typography from "@material-ui/core/Typography";
-import {
-  Business,
-  Mail,
-  Person,
-  Phone,
-  Visibility,
-  VisibilityOff,
-} from "@mui/icons-material";
+import { Lock, Mail, Person, Phone, Business, Visibility, VisibilityOff } from "@mui/icons-material";
 import SendIcon from "@mui/icons-material/Send";
-import { IconButton, InputAdornment } from "@mui/material";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import MuiCard from "@mui/material/Card";
+import CssBaseline from "@mui/material/CssBaseline";
+import FormControl from "@mui/material/FormControl";
 import FormLabel from "@mui/material/FormLabel";
-import Stack from "@mui/material/Stack";
+import InputAdornment from "@mui/material/InputAdornment";
+import Link from "@mui/material/Link";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
+import IconButton from "@mui/material/IconButton";
 import { styled } from "@mui/material/styles";
 import { Field, Form, Formik } from "formik";
-import qs from "query-string";
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useState, useEffect } from "react";
 import { Helmet } from "react-helmet";
-import "react-phone-input-2/lib/style.css";
-import { Link as RouterLink, useHistory } from "react-router-dom";
+import { useHistory } from "react-router-dom";
 import { toast } from "react-toastify";
 import * as Yup from "yup";
-import logo from "../../assets/logo.png";
+import logo from "../../assets/logo1.png";
 import toastError from "../../errors/toastError";
-import usePlans from "../../hooks/usePlans";
 import ColorModeContext from "../../layout/themeContext";
 import { openApi } from "../../services/api";
-import { i18n } from "../../translate/i18n";
-import { countryRules } from "../../utils/countryRules";
-const useStyles = makeStyles((theme) => ({
-  root: {
-    //marginTop: "20px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    height: "100vh",
-    padding: theme.spacing(2),
-    boxSizing: "border-box",
-    overflowY: "auto",
-    background:
-      theme.mode === "light" ? theme.palette.light : theme.palette.dark,
-  },
-  rightScreen: {
-    flex: 1,
-    width: "100vw",
-    height: "100vh",
-    background:
-      theme.mode === "light" ? theme.palette.light : theme.palette.dark,
-    backgroundRepeat: "no-repeat",
-    backgroundSize: "100% 100%",
-    backgroundPosition: "center",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    textAlign: "center",
-  },
-  paper: {
-    backgroundColor:
-      theme.mode === "light"
-        ? "rgba(255, 255, 255, 0.8)"
-        : "rgba(0, 0, 0, 0.8)",
-    backdropFilter: "blur(5px)",
-    boxShadow:
-      theme.mode === "light"
-        ? "0 4px 6px rgba(0, 0, 0, 0.2)"
-        : "0 4px 6px rgba(0, 0, 0, 0.5)",
-    maxHeight: "90vh",
-    overflowY: "auto",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    padding: "25px",
-    borderRadius: "12px",
-    maxWidth: "400px",
-    width: "100%",
-  },
-  form: {
-    width: "100%",
-    marginTop: theme.spacing(3),
-  },
-  logoImg: {
-    width: "100%",
-    maxWidth: "250px",
-    height: "auto",
-    maxHeight: "120px",
-    margin: "0 auto",
-    // content:
-    //   "url(" +
-    //   (theme.mode === "light"
-    //     ? theme.calculatedLogoLight()
-    //     : theme.calculatedLogoDark()) +
-    //   ")",
-  },
-  link: {
-    fontSize: "16px",
-    lineHeight: "24px",
-    color: theme.mode === "light" ? "black" : "white",
-  },
-  submit: {
-    margin: theme.spacing(3, 0, 2),
-    color: "#f7f7f7",
-    borderRadius: "50px",
-  },
-  span: {
-    color: theme.mode === "light" ? "green" : "white",
-  },
-  spanRed: {
-    color: "red",
-  },
-  iconPassword: {
-    color: "rgba(255, 255, 255, 0.7)",
-  },
-}));
 
 const Card = styled(MuiCard)(({ theme }) => ({
   display: "flex",
-  borderRadius: "16px",
+  borderRadius: "20px",
   flexDirection: "column",
-  alignSelf: "center",
   width: "100%",
   padding: theme.spacing(4),
   gap: theme.spacing(2),
-  margin: "auto",
-  background: "rgba(255, 255, 255, 0.05)",
-  backdropFilter: "blur(10px)",
-  border: "1px solid rgba(255, 255, 255, 0.1)",
+  background: "#ffffff",
+  border: "none",
+  boxShadow: "0 10px 40px rgba(0, 0, 0, 0.1)",
   [theme.breakpoints.up("sm")]: {
-    maxWidth: "600px",
+    padding: theme.spacing(5),
   },
-  [theme.breakpoints.up("md")]: {
-    maxWidth: "700px",
-  },
-  boxShadow: "0 8px 32px 0 #090b11",
 }));
 
-const SignUpContainer = styled(Stack)(({ theme }) => ({
+const SignUpContainer = styled(Box)(({ theme }) => ({
   minHeight: "100vh",
-  alignItems: "center",
-  justifyContent: "center",
+  display: "flex",
   position: "relative",
-  padding: theme.spacing(2),
-  background: "linear-gradient(135deg, #474c4f 0%, #090b11 100%)",
-  // background: "linear-gradient(2deg, #bc48ff 0%, #aa83ff 50%, #474bff 100%)",
-  [theme.breakpoints.up("sm")]: {
-    padding: theme.spacing(4),
+  background: "#f8f9fa",
+  [theme.breakpoints.down("md")]: {
+    flexDirection: "column",
   },
 }));
+
+const LeftSection = styled(Box)(({ theme }) => ({
+  flex: 1,
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "center",
+  alignItems: "center",
+  padding: theme.spacing(4),
+  background: "#ffffff",
+  overflowY: "auto",
+  [theme.breakpoints.up("md")]: {
+    padding: theme.spacing(8),
+  },
+}));
+
+const RightSection = styled(Box)(({ theme }) => ({
+  flex: 1,
+  display: "none",
+  position: "relative",
+  background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+  overflow: "hidden",
+  [theme.breakpoints.up("md")]: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+}));
+
+const ImageSlide = styled(Box)({
+  position: "absolute",
+  width: "100%",
+  height: "100%",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  transition: "opacity 1s ease-in-out",
+  padding: "60px",
+  "& img": {
+    maxWidth: "100%",
+    maxHeight: "80%",
+    objectFit: "contain",
+  },
+});
 
 const StyledTextField = styled(TextField)(({ theme }) => ({
   "& .MuiOutlinedInput-root": {
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    backgroundColor: "#f8f9fa",
     borderRadius: "12px",
     "& fieldset": {
-      borderColor: "rgba(255, 255, 255, 0.2)",
+      borderColor: "#e0e0e0",
     },
-    "&:hover:not(.Mui-focused) fieldset": {
-      borderColor: "rgba(255, 255, 255, 0.2)",
+    "&:hover fieldset": {
+      borderColor: "#667eea",
+    },
+    "&.Mui-focused fieldset": {
+      borderColor: "#667eea",
     },
   },
-
   "& .MuiInputBase-input": {
-    color: "rgba(255, 255, 255, 0.9)",
+    color: "#2d3748",
     paddingLeft: "10px",
   },
   "& .MuiInputLabel-root": {
-    color: "rgba(255, 255, 255, 0.7)",
+    color: "#718096",
+  },
+  "& .MuiInputLabel-root.Mui-focused": {
+    color: "#667eea",
   },
 }));
 
 const StyledFormLabel = styled(FormLabel)({
-  color: "rgba(255, 255, 255, 0.7)",
+  color: "#2d3748",
   marginBottom: "8px",
+  fontWeight: 500,
 });
 
 const StyledLink = styled(Link)({
-  textAlign: "center",
-  color: "rgba(255, 255, 255, 0.7)",
+  color: "#667eea",
+  textDecoration: "none",
+  fontWeight: 500,
   "&:hover": {
-    color: "rgba(255, 255, 255, 0.9)",
-  },
-  "& .MuiTypography-body1": {
-    marginTop: "8px",
+    color: "#764ba2",
+    textDecoration: "underline",
   },
 });
 
-const StyledSelect = styled(Select)(({ theme }) => ({
-  backgroundColor: "rgba(255, 255, 255, 0.05)",
-  borderRadius: "12px",
-  "& .MuiOutlinedInput-notchedOutline": {
-    borderColor: "rgba(255, 255, 255, 0.2)",
-  },
-  "&:hover:not(.Mui-focused) fieldset": {
-    borderColor: "rgba(255, 255, 255, 0.2)",
-  },
-
-  "& .MuiSelect-select": {
-    color: "rgba(255, 255, 255, 0.9)",
-    padding: "14px",
-  },
-  "& .MuiSvgIcon-root": {
-    color: "rgba(255, 255, 255, 0.7)",
-  },
+const Footer = styled(Box)(({ theme }) => ({
+  position: "absolute",
+  bottom: 0,
+  width: "100%",
+  padding: theme.spacing(2),
+  textAlign: "center",
+  background: "transparent",
+  color: "#718096",
+  fontSize: "0.875rem",
+  zIndex: 10,
 }));
 
-const StyledMenuItem = styled(MenuItem)(({ theme }) => ({
-  "&.MuiMenuItem-root": {
-    padding: "16px",
-    borderRadius: "8px",
-    margin: "4px",
-    "&:hover": {
-      backgroundColor: "rgba(255, 255, 255, 0.1)",
-    },
-    "&.Mui-selected": {
-      backgroundColor: "rgba(255, 255, 255, 0.15)",
-      "&:hover": {
-        backgroundColor: "rgba(255, 255, 255, 0.2)",
-      },
-    },
-  },
-}));
-
-const PlanCard = styled(Box)(({ theme }) => ({
-  display: "flex",
-  flexDirection: "column",
-  gap: "8px",
-  "& .plan-name": {
-    fontWeight: 600,
-    color: "rgba(255, 255, 255, 0.9)",
-  },
-  "& .plan-details": {
-    color: "rgba(255, 255, 255, 0.7)",
-    fontSize: "0.9rem",
-  },
-  "& .plan-price": {
-    color: "#4CAF50",
-    fontWeight: 600,
-  },
-}));
-
-const getPhoneValidationSchema = (maxLength, countryCode) => {
-  return Yup.string()
-    .required("Phone é obrigatório")
-    .matches(
-      new RegExp(`^\\d{${11}}$`),
-      `Digite o número completo no formato (xx) xxxx xxxx e com ${11} dígitos (apenas números).`
-    );
-};
-
-const UserSchema = Yup.object().shape({
+const SignupSchema = Yup.object().shape({
   name: Yup.string()
     .min(2, "Muito curto!")
     .max(50, "Muito longo!")
-    .required("Nome é obrigatório"),
-  companyName: Yup.string()
-    .min(2, "Muito curto!")
-    .max(50, "Muito longo!")
-    .required("Nome da empresa é obrigatória"),
-  password: Yup.string()
-    .min(8, "")
-    .matches(/[a-z]/, " ")
-    .matches(/[A-Z]/, " ")
-    .required("Senha é obrigatória"),
-  email: Yup.string().email("E-mail inválido").required("E-mail é obrigatório"),
-  // phone: Yup.string()
-  //   .required("Phone é obrigatório")
-  //   .matches(
-  //     /^\d{13}$/,
-  //     "Digite o número completo no formato (XX) 9 XXXX-XXXX (apenas números)."
-  //   ),
-
-  termo: Yup.boolean()
-    .oneOf([true], "Você deve aceitar os termos para continuar.")
-    .required("A aceitação dos termos é obrigatória"),
+    .required("Obrigatório"),
+  email: Yup.string().email("Email inválido").required("Obrigatório"),
+  password: Yup.string().min(6, "Mínimo 6 caracteres").required("Obrigatório"),
+  phone: Yup.string().required("Obrigatório"),
+  companyName: Yup.string().required("Obrigatório"),
 });
 
-const SignUp = () => {
-  const classes = useStyles();
-  const history = useHistory();
-  const { getPlanList } = usePlans();
-  const [plans, setPlans] = useState([]);
+const Signup = () => {
   const { colorMode } = useContext(ColorModeContext);
   const { appName } = colorMode;
-  const [loading, setLoading] = useState(false);
+  const history = useHistory();
   const [showPassword, setShowPassword] = useState(false);
-  const [phoneValidationSchema, setPhoneValidationSchema] = useState(
-    getPhoneValidationSchema(13, "BR")
-  );
-  let companyId = null;
-  const params = qs.parse(window.location.search);
-  if (params.companyId !== undefined) {
-    companyId = params.companyId;
-  }
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  const calculateProgress = (password) => {
-    let progress = 0;
-    if (password.length >= 8) progress += 33;
-    if (/[a-z]/.test(password)) progress += 33;
-    if (/[A-Z]/.test(password)) progress += 34;
-    return progress;
-  };
-
-  const initialState = {
-    name: "",
-    email: "",
-    password: "",
-    phone: "",
-    companyId,
-    companyName: "",
-    planId: "",
-    termo: false,
-  };
-
-  const [user] = useState(initialState);
-  const handleTogglePasswordVisibility = () => {
-    setShowPassword(!showPassword);
-  };
+  const images = [
+    {
+      url: "https://images.unsplash.com/photo-1551434678-e076c223a692?w=800",
+      title: "Comece Agora",
+      description: "Cadastre-se e transforme sua gestão"
+    },
+    {
+      url: "https://images.unsplash.com/photo-1552664730-d307ca884978?w=800",
+      title: "Fácil e Rápido",
+      description: "Configure sua conta em minutos"
+    },
+    {
+      url: "https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=800",
+      title: "Sem Compromisso",
+      description: "Experimente todas as funcionalidades"
+    },
+  ];
 
   useEffect(() => {
-    setLoading(true);
-    const fetchData = async () => {
-      const planList = await getPlanList({ listPublic: false });
-
-      setPlans(planList);
-      setLoading(false);
-    };
-    fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const interval = setInterval(() => {
+      setCurrentImageIndex((prevIndex) =>
+        prevIndex === images.length - 1 ? 0 : prevIndex + 1
+      );
+    }, 5000);
+    return () => clearInterval(interval);
   }, []);
-  const handleCountryChange = (countryCode) => {
-    const rules = countryRules[countryCode.toLowerCase()] || {
-      maxLength: 11,
-      code: countryCode.toUpperCase(),
-    };
-
-    setPhoneValidationSchema(
-      getPhoneValidationSchema(rules.maxLength, rules.code)
-    );
-  };
 
   const handleSignUp = async (values) => {
-    console.log(values);
-
     try {
       await openApi.post("/auth/signup", values);
-      toast.success(i18n.t("signup.toasts.success"));
+      toast.success("Cadastro realizado com sucesso! Faça login.");
       history.push("/login");
     } catch (err) {
       toastError(err);
@@ -364,105 +203,61 @@ const SignUp = () => {
   return (
     <>
       <Helmet>
-        <title>{appName || "WorkZap"}</title>
+        <title>Cadastre-se - {appName || "Atalk"}</title>
         <link rel="icon" href="/favicon.png" />
       </Helmet>
       <CssBaseline enableColorScheme />
-      {/* <div className={classes.leftScreen}></div> */}
       <SignUpContainer>
-        <Card
-          sx={{
-            background: "linear-gradient(135deg, #474c4f 0%, #090b11 100%)",
-          }}
-        >
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "center",
-              mb: 4,
-              flexDirection: "column",
-              alignItems: "center",
-
-              color: "rgba(255, 255, 255, 0.7)",
-            }}
-          >
-            <Box>
-              <img src={logo} className={classes.logoImg} alt="logo" />
+        <LeftSection>
+          <Box sx={{ width: "100%", maxWidth: "500px" }}>
+            <Box sx={{ display: "flex", justifyContent: "center", mb: 4 }}>
+              <img
+                src={logo}
+                alt="Logo"
+                style={{
+                  width: "180px",
+                  height: "auto",
+                  filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.1))"
+                }}
+              />
             </Box>
-            <Typography component="h1" variant="h5">
-              {i18n.t("signup.title")}
-            </Typography>
-            <Typography
-              variant="body1"
-              sx={{ color: "rgba(255, 255, 255, 0.7)", textAlign: "center" }}
-            >
-              Crie sua conta para começar
-            </Typography>
-            {/* <form className={classes.form} noValidate onSubmit={handleSignUp}> */}
-            <Formik
-              initialValues={user}
-              enableReinitialize={true}
-              validationSchema={Yup.object().shape({
-                ...UserSchema.fields,
-                phone: phoneValidationSchema, // Inclui o esquema dinâmico de telefone
-              })}
-              onSubmit={(values, actions) => {
-                setTimeout(() => {
-                  handleSignUp(values);
-                  actions.setSubmitting(false);
-                }, 400);
-              }}
-            >
-              {({ touched, errors, isSubmitting, values, setFieldValue }) => (
-                <Form className={classes.form}>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} style={{ width: "100%" }}>
-                      <StyledFormLabel>
-                        {i18n.t("signup.form.company")}
-                      </StyledFormLabel>
-                      <Field
-                        as={StyledTextField}
-                        variant="outlined"
-                        fullWidth
-                        size="small"
-                        id="companyName"
-                        error={
-                          touched.companyName && Boolean(errors.companyName)
-                        }
-                        helperText={touched.companyName && errors.companyName}
-                        name="companyName"
-                        autoComplete="companyName"
-                        autoFocus
-                        placeholder="Sua empresa"
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <Business
-                                sx={{ color: "rgba(255, 255, 255, 0.7)" }}
-                              />
-                            </InputAdornment>
-                          ),
-                        }}
-                      />
-                    </Grid>
-                    <Box
-                      sx={{
-                        display: "grid",
-                        gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-                        gap: 2,
-                        width: "100%",
-                        padding: "8px",
-                      }}
-                    >
-                      <Grid item xs={12}>
-                        <StyledFormLabel>
-                          {i18n.t("signup.form.name")}
-                        </StyledFormLabel>
+
+            <Card elevation={0}>
+              <Box sx={{ mb: 3 }}>
+                <Typography
+                  variant="h4"
+                  sx={{
+                    color: "#2d3748",
+                    fontWeight: 700,
+                    mb: 1,
+                  }}
+                >
+                  Criar Conta
+                </Typography>
+                <Typography variant="body1" sx={{ color: "#718096" }}>
+                  Preencha os dados abaixo para começar
+                </Typography>
+              </Box>
+
+              <Formik
+                initialValues={{
+                  name: "",
+                  email: "",
+                  password: "",
+                  phone: "",
+                  companyName: "",
+                }}
+                validationSchema={SignupSchema}
+                onSubmit={handleSignUp}
+              >
+                {({ errors, touched, isSubmitting }) => (
+                  <Form style={{ width: "100%" }}>
+                    <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
+                      <FormControl>
+                        <StyledFormLabel>Nome Completo</StyledFormLabel>
                         <Field
                           as={StyledTextField}
                           name="name"
-                          variant="outlined"
-                          size="small"
                           placeholder="Seu nome completo"
                           error={touched.name && Boolean(errors.name)}
                           helperText={touched.name && errors.name}
@@ -470,21 +265,64 @@ const SignUp = () => {
                           InputProps={{
                             startAdornment: (
                               <InputAdornment position="start">
-                                <Person
-                                  sx={{ color: "rgba(255, 255, 255, 0.7)" }}
-                                />
+                                <Person sx={{ color: "#667eea" }} />
                               </InputAdornment>
                             ),
                           }}
                         />
-                      </Grid>
-                      <Grid
-                        item
-                        xs={12}
-                        style={{
-                          color: "#000",
-                        }}
-                      >
+                      </FormControl>
+
+                      <FormControl>
+                        <StyledFormLabel>E-mail</StyledFormLabel>
+                        <Field
+                          as={StyledTextField}
+                          name="email"
+                          type="email"
+                          placeholder="seu@email.com"
+                          error={touched.email && Boolean(errors.email)}
+                          helperText={touched.email && errors.email}
+                          fullWidth
+                          InputProps={{
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <Mail sx={{ color: "#667eea" }} />
+                              </InputAdornment>
+                            ),
+                          }}
+                        />
+                      </FormControl>
+
+                      <FormControl>
+                        <StyledFormLabel>Senha</StyledFormLabel>
+                        <Field
+                          as={StyledTextField}
+                          name="password"
+                          type={showPassword ? "text" : "password"}
+                          placeholder="••••••••"
+                          error={touched.password && Boolean(errors.password)}
+                          helperText={touched.password && errors.password}
+                          fullWidth
+                          InputProps={{
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <Lock sx={{ color: "#667eea" }} />
+                              </InputAdornment>
+                            ),
+                            endAdornment: (
+                              <InputAdornment position="end">
+                                <IconButton
+                                  onClick={() => setShowPassword(!showPassword)}
+                                  edge="end"
+                                >
+                                  {showPassword ? <VisibilityOff /> : <Visibility />}
+                                </IconButton>
+                              </InputAdornment>
+                            ),
+                          }}
+                        />
+                      </FormControl>
+
+                      <FormControl>
                         <StyledFormLabel>Telefone</StyledFormLabel>
                         <Field
                           as={StyledTextField}
@@ -493,265 +331,141 @@ const SignUp = () => {
                           error={touched.phone && Boolean(errors.phone)}
                           helperText={touched.phone && errors.phone}
                           fullWidth
-                          variant="outlined"
-                          size="small"
                           InputProps={{
                             startAdornment: (
                               <InputAdornment position="start">
-                                <Phone
-                                  sx={{ color: "rgba(255, 255, 255, 0.7)" }}
-                                />
+                                <Phone sx={{ color: "#667eea" }} />
                               </InputAdornment>
                             ),
                           }}
                         />
-                        {/* {errors.phone && touched.phone ? (
-                          <div style={{ color: "red" }}>{errors.phone}</div>
-                        ) : null} */}
-                      </Grid>
-                    </Box>
-                    <Grid item xs={12}>
-                      <StyledFormLabel>
-                        {i18n.t("signup.form.email")}
-                      </StyledFormLabel>
-                      <Field
-                        as={StyledTextField}
-                        variant="outlined"
-                        fullWidth
-                        id="email"
-                        size="small"
-                        placeholder="seu@email.com"
-                        name="email"
-                        error={touched.email && Boolean(errors.email)}
-                        helperText={touched.email && errors.email}
-                        autoComplete="email"
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <Mail
-                                sx={{ color: "rgba(255, 255, 255, 0.7)" }}
-                              />
-                            </InputAdornment>
-                          ),
-                          style: { textTransform: "lowercase" },
-                        }}
-                      />
-                    </Grid>
-                    <Grid item xs={12}>
-                      <StyledFormLabel>
-                        {i18n.t("signup.form.password")}
-                      </StyledFormLabel>
-                      <Field
-                        as={StyledTextField}
-                        variant="outlined"
-                        fullWidth
-                        name="password"
-                        size="small"
-                        placeholder="******"
-                        error={touched.password && Boolean(errors.password)}
-                        helperText={touched.password && errors.password}
-                        type={showPassword ? "text" : "password"}
-                        id="password"
-                        autoComplete="current-password"
-                        InputProps={{
-                          endAdornment: (
-                            <InputAdornment position="end">
-                              <IconButton
-                                onClick={handleTogglePasswordVisibility}
-                                edge="end"
-                              >
-                                {showPassword ? (
-                                  <VisibilityOff
-                                    className={classes.iconPassword}
-                                  />
-                                ) : (
-                                  <Visibility
-                                    className={classes.iconPassword}
-                                  />
-                                )}
-                              </IconButton>
-                            </InputAdornment>
-                          ),
-                        }}
-                      />
-                      <div
-                        style={{
-                          width: "100%",
+                      </FormControl>
 
-                          marginTop: "10px",
-                        }}
-                      >
-                        <LinearProgress
-                          variant="determinate"
-                          value={calculateProgress(values.password)}
-                          color="primary"
-                        />
-                        <div
-                          style={{
-                            display: "flex",
-                            gap: 10,
-                            alignItems: "center",
-                            marginTop: "5px",
+                      <FormControl>
+                        <StyledFormLabel>Nome da Empresa</StyledFormLabel>
+                        <Field
+                          as={StyledTextField}
+                          name="companyName"
+                          placeholder="Nome da sua empresa"
+                          error={touched.companyName && Boolean(errors.companyName)}
+                          helperText={touched.companyName && errors.companyName}
+                          fullWidth
+                          InputProps={{
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <Business sx={{ color: "#667eea" }} />
+                              </InputAdornment>
+                            ),
                           }}
-                        >
-                          <span
-                            className={
-                              values.password.length >= 8
-                                ? classes.span
-                                : classes.spanRed
-                            }
-                          >
-                            8+ caracteres
-                          </span>
-                          <span
-                            className={
-                              /[a-z]/.test(values.password)
-                                ? classes.span
-                                : classes.spanRed
-                            }
-                          >
-                            Minúscula
-                          </span>
-                          <span
-                            className={
-                              /[A-Z]/.test(values.password)
-                                ? classes.span
-                                : classes.spanRed
-                            }
-                          >
-                            Maiúscula
-                          </span>
-                        </div>
-                      </div>
-                    </Grid>
+                        />
+                      </FormControl>
 
-                    {/* TOKEN */}
-                    {/* <Grid item xs={12}>
-                                    <Field
-                                        as={TextField}
-                                        variant="outlined"
-                                        fullWidth
-                                        id="token"
-                                        label={i18n.t("auth.token")}
-                                        name="token"
-                                        autoComplete="token"
-                                    />
-                                </Grid> */}
-
-                    <Grid item xs={12}>
-                      <StyledFormLabel htmlFor="plan-selection">
-                        Plano
-                      </StyledFormLabel>
-                      <Field
-                        as={StyledSelect}
-                        variant="outlined"
+                      <Button
+                        type="submit"
                         fullWidth
-                        id="plan-selection"
-                        MenuProps={{
-                          PaperProps: {
-                            sx: {
-                              bgcolor: "rgba(25, 25, 25, 0.95)",
-                              backdropFilter: "blur(10px)",
-                              borderRadius: "12px",
-                              border: "1px solid rgba(255, 255, 255, 0.1)",
-                              maxHeight: "400px",
-                            },
+                        variant="contained"
+                        disabled={isSubmitting}
+                        sx={{
+                          borderRadius: "12px",
+                          padding: "14px",
+                          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                          textTransform: "none",
+                          fontSize: "1rem",
+                          fontWeight: 600,
+                          boxShadow: "0 4px 20px rgba(102, 126, 234, 0.4)",
+                          "&:hover": {
+                            background: "linear-gradient(135deg, #764ba2 0%, #667eea 100%)",
+                            boxShadow: "0 6px 25px rgba(102, 126, 234, 0.5)",
+                            transform: "translateY(-2px)",
+                            transition: "all 0.3s ease",
                           },
                         }}
-                        name="planId"
-                        required
-                        style={{
-                          height: 40,
-                        }}
+                        endIcon={<SendIcon />}
                       >
-                        {plans.map((plan, key) => (
-                          <MenuItem key={key} value={plan.id} size="small">
-                            {plan.name} - Atendentes: {plan.users} - WhatsApp:{" "}
-                            {plan.connections} - Filas: {plan.queues} - R${" "}
-                            {plan.amount}
-                          </MenuItem>
-                        ))}
-                      </Field>
-                    </Grid>
-                    <Grid item xs={12}>
-                      <FormControlLabel
-                        control={
-                          <Checkbox
-                            value={values.termo}
-                            onChange={(event) => {
-                              setFieldValue("termo", event.target.checked);
-                            }}
-                            color="primary"
-                            name="termo"
-                            style={{
-                              color: "rgba(255, 255, 255, 0.7)",
-                            }}
-                          />
-                        }
-                        style={{
-                          alignItems: "flex-center",
-                          marginRight: "5px",
-                          marginTop: "-8px",
-                        }}
-                        label={
-                          <span
-                            style={{
-                              textAlign: "justify",
-                              fontSize: "14px",
-                              paddingTop: "5px",
-                              color: "rgba(255, 255, 255, 0.7)",
-                            }}
-                          >
-                            Li e aceito os termos de uso.
-                          </span>
-                        }
-                      />
-                      {errors.termo && touched.termo ? (
-                        <div style={{ color: "red" }}>{errors.termo}</div>
-                      ) : null}
-                    </Grid>
-                  </Grid>
-                  <Button
-                    type="submit"
-                    fullWidth
-                    variant="contained"
-                    disabled={isSubmitting}
-                    sx={{
-                      borderRadius: "12px",
-                      padding: "12px",
-                      backgroundColor: "#090b11",
-                      textTransform: "none",
-                      fontSize: "1rem",
-                      fontWeight: 500,
-                      boxShadow: "0 4px 15px #090b11",
-                      "&:hover": {
-                        background: "#282929",
-                        transition: "0.5s",
-                      },
-                    }}
-                    endIcon={<SendIcon />}
-                  >
-                    {i18n.t("signup.buttons.submit")}
-                  </Button>
-                  <StyledLink component={RouterLink} to="/login">
-                    <Typography
-                      sx={{
-                        textAlign: "center",
-                        color: "rgba(255, 255, 255, 0.7)",
-                      }}
-                    >
-                      {i18n.t("signup.buttons.login")}
-                    </Typography>
-                  </StyledLink>
-                </Form>
-              )}
-            </Formik>
+                        {isSubmitting ? "Cadastrando..." : "Criar Conta"}
+                      </Button>
+
+                      <Box sx={{ textAlign: "center", mt: 2 }}>
+                        <Typography sx={{ color: "#718096" }}>
+                          Já tem uma conta?{" "}
+                          <StyledLink href="/login">
+                            Faça login →
+                          </StyledLink>
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Form>
+                )}
+              </Formik>
+            </Card>
           </Box>
-        </Card>
+        </LeftSection>
+
+        <RightSection>
+          {images.map((image, index) => (
+            <ImageSlide
+              key={index}
+              sx={{
+                opacity: currentImageIndex === index ? 1 : 0,
+                zIndex: currentImageIndex === index ? 1 : 0,
+              }}
+            >
+              <Box sx={{ textAlign: "center", color: "#ffffff", maxWidth: "600px" }}>
+                <img
+                  src={image.url}
+                  alt={image.title}
+                  style={{
+                    borderRadius: "20px",
+                    boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
+                    marginBottom: "40px",
+                  }}
+                />
+                <Typography variant="h3" sx={{ fontWeight: 700, mb: 2, textShadow: "0 2px 10px rgba(0, 0, 0, 0.2)" }}>
+                  {image.title}
+                </Typography>
+                <Typography variant="h6" sx={{ fontWeight: 400, opacity: 0.9 }}>
+                  {image.description}
+                </Typography>
+              </Box>
+            </ImageSlide>
+          ))}
+
+          <Box
+            sx={{
+              position: "absolute",
+              bottom: 40,
+              left: "50%",
+              transform: "translateX(-50%)",
+              display: "flex",
+              gap: 1,
+              zIndex: 2,
+            }}
+          >
+            {images.map((_, index) => (
+              <Box
+                key={index}
+                sx={{
+                  width: currentImageIndex === index ? 30 : 10,
+                  height: 10,
+                  borderRadius: 5,
+                  background: currentImageIndex === index ? "#ffffff" : "rgba(255, 255, 255, 0.5)",
+                  transition: "all 0.3s ease",
+                  cursor: "pointer",
+                }}
+                onClick={() => setCurrentImageIndex(index)}
+              />
+            ))}
+          </Box>
+        </RightSection>
+
+        <Footer>
+          <Typography variant="body2">
+            Desenvolvido por <strong>IRYD</strong>
+          </Typography>
+        </Footer>
       </SignUpContainer>
-      {/* <Box mt={5}><Copyright /></Box> */}
     </>
   );
 };
 
-export default SignUp;
+export default Signup;

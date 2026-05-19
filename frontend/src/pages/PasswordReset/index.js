@@ -1,383 +1,564 @@
-import {
-  IconButton,
-  InputAdornment,
-  TextField,
-  Typography,
-} from "@material-ui/core";
-import { Visibility, VisibilityOff } from "@material-ui/icons";
-import Button from "@mui/material/Button";
-import React, { useState } from "react";
-import { Link, useHistory } from "react-router-dom";
-import api from "../../services/api";
-// import logo from "../../assets/logologin.png";
-import Container from "@material-ui/core/Container";
-import CssBaseline from "@material-ui/core/CssBaseline";
-import Grid from "@material-ui/core/Grid";
-import { makeStyles } from "@material-ui/core/styles";
+import { Lock, Mail, Visibility, VisibilityOff } from "@mui/icons-material";
 import SendIcon from "@mui/icons-material/Send";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import MuiCard from "@mui/material/Card";
+import CssBaseline from "@mui/material/CssBaseline";
+import FormControl from "@mui/material/FormControl";
+import FormLabel from "@mui/material/FormLabel";
+import InputAdornment from "@mui/material/InputAdornment";
+import Link from "@mui/material/Link";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
+import IconButton from "@mui/material/IconButton";
 import { styled } from "@mui/material/styles";
+import React, { useState, useContext, useEffect } from "react";
+import { Helmet } from "react-helmet";
+import { useHistory } from "react-router-dom";
 import { toast } from "react-toastify";
+import logo from "../../assets/logo1.png";
 import toastError from "../../errors/toastError";
-import { i18n } from "../../translate/i18n";
-// import { Toast } from "react-toastify/dist/components";
+import ColorModeContext from "../../layout/themeContext";
+import api from "../../services/api";
 
-const useStyles = makeStyles((theme) => ({
-  content: {
-    position: "relative",
-    background: "linear-gradient(135deg, #474c4f 0%, #090b11 100%)",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    height: "100vh",
-  },
-  paper: {
-    background: "rgba(255, 255, 255, 0.05)",
-    backdropFilter: "blur(10px)",
-    border: "1px solid rgba(255, 255, 255, 0.1)",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    padding: "55px 30px",
-    borderRadius: "35px",
-    color: "#FFF",
-  },
-  logo: {
-    marginBottom: theme.spacing(2),
-  },
-  form: {
-    width: "100%", // Fix IE 11 issue.
-    marginTop: theme.spacing(1),
-  },
-  submit: {
-    margin: theme.spacing(3, 0, 2),
+const Card = styled(MuiCard)(({ theme }) => ({
+  display: "flex",
+  borderRadius: "20px",
+  flexDirection: "column",
+  width: "100%",
+  padding: theme.spacing(4),
+  gap: theme.spacing(2),
+  background: "#ffffff",
+  border: "none",
+  boxShadow: "0 10px 40px rgba(0, 0, 0, 0.1)",
+  [theme.breakpoints.up("sm")]: {
+    padding: theme.spacing(5),
   },
 }));
+
+const ResetContainer = styled(Box)(({ theme }) => ({
+  minHeight: "100vh",
+  display: "flex",
+  position: "relative",
+  background: "#f8f9fa",
+  [theme.breakpoints.down("md")]: {
+    flexDirection: "column",
+  },
+}));
+
+const LeftSection = styled(Box)(({ theme }) => ({
+  flex: 1,
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "center",
+  alignItems: "center",
+  padding: theme.spacing(4),
+  background: "#ffffff",
+  [theme.breakpoints.up("md")]: {
+    padding: theme.spacing(8),
+  },
+}));
+
+const RightSection = styled(Box)(({ theme }) => ({
+  flex: 1,
+  display: "none",
+  position: "relative",
+  background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+  overflow: "hidden",
+  [theme.breakpoints.up("md")]: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+}));
+
+const ImageSlide = styled(Box)({
+  position: "absolute",
+  width: "100%",
+  height: "100%",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  transition: "opacity 1s ease-in-out",
+  padding: "60px",
+  "& img": {
+    maxWidth: "100%",
+    maxHeight: "80%",
+    objectFit: "contain",
+  },
+});
+
 const StyledTextField = styled(TextField)(({ theme }) => ({
   "& .MuiOutlinedInput-root": {
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    backgroundColor: "#f8f9fa",
     borderRadius: "12px",
     "& fieldset": {
-      borderColor: "rgba(255, 255, 255, 0.2)",
+      borderColor: "#e0e0e0",
     },
     "&:hover fieldset": {
-      borderColor: "rgba(255, 255, 255, 0.3)",
+      borderColor: "#667eea",
+    },
+    "&.Mui-focused fieldset": {
+      borderColor: "#667eea",
     },
   },
   "& .MuiInputBase-input": {
-    color: "rgba(255, 255, 255, 0.9)",
+    color: "#2d3748",
     paddingLeft: "10px",
   },
   "& .MuiInputLabel-root": {
-    color: "rgba(255, 255, 255, 0.7)",
+    color: "#718096",
+  },
+  "& .MuiInputLabel-root.Mui-focused": {
+    color: "#667eea",
   },
 }));
+
+const StyledFormLabel = styled(FormLabel)({
+  color: "#2d3748",
+  marginBottom: "8px",
+  fontWeight: 500,
+});
+
 const StyledLink = styled(Link)({
-  color: "rgba(255, 255, 255, 0.7)",
+  color: "#667eea",
   textDecoration: "none",
+  fontWeight: 500,
   "&:hover": {
-    color: "rgba(255, 255, 255, 0.9)",
+    color: "#764ba2",
     textDecoration: "underline",
   },
 });
-const ResetPasswordPage = () => {
-  const classes = useStyles();
-  const [email, setEmail] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [userId, setUserId] = useState(null);
-  const [userFound, setUserFound] = useState(false);
-  const [openSnackbar, setOpenSnackbar] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState("");
-  const [showEmailInput, setShowEmailInput] = useState(true);
-  const [verificationCode, setVerificationCode] = useState("");
-  const [codeVerified, setCodeVerified] = useState(false);
-  const [codeIncorrect, setCodeIncorrect] = useState(false);
-  const [verificationAttempts, setVerificationAttempts] = useState(0);
-  const [showVerifyButton, setShowVerifyButton] = useState(true);
-  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [user, setUser] = useState({ email: "", password: "" });
 
+const Footer = styled(Box)(({ theme }) => ({
+  position: "absolute",
+  bottom: 0,
+  width: "100%",
+  padding: theme.spacing(2),
+  textAlign: "center",
+  background: "transparent",
+  color: "#718096",
+  fontSize: "0.875rem",
+  zIndex: 10,
+}));
+
+const PasswordReset = () => {
+  const { colorMode } = useContext(ColorModeContext);
+  const { appName } = colorMode;
   const history = useHistory();
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  
+  const [phone, setPhone] = useState("");
+  const [verificationCode, setVerificationCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  
+  const [step, setStep] = useState(1); // 1: telefone, 2: código, 3: nova senha
+  const [userId, setUserId] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  const customSpacing = 16;
+  const images = [
+    {
+      url: "https://images.unsplash.com/photo-1551434678-e076c223a692?w=800",
+      title: "Recupere seu Acesso",
+      description: "Redefina sua senha em poucos passos"
+    },
+    {
+      url: "https://images.unsplash.com/photo-1552664730-d307ca884978?w=800",
+      title: "Segurança em Primeiro Lugar",
+      description: "Processo seguro de verificação"
+    },
+    {
+      url: "https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=800",
+      title: "Rápido e Fácil",
+      description: "Volte a usar sua conta rapidamente"
+    },
+  ];
 
-  const linkStyle = {
-    textDecoration: "none", // Remover sublinhado do link
-    color: "inherit", // Herdar a cor do texto original
-    cursor: "pointer", // Adicionar cursor ao passar o mouse para indicar clicabilidade
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentImageIndex((prevIndex) =>
+        prevIndex === images.length - 1 ? 0 : prevIndex + 1
+      );
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleSendPhone = async (e) => {
+    e.preventDefault();
+    if (!phone) {
+      toast.error("Digite seu WhatsApp");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const { data } = await api.post("/api/enviar-email", { wpp: phone });
+      setUserId(data.userId);
+      setStep(2);
+      toast.success("Código de verificação enviado para seu WhatsApp!");
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleResetPassword = async () => {
+  const handleVerifyCode = async (e) => {
+    e.preventDefault();
+    if (!verificationCode) {
+      toast.error("Digite o código de verificação");
+      return;
+    }
+
     try {
-      const response = await api.get("/api/obter-usuarios");
-      const users = response.data;
-
-      const foundUser = users.find((user) => user.email === email);
-
-      if (foundUser) {
-        setUserFound(true);
-        setUserId(foundUser.id);
-        setShowEmailInput(false);
-
-        try {
-          await api.post("/api/enviar-email", { email: foundUser.email });
-          console.log("E-mail de verificação enviado com sucesso!");
-        } catch (error) {
-          console.error("Erro ao enviar e-mail de verificação:", error);
-        }
+      setLoading(true);
+      // Formatar número antes de verificar
+      const formattedPhone = phone.replace(/\D/g, '');
+      const finalPhone = formattedPhone.startsWith('55') ? formattedPhone : `55${formattedPhone}`;
+      
+      const { data } = await api.get(`/api/verificar-code/${finalPhone}`);
+      
+      if (data.code === verificationCode) {
+        setStep(3);
+        toast.success("Código verificado! Agora defina sua nova senha.");
       } else {
-        setUserFound(false);
-        toastError("Usuário não cadastrado.");
+        toast.error("Código incorreto");
       }
-    } catch (error) {
-      console.error("Erro ao buscar usuários:", error);
-      toastError("Erro ao buscar usuários.");
+    } catch (err) {
+      toast.error("Código incorreto ou expirado");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleResetPass = async () => {
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    if (!newPassword || newPassword.length < 6) {
+      toast.error("A senha deve ter pelo menos 6 caracteres");
+      return;
+    }
+
     try {
-      const {
-        data: { userId },
-      } = await api.post("/api/enviar-email", { wpp: email });
-
-      setUserId(userId);
-
-      setShowEmailInput(false);
-      setUserFound(true);
-      toast.success("Código de verificação enviado com sucesso!");
-    } catch (error) {
-      toastError(error.response.data.error);
+      setLoading(true);
+      await api.put("/api/atualizar-senha", { 
+        userId, 
+        newPassword 
+      });
+      toast.success("Senha alterada com sucesso!");
+      history.push("/login");
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleVerifyCode = async () => {
-    try {
-      const response = await api.get(`/api/verificar-code/${email}`);
-      const codeData = response.data;
+  const getStepContent = () => {
+    switch (step) {
+      case 1:
+        return (
+          <>
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="h4" sx={{ color: "#2d3748", fontWeight: 700, mb: 1 }}>
+                Esqueceu sua senha?
+              </Typography>
+              <Typography variant="body1" sx={{ color: "#718096" }}>
+                Digite seu WhatsApp para receber o código de verificação
+              </Typography>
+            </Box>
 
-      if (codeData && codeData.code === verificationCode) {
-        setCodeVerified(true);
-        setShowVerifyButton(false);
-        setShowSuccessMessage(true);
-      } else {
-        toastError(
-          "Código de verificação inválido. A senha não pode ser alterada."
+            <form onSubmit={handleSendPhone} style={{ width: "100%" }}>
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
+                <FormControl>
+                  <StyledFormLabel>WhatsApp</StyledFormLabel>
+                  <StyledTextField
+                    type="tel"
+                    placeholder="(11) 99999-9999"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    required
+                    fullWidth
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Mail sx={{ color: "#667eea" }} />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                </FormControl>
+
+                <Button
+                  type="submit"
+                  fullWidth
+                  variant="contained"
+                  disabled={loading}
+                  sx={{
+                    borderRadius: "12px",
+                    padding: "14px",
+                    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                    textTransform: "none",
+                    fontSize: "1rem",
+                    fontWeight: 600,
+                    boxShadow: "0 4px 20px rgba(102, 126, 234, 0.4)",
+                    "&:hover": {
+                      background: "linear-gradient(135deg, #764ba2 0%, #667eea 100%)",
+                      boxShadow: "0 6px 25px rgba(102, 126, 234, 0.5)",
+                      transform: "translateY(-2px)",
+                      transition: "all 0.3s ease",
+                    },
+                  }}
+                  endIcon={<SendIcon />}
+                >
+                  {loading ? "Enviando..." : "Enviar Código"}
+                </Button>
+
+                <Box sx={{ textAlign: "center", mt: 2 }}>
+                  <Typography sx={{ color: "#718096" }}>
+                    Lembrou sua senha?{" "}
+                    <StyledLink href="/login">
+                      Fazer login →
+                    </StyledLink>
+                  </Typography>
+                </Box>
+              </Box>
+            </form>
+          </>
         );
-        setCodeIncorrect(true);
-        setVerificationAttempts(verificationAttempts + 1);
-      }
-    } catch (error) {
-      console.error("Erro ao verificar código:", error);
-      toastError("Erro ao verificar código.");
-      // setSnackbarMessage("Erro ao verificar código.");
-      // setOpenSnackbar(true);
+
+      case 2:
+        return (
+          <>
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="h4" sx={{ color: "#2d3748", fontWeight: 700, mb: 1 }}>
+                Verificar Código
+              </Typography>
+              <Typography variant="body1" sx={{ color: "#718096" }}>
+                Digite o código enviado para o WhatsApp {phone}
+              </Typography>
+            </Box>
+
+            <form onSubmit={handleVerifyCode} style={{ width: "100%" }}>
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
+                <FormControl>
+                  <StyledFormLabel>Código de Verificação</StyledFormLabel>
+                  <StyledTextField
+                    placeholder="000000"
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value)}
+                    required
+                    fullWidth
+                  />
+                </FormControl>
+
+                <Button
+                  type="submit"
+                  fullWidth
+                  variant="contained"
+                  disabled={loading}
+                  sx={{
+                    borderRadius: "12px",
+                    padding: "14px",
+                    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                    textTransform: "none",
+                    fontSize: "1rem",
+                    fontWeight: 600,
+                    boxShadow: "0 4px 20px rgba(102, 126, 234, 0.4)",
+                    "&:hover": {
+                      background: "linear-gradient(135deg, #764ba2 0%, #667eea 100%)",
+                      boxShadow: "0 6px 25px rgba(102, 126, 234, 0.5)",
+                      transform: "translateY(-2px)",
+                      transition: "all 0.3s ease",
+                    },
+                  }}
+                  endIcon={<SendIcon />}
+                >
+                  {loading ? "Verificando..." : "Verificar Código"}
+                </Button>
+
+                <Box sx={{ textAlign: "center", mt: 2 }}>
+                  <Typography sx={{ color: "#718096" }}>
+                    <StyledLink href="#" onClick={() => setStep(1)}>
+                      ← Voltar
+                    </StyledLink>
+                  </Typography>
+                </Box>
+              </Box>
+            </form>
+          </>
+        );
+
+      case 3:
+        return (
+          <>
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="h4" sx={{ color: "#2d3748", fontWeight: 700, mb: 1 }}>
+                Nova Senha
+              </Typography>
+              <Typography variant="body1" sx={{ color: "#718096" }}>
+                Digite sua nova senha
+              </Typography>
+            </Box>
+
+            <form onSubmit={handleResetPassword} style={{ width: "100%" }}>
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
+                <FormControl>
+                  <StyledFormLabel>Nova Senha</StyledFormLabel>
+                  <StyledTextField
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                    fullWidth
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Lock sx={{ color: "#667eea" }} />
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            onClick={() => setShowPassword(!showPassword)}
+                            edge="end"
+                          >
+                            {showPassword ? <VisibilityOff /> : <Visibility />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                </FormControl>
+
+                <Button
+                  type="submit"
+                  fullWidth
+                  variant="contained"
+                  disabled={loading}
+                  sx={{
+                    borderRadius: "12px",
+                    padding: "14px",
+                    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                    textTransform: "none",
+                    fontSize: "1rem",
+                    fontWeight: 600,
+                    boxShadow: "0 4px 20px rgba(102, 126, 234, 0.4)",
+                    "&:hover": {
+                      background: "linear-gradient(135deg, #764ba2 0%, #667eea 100%)",
+                      boxShadow: "0 6px 25px rgba(102, 126, 234, 0.5)",
+                      transform: "translateY(-2px)",
+                      transition: "all 0.3s ease",
+                    },
+                  }}
+                  endIcon={<SendIcon />}
+                >
+                  {loading ? "Alterando..." : "Alterar Senha"}
+                </Button>
+              </Box>
+            </form>
+          </>
+        );
+
+      default:
+        return null;
     }
-
-    if (codeIncorrect) {
-      // setSnackbarMessage("Código de verificação incorreto. Tente novamente.");
-      // setOpenSnackbar(true);
-      toastError("Código de verificação incorreto. Tente novamente.");
-
-      if (verificationAttempts >= 2) {
-        toastError("Tentativas excedidas. Redirecionando...");
-
-        setTimeout(() => {
-          history.push("/login");
-        }, 3000);
-      }
-
-      setCodeIncorrect(false);
-    }
-  };
-
-  const handleResetCode = () => {
-    setCodeIncorrect(false);
-    setVerificationCode("");
-  };
-
-  const handleSavePassword = async () => {
-    if (userFound && codeVerified) {
-      try {
-        // Substitua a chamada da API para atualizar a senha
-        await api.put("/api/atualizar-senha", { userId, newPassword });
-
-        toast.success("Senha atualizada com sucesso!");
-
-        setTimeout(() => {
-          history.push("/login");
-        }, 1000);
-      } catch (err) {
-        console.error("Erro ao salvar senha:", err);
-        toastError("Erro ao salvar senha.");
-      }
-    } else {
-      console.error("Usuário não encontrado ou código de verificação inválido");
-    }
-  };
-
-  const handleCloseSnackbar = () => {
-    // setOpenSnackbar(false);
   };
 
   return (
-    <div className={classes.content}>
-      <Container component="main" maxWidth="xs">
-        <CssBaseline />
-        <div className={classes.paper}>
-          <div>
-            {/* <img
-              style={{ margin: "0 auto", height: "100px", width: "100%" }}
-              // src={logo}
-              alt="Whats"
-            /> */}
-          </div>
-          <Typography component="h1" variant="h5">
-            {i18n.t("passwordReset.title")}
-          </Typography>
-          <form className={classes.form}>
-            {/* noValidate onSubmit={handlSubmit} */}
-            {showEmailInput && (
-              <StyledTextField
-                required
-                type="email"
-                variant="outlined"
-                margin="normal"
-                fullWidth
-                label={i18n.t("Whatsapp cadastrado")}
-                // label={i18n.t("passwordReset.form.email")}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            )}
-            {showEmailInput && (
-              <Button
-                type="submit"
-                fullWidth
-                variant="contained"
-                onClick={handleResetPass}
-                sx={{
-                  borderRadius: "12px",
-                  marginTop: 1,
-                  marginBottom: 4,
-                  padding: "12px",
-                  background: "#090b11",
-                  textTransform: "none",
-                  fontSize: "1rem",
-                  fontWeight: 500,
-                  boxShadow: "0 4px 15px #090b11",
-                  "&:hover": {
-                    background: "#282929",
-                    transition: "0.5s",
-                  },
+    <>
+      <Helmet>
+        <title>Recuperar Senha - {appName || "Atalk"}</title>
+        <link rel="icon" href="/favicon.png" />
+      </Helmet>
+      <CssBaseline enableColorScheme />
+      <ResetContainer>
+        <LeftSection>
+          <Box sx={{ width: "100%", maxWidth: "450px" }}>
+            <Box sx={{ display: "flex", justifyContent: "center", mb: 4 }}>
+              <img
+                src={logo}
+                alt="Logo"
+                style={{
+                  width: "180px",
+                  height: "auto",
+                  filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.1))"
                 }}
-                endIcon={<SendIcon />}
-              >
-                {i18n.t("Enviar código de verificação")}
-              </Button>
-            )}
-            <Grid container justify="flex-end">
-              <Grid item>
-                <StyledLink
-                  href="#"
-                  variant="body2"
-                  to="/login"
-                  //component={RouterLink}
-                >
-                  {i18n.t("passwordReset.voltar")}
-                </StyledLink>
-              </Grid>
-            </Grid>
-            {userFound && (
-              <div>
-                <TextField
-                  label="Código de Verificação"
-                  type="text"
-                  variant="outlined"
-                  margin="normal"
-                  fullWidth
-                  onChange={(e) => setVerificationCode(e.target.value)}
-                  value={verificationCode}
-                  style={{ marginTop: customSpacing }}
+              />
+            </Box>
+
+            <Card elevation={0}>
+              {getStepContent()}
+            </Card>
+          </Box>
+        </LeftSection>
+
+        <RightSection>
+          {images.map((image, index) => (
+            <ImageSlide
+              key={index}
+              sx={{
+                opacity: currentImageIndex === index ? 1 : 0,
+                zIndex: currentImageIndex === index ? 1 : 0,
+              }}
+            >
+              <Box sx={{ textAlign: "center", color: "#ffffff", maxWidth: "600px" }}>
+                <img
+                  src={image.url}
+                  alt={image.title}
+                  style={{
+                    borderRadius: "20px",
+                    boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
+                    marginBottom: "40px",
+                  }}
                 />
+                <Typography variant="h3" sx={{ fontWeight: 700, mb: 2, textShadow: "0 2px 10px rgba(0, 0, 0, 0.2)" }}>
+                  {image.title}
+                </Typography>
+                <Typography variant="h6" sx={{ fontWeight: 400, opacity: 0.9 }}>
+                  {image.description}
+                </Typography>
+              </Box>
+            </ImageSlide>
+          ))}
 
-                {showVerifyButton && (
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    fullWidth
-                    onClick={handleVerifyCode}
-                    style={{ marginTop: customSpacing }}
-                  >
-                    {i18n.t("passwordReset.buttons.verify")}
-                  </Button>
-                )}
-
-                {showSuccessMessage && (
-                  <Typography
-                    variant="body1"
-                    style={{ color: "green", marginTop: customSpacing }}
-                  >
-                    Código validado com sucesso.
-                  </Typography>
-                )}
-
-                {codeVerified && (
-                  <>
-                    <TextField
-                      label="Nova Senha"
-                      type={showPassword ? "text" : "password"}
-                      variant="outlined"
-                      margin="normal"
-                      fullWidth
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      style={{ marginTop: customSpacing }}
-                      InputProps={{
-                        endAdornment: (
-                          <InputAdornment position="end">
-                            <IconButton
-                              onClick={() => setShowPassword(!showPassword)}
-                            >
-                              {showPassword ? (
-                                <Visibility />
-                              ) : (
-                                <VisibilityOff />
-                              )}
-                            </IconButton>
-                          </InputAdornment>
-                        ),
-                      }}
-                    />
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      onClick={handleSavePassword}
-                      style={{ marginTop: customSpacing }}
-                    >
-                      Salvar Senha
-                    </Button>
-                  </>
-                )}
-              </div>
-            )}
-          </form>
-          {/* 
-        
-          <Snackbar
-            open={openSnackbar}
-            autoHideDuration={6000}
-            onClose={handleCloseSnackbar}
+          <Box
+            sx={{
+              position: "absolute",
+              bottom: 40,
+              left: "50%",
+              transform: "translateX(-50%)",
+              display: "flex",
+              gap: 1,
+              zIndex: 2,
+            }}
           >
-            <SnackbarContent
-              message={snackbarMessage}
-              style={{ backgroundColor: "green" }}
-            />
-          </Snackbar>
-           */}
-        </div>
-      </Container>
-    </div>
+            {images.map((_, index) => (
+              <Box
+                key={index}
+                sx={{
+                  width: currentImageIndex === index ? 30 : 10,
+                  height: 10,
+                  borderRadius: 5,
+                  background: currentImageIndex === index ? "#ffffff" : "rgba(255, 255, 255, 0.5)",
+                  transition: "all 0.3s ease",
+                  cursor: "pointer",
+                }}
+                onClick={() => setCurrentImageIndex(index)}
+              />
+            ))}
+          </Box>
+        </RightSection>
+
+        <Footer>
+          <Typography variant="body2">
+            Desenvolvido por <strong>IRYD</strong>
+          </Typography>
+        </Footer>
+      </ResetContainer>
+    </>
   );
 };
 
-export default ResetPasswordPage;
+export default PasswordReset;
