@@ -32,9 +32,14 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
   try {
     const { companyId } = req.user;
     const { id } = req.params;
+    const parsedId = parseInt(id, 10);
+
+    if (isNaN(parsedId)) {
+      return res.status(400).json({ error: "ID inválido" });
+    }
 
     const checklist = await ShowChecklistService({
-      id: parseInt(id, 10),
+      id: parsedId,
       companyId
     });
 
@@ -71,10 +76,16 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
   try {
     const { companyId, id: userId } = req.user;
     const { id } = req.params;
+    const parsedId = parseInt(id, 10);
+
+    if (isNaN(parsedId)) {
+      return res.status(400).json({ error: "ID inválido" });
+    }
+
     const { titulo, descricao, tipo, ativo, itens } = req.body;
 
     const checklist = await UpdateChecklistService({
-      id: parseInt(id, 10),
+      id: parsedId,
       companyId,
       userId: Number(userId),
       titulo,
@@ -95,9 +106,14 @@ export const remove = async (req: Request, res: Response): Promise<Response> => 
   try {
     const { companyId } = req.user;
     const { id } = req.params;
+    const parsedId = parseInt(id, 10);
+
+    if (isNaN(parsedId)) {
+      return res.status(400).json({ error: "ID inválido" });
+    }
 
     await DeleteChecklistService({
-      id: parseInt(id, 10),
+      id: parsedId,
       companyId
     });
 

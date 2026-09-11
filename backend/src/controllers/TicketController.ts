@@ -3,6 +3,7 @@ import { getIO } from "../libs/socket";
 import Ticket from "../models/Ticket";
 
 import CreateTicketService from "../services/TicketServices/CreateTicketService";
+import MergeTicketsService from "../services/TicketServices/MergeTicketsService";
 import DeleteTicketService from "../services/TicketServices/DeleteTicketService";
 import ListTicketsService from "../services/TicketServices/ListTicketsService";
 import ShowTicketUUIDService from "../services/TicketServices/ShowTicketFromUUIDService";
@@ -360,6 +361,26 @@ export const remove = async (
     });
 
   return res.status(200).json({ message: "ticket deleted" });
+};
+
+export const merge = async (req: Request, res: Response): Promise<Response> => {
+  const { masterTicketId, mergedTicketId, contactName, contactNumber } = req.body;
+  const { companyId, id: userId } = req.user;
+
+  if (!masterTicketId || !mergedTicketId || !contactName || !contactNumber) {
+    throw new AppError("ERR_MISSING_MERGE_PARAMS", 400);
+  }
+
+  const ticket = await MergeTicketsService({
+    masterTicketId: Number(masterTicketId),
+    mergedTicketId: Number(mergedTicketId),
+    contactName,
+    contactNumber,
+    companyId,
+    userId: Number(userId)
+  });
+
+  return res.status(200).json(ticket);
 };
 
 export const closeAll = async (req: Request, res: Response): Promise<Response> => {

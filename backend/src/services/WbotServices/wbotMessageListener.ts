@@ -20,6 +20,7 @@ import {
   getContentType,
   GroupMetadata,
   isLidUser,
+  isPnUser,
   jidNormalizedUser,
   delay,
   MessageUpsertType,
@@ -77,16 +78,13 @@ import ShowFileService from "../FileServices/ShowService";
 import typebotListener from "../TypebotServices/typebotListener";
 import { provider } from './providers';
 import { uploadBufferToSpaces, buildSpacesKey } from "../../helpers/uploadToSpaces";
+import UpdateTicketMetricsService from "../TicketMetricsServices/UpdateTicketMetricsService";
+import UpdateTicketUserMetricsService from "../TicketMetricsServices/UpdateTicketUserMetricsService";
 
 const request = require("request");
 
 ffmpeg.setFfmpegPath("/usr/bin/ffmpeg");
 
-let i = 0;
-
-setInterval(() => {
-  i = 0
-}, 5000);
 
 type Session = WASocket & {
   id?: number;
@@ -299,7 +297,33 @@ export const getBodyMessage = (msg: proto.IWebMessageInfo): string | null => {
       editedMessage: msg?.message?.protocolMessage?.editedMessage?.conversation || msg.message?.editedMessage?.message?.protocolMessage?.editedMessage?.conversation || msg.message?.editedMessage?.message?.extendedTextMessage?.text,
       protocolMessage: msg.message?.protocolMessage?.type || msg.message?.ephemeralMessage?.message?.protocolMessage?.type || msg?.message?.protocolMessage?.editedMessage?.conversation,
       // editedMessage: msg.message?.editedMessage?.message?.extendedTextMessage?.text,
-      ephemeralMessage: msg.message?.ephemeralMessage?.message?.extendedTextMessage?.text
+      ephemeralMessage: msg.message?.ephemeralMessage?.message?.extendedTextMessage?.text,
+      pollCreationMessage: msg.message?.pollCreationMessage?.name
+        ? `📊 Enquete: ${msg.message.pollCreationMessage.name}\n${(msg.message.pollCreationMessage.options || []).map((o: any, i: number) => `${i + 1}. ${o.optionName}`).join("\n")}`
+        : "📊 Enquete",
+      pollUpdateMessage: "📊 Voto em enquete",
+      interactiveMessage: msg.message?.interactiveMessage?.body?.text
+        || (msg.message?.interactiveMessage?.header as any)?.title
+        || "Mensagem interativa",
+      interactiveResponseMessage: msg.message?.interactiveResponseMessage?.body?.text
+        || (msg.message?.interactiveResponseMessage as any)?.nativeFlowResponseMessage?.paramsJson
+        || "Resposta interativa",
+      nativeFlowResponseMessage: (msg.message as any)?.nativeFlowResponseMessage?.paramsJson || "Resposta de fluxo",
+      orderMessage: `🛒 Pedido #${msg.message?.orderMessage?.orderId || ""}`,
+      productMessage: msg.message?.productMessage?.product?.title
+        ? `🏷️ Produto: ${msg.message.productMessage.product.title}`
+        : "🏷️ Produto",
+      templateMessage: msg.message?.templateMessage?.hydratedTemplate?.hydratedContentText
+        || msg.message?.templateMessage?.hydratedFourRowTemplate?.hydratedContentText
+        || "Mensagem template",
+      albumMessage: "📷 Álbum",
+      eventMessage: msg.message?.eventMessage?.name
+        ? `📅 Evento: ${msg.message.eventMessage.name}`
+        : "📅 Evento",
+      keepInChatMessage: "📌 Mensagem fixada",
+      pinInChatMessage: "📌 Mensagem fixada",
+      groupInviteMessage: msg.message?.groupInviteMessage?.caption
+        || `👥 Convite para grupo: ${msg.message?.groupInviteMessage?.groupName || ""}`
     };
 
     const objKey = Object.keys(types).find(key => key === type);
@@ -318,6 +342,39 @@ ${JSON.stringify(msg)}`);
     Sentry.captureException(error);
     console.log(error);
   }
+};
+
+const resolveMentions = async (
+  msg: proto.IWebMessageInfo,
+  body: string | null,
+  companyId: number
+): Promise<string | null> => {
+  if (!body) return body;
+
+  const msgContent = msg.message;
+  const contextInfo =
+    msgContent?.extendedTextMessage?.contextInfo ||
+    msgContent?.imageMessage?.contextInfo ||
+    msgContent?.videoMessage?.contextInfo ||
+    msgContent?.documentMessage?.contextInfo ||
+    msgContent?.audioMessage?.contextInfo;
+
+  const mentionedJids: string[] = (contextInfo?.mentionedJid as string[]) || [];
+  if (mentionedJids.length === 0) return body;
+
+  let resolvedBody = body;
+
+  for (const jid of mentionedJids) {
+    const number = jid.split("@")[0];
+    if (!number) continue;
+
+    const contact = await Contact.findOne({ where: { number, companyId } });
+    if (contact?.name) {
+      resolvedBody = resolvedBody.replace(new RegExp(`@${number}`, "g"), `@${contact.name}`);
+    }
+  }
+
+  return resolvedBody;
 };
 
 export const getQuotedMessage = (msg: proto.IWebMessageInfo) => {
@@ -379,17 +436,39 @@ const resolveJidToPhone = async (jid: string): Promise<string> => {
 const getContactMessage = async (msg: proto.IWebMessageInfo, wbot: Session) => {
   const isGroup = msg.key.remoteJid.includes("g.us");
 
+  // Baileys v7: remoteJidAlt (DMs) e participantAlt (grupos) contêm o JID alternativo
+  // (PN quando primary é LID, ou LID quando primary é PN).
+  // Esta é a fonte mais confiável — disponível em cada mensagem, sem depender de
+  // lid-mapping.update (que raramente dispara, conforme issue #2263 do Baileys).
+  const msgKey = msg.key as any;
+  const altJid: string | undefined = isGroup ? msgKey.participantAlt : msgKey.remoteJidAlt;
+  const primaryJid: string | undefined = isGroup
+    ? (msg.key.participant || msg.key.remoteJid)
+    : msg.key.remoteJid;
+
+  if (altJid && primaryJid) {
+    const lidJid = isLidUser(primaryJid) ? primaryJid : isLidUser(altJid) ? altJid : null;
+    const pnJid  = isPnUser(primaryJid)  ? primaryJid : isPnUser(altJid)  ? altJid  : null;
+    if (lidJid && pnJid) {
+      await storeLidMapping(lidJid, pnJid);
+    }
+  }
+
   if (isGroup) {
     // Para mensagens de grupo, o remetente pode ser @lid no Baileys v7
     let senderId = getSenderMessage(msg, wbot);
     senderId = await resolveJidToPhone(senderId);
     return { id: senderId, name: msg.pushName };
   } else {
-    // Para mensagens diretas, o remoteJid pode ser @lid
-    const resolvedJid = await resolveJidToPhone(msg.key.remoteJid);
-    const rawNumber = resolvedJid.replace(/\D/g, "");
+    // Para mensagens diretas, passa o JID original (pode ser @lid) para verifyContact.
+    // NÃO resolver aqui — verifyContact tem a lógica de atualizar o placeholder LID antes
+    // de buscar/criar o contato, evitando a duplicação de contato (e ticket).
+    // Se resolver aqui, verifyContact recebe um JID já resolvido (@s.whatsapp.net),
+    // isLidUser() retorna false, o bloco LID é pulado e o placeholder fica
+    // com número errado — fazendo CreateOrUpdateContactService criar um contato duplicado.
+    const rawNumber = msg.key.remoteJid.replace(/\D/g, "");
     return {
-      id: resolvedJid,
+      id: msg.key.remoteJid,
       name: msg.key.fromMe ? rawNumber : msg.pushName
     };
   }
@@ -489,39 +568,67 @@ const verifyContact = async (
         where: { remoteJid: originalLid, companyId }
       });
       if (lidPlaceholder && (lidPlaceholder.number !== phoneNumber || lidPlaceholder.remoteJid !== resolvedJid)) {
-        await lidPlaceholder.update({ number: phoneNumber, remoteJid: resolvedJid });
-        logger.info(`[LID] verifyContact: placeholder id=${lidPlaceholder.id} atualizado ${originalLid} → ${resolvedJid}`);
-      }
-    } else {
-      // 2. Cache vazio: buscar no banco pelo remoteJid=lidJid (contato já visto antes)
-      const existingByLid = await Contact.findOne({
-        where: { remoteJid: msgContact.id, companyId }
-      });
-      if (existingByLid) {
-        // Já existe placeholder para esse LID — retorna sem criar duplicata
-        return existingByLid;
-      }
-
-      // 3. Tentar achar contato real pelo pushName para evitar duplicata
-      //    Só usa se o nome for único nesta empresa (não ambíguo)
-      if (msgContact.name) {
-        const byName = await Contact.findAll({
-          where: { name: msgContact.name, companyId },
-          order: [["updatedAt", "DESC"]],
-          limit: 2
-        });
-        if (byName.length === 1) {
-          // Nome único → associa o LID a esse contato e retorna ele
-          const realContact = byName[0];
-          await realContact.update({ remoteJid: msgContact.id });
-          await storeLidMapping(msgContact.id, `${realContact.number}@s.whatsapp.net`);
-          logger.info(`[LID] verifyContact: ${msgContact.id} associado ao contato ${realContact.id} via pushName "${msgContact.name}"`);
-          return realContact;
+        // Verifica se outro contato já tem esse número para evitar UniqueConstraintError
+        const conflictContact = await Contact.findOne({ where: { number: phoneNumber, companyId } });
+        if (!conflictContact || conflictContact.id === lidPlaceholder.id) {
+          await lidPlaceholder.update({ number: phoneNumber, remoteJid: resolvedJid });
+          logger.info(`[LID] verifyContact: placeholder id=${lidPlaceholder.id} atualizado ${originalLid} → ${resolvedJid}`);
+        } else {
+          logger.info(`[LID] verifyContact: número ${phoneNumber} já pertence ao contato ${conflictContact.id}, reutilizando`);
+          msgContact = { ...msgContact, id: resolvedJid };
         }
       }
+    } else {
+      // 2. Fallback: signalRepository.lidMapping interno do Baileys (persiste entre restarts via auth)
+      try {
+        const phoneJidFromRepo = await (wbot as any).signalRepository?.lidMapping?.getPNForLID(msgContact.id);
+        if (phoneJidFromRepo && isPnUser(phoneJidFromRepo)) {
+          await storeLidMapping(msgContact.id, phoneJidFromRepo);
+          msgContact = { ...msgContact, id: phoneJidFromRepo };
+          logger.info(`[LID] verifyContact: ${originalLid} resolvido via signalRepository → ${phoneJidFromRepo}`);
 
-      // 4. Nenhuma correspondência — criar placeholder (será fundido via lid-mapping.update)
-      logger.info(`[LID] verifyContact: ${msgContact.id} sem resolução, criando placeholder`);
+          const phoneNumber = phoneJidFromRepo.replace(/\D/g, "");
+          const lidPlaceholder = await Contact.findOne({ where: { remoteJid: originalLid, companyId } });
+          if (lidPlaceholder && (lidPlaceholder.number !== phoneNumber || lidPlaceholder.remoteJid !== phoneJidFromRepo)) {
+            const conflictContact2 = await Contact.findOne({ where: { number: phoneNumber, companyId } });
+            if (!conflictContact2 || conflictContact2.id === lidPlaceholder.id) {
+              await lidPlaceholder.update({ number: phoneNumber, remoteJid: phoneJidFromRepo });
+            }
+          }
+          // Segue o fluxo normal com o JID real
+        }
+      } catch (_) { /* signalRepository pode não estar disponível — ignora */ }
+
+      if (isLidUser(msgContact.id)) {
+        // 3. Cache ainda vazio: buscar no banco pelo remoteJid=lidJid (contato já visto antes)
+        const existingByLid = await Contact.findOne({
+          where: { remoteJid: msgContact.id, companyId }
+        });
+        if (existingByLid) {
+          // Já existe placeholder para esse LID — retorna sem criar duplicata
+          return existingByLid;
+        }
+
+        // 4. Tentar achar contato real pelo pushName para evitar duplicata
+        //    Só usa se o nome for único nesta empresa (não ambíguo)
+        if (msgContact.name) {
+          const byName = await Contact.findAll({
+            where: { name: msgContact.name, companyId },
+            order: [["updatedAt", "DESC"]],
+            limit: 2
+          });
+          if (byName.length === 1) {
+            const realContact = byName[0];
+            await realContact.update({ remoteJid: msgContact.id });
+            await storeLidMapping(msgContact.id, `${realContact.number}@s.whatsapp.net`);
+            logger.info(`[LID] verifyContact: ${msgContact.id} associado ao contato ${realContact.id} via pushName "${msgContact.name}"`);
+            return realContact;
+          }
+        }
+
+        // 5. Nenhuma correspondência — criar placeholder (será resolvido na próxima mensagem)
+        logger.info(`[LID] verifyContact: ${msgContact.id} sem resolução, criando placeholder`);
+      }
     }
   }
   // --- fim tratamento LID ---
@@ -533,11 +640,21 @@ const verifyContact = async (
   if (isLidFinal) {
     profilePicUrl = `${process.env.FRONTEND_URL}/nopicture.png`;
   } else {
-    try {
-      profilePicUrl = await wbot.profilePictureUrl(msgContact.id, "image");
-    } catch (e) {
-      Sentry.captureException(e);
-      profilePicUrl = `${process.env.FRONTEND_URL}/nopicture.png`;
+    const picCacheKey = `profilePic:${msgContact.id}`;
+    const cachedPic = await cacheLayer.get(picCacheKey);
+    if (cachedPic) {
+      profilePicUrl = cachedPic;
+    } else {
+      try {
+        const picPromise = wbot.profilePictureUrl(msgContact.id, "image");
+        const picTimeout = new Promise<string>((_, reject) =>
+          setTimeout(() => reject(new Error("profilePicUrl timeout")), 5000)
+        );
+        profilePicUrl = await Promise.race([picPromise, picTimeout]);
+      } catch (e) {
+        profilePicUrl = `${process.env.FRONTEND_URL}/nopicture.png`;
+      }
+      await cacheLayer.set(picCacheKey, profilePicUrl, "EX", 3600);
     }
   }
 
@@ -559,7 +676,7 @@ const verifyContact = async (
     remoteJid: msgContact.id
   };
 
-  const contact = CreateOrUpdateContactService(contactData);
+  const contact = await CreateOrUpdateContactService(contactData);
 
   return contact;
 };
@@ -664,8 +781,8 @@ export const verifyMediaMessage = async (
     let mediaStoredUrl = `${backendUrl}/public/company${companyId}/${media.filename}`;
 
     try {
-      const buffer = Buffer.isBuffer(media.data)
-        ? media.data
+      const buffer: Buffer = Buffer.isBuffer(media.data)
+        ? (media.data as Buffer)
         : Buffer.from(media.data.toString("base64"), "base64");
 
       // Upload para DigitalOcean Spaces
@@ -679,7 +796,7 @@ export const verifyMediaMessage = async (
         const localPublic = path.resolve(__dirname, "..", "..", "..", "..", "public");
         const companyDir = path.join(localPublic, `company${companyId}`);
         fs.mkdirSync(companyDir, { recursive: true });
-        fs.writeFileSync(path.join(companyDir, media.filename), buffer);
+        fs.writeFileSync(path.join(companyDir, media.filename), buffer as unknown as Uint8Array);
         mediaStoredUrl = `${backendUrl}/public/company${companyId}/${media.filename}`;
       }
 
@@ -689,7 +806,7 @@ export const verifyMediaMessage = async (
         const tempIn = path.join(os.tmpdir(), `atalk-audio-${Date.now()}-${media.filename}`);
         const mp3Filename = media.filename.replace(/\.(ogg|mpeg)$/, ".mp3");
         const tempOut = path.join(os.tmpdir(), `atalk-audio-${Date.now()}-${mp3Filename}`);
-        fs.writeFileSync(tempIn, buffer);
+        fs.writeFileSync(tempIn, buffer as unknown as Uint8Array);
         new Promise<void>((resolve, reject) => {
           ffmpeg(tempIn)
             .toFormat("mp3")
@@ -717,7 +834,7 @@ export const verifyMediaMessage = async (
       console.log(msg);
     }
 
-    const body = getBodyMessage(msg);
+    const body = await resolveMentions(msg, getBodyMessage(msg), companyId);
 
     const messageData = {
       wid: msg.key.id,
@@ -799,8 +916,8 @@ export const verifyMessage = async (
 ) => {
   const io = getIO();
   const quotedMsg = await verifyQuotedMessage(msg);
-  const body = getBodyMessage(msg);
   const companyId = ticket.companyId;
+  const body = await resolveMentions(msg, getBodyMessage(msg), companyId);
 
   const messageData = {
     wid: msg.key.id,
@@ -835,6 +952,16 @@ export const verifyMessage = async (
   }
 
   await CreateMessageService({ messageData, companyId: companyId });
+
+  // Atualiza métricas de tempo real (ignora erros para não quebrar o fluxo)
+  if (msg.key.fromMe) {
+    UpdateTicketMetricsService({ ticketId: ticket.id, type: "user_message", userId: ticket.userId }).catch(() => {});
+    if (ticket.userId) {
+      UpdateTicketUserMetricsService({ ticketId: ticket.id, userId: ticket.userId, action: "message" }).catch(() => {});
+    }
+  } else {
+    UpdateTicketMetricsService({ ticketId: ticket.id, type: "client_message" }).catch(() => {});
+  }
 
   if (!msg.key.fromMe && ticket.status === "closed") {
     await ticket.update({ status: "pending" });
@@ -900,7 +1027,20 @@ const isValidMsg = (msg: proto.IWebMessageInfo): boolean => {
       msgType === "viewOnceMessage" ||
       msgType === "documentWithCaptionMessage" ||
       msgType === "viewOnceMessageV2" ||
-      msgType === "editedMessage";
+      msgType === "editedMessage" ||
+      msgType === "pollCreationMessage" ||
+      msgType === "pollUpdateMessage" ||
+      msgType === "interactiveMessage" ||
+      msgType === "interactiveResponseMessage" ||
+      msgType === "nativeFlowResponseMessage" ||
+      msgType === "orderMessage" ||
+      msgType === "productMessage" ||
+      msgType === "templateMessage" ||
+      msgType === "albumMessage" ||
+      msgType === "eventMessage" ||
+      msgType === "keepInChatMessage" ||
+      msgType === "pinInChatMessage" ||
+      msgType === "groupInviteMessage";
 
     if (!ifType) {
       logger.warn(`#### Nao achou o type em isValidMsg: ${msgType}
@@ -1603,7 +1743,7 @@ const verifyQueue = async (
         status: ticket.status,
         queueId: ticket.queueId,
         userId: ticket.userId,
-        lastMessage: getBodyMessage(msg)
+        lastMessage: await resolveMentions(msg, getBodyMessage(msg), companyId)
       })
 
 
@@ -2113,15 +2253,11 @@ const handleMessage = async (
       where: { wid }
     })
     if (existMessage) {
-      await new Promise(r => setTimeout(r, 150));
       console.log("Esta mensagem já existe")
       return
     } else {
       await new Promise(r => setTimeout(r, parseInt(process.env.TIMEOUT_TO_IMPORT_MESSAGE) || 330));
     }
-  } else {
-    await new Promise(r => setTimeout(r, i * 650));
-    i++
   }
 
 
@@ -2157,7 +2293,16 @@ const handleMessage = async (
         msgType !== "ephemeralMessage" &&
         msgType !== "protocolMessage" &&
         msgType !== "viewOnceMessage" &&
-        msgType !== "editedMessage"
+        msgType !== "editedMessage" &&
+        msgType !== "pollCreationMessage" &&
+        msgType !== "pollUpdateMessage" &&
+        msgType !== "interactiveMessage" &&
+        msgType !== "interactiveResponseMessage" &&
+        msgType !== "orderMessage" &&
+        msgType !== "productMessage" &&
+        msgType !== "templateMessage" &&
+        msgType !== "albumMessage" &&
+        msgType !== "groupInviteMessage"
       )
         return;
       msgContact = await getContactMessage(msg, wbot);
@@ -2176,7 +2321,15 @@ const handleMessage = async (
     if (!whatsapp.allowGroup && isGroup) return;
 
     if (isGroup) {
-      const grupoMeta = await wbot.groupMetadata(msg.key.remoteJid);
+      const groupMetaCacheKey = `groupMeta:${msg.key.remoteJid}`;
+      let grupoMeta: any;
+      const cachedMeta = await cacheLayer.get(groupMetaCacheKey);
+      if (cachedMeta) {
+        grupoMeta = JSON.parse(cachedMeta);
+      } else {
+        grupoMeta = await wbot.groupMetadata(msg.key.remoteJid);
+        await cacheLayer.set(groupMetaCacheKey, JSON.stringify(grupoMeta), "EX", 300);
+      }
       const msgGroupContact = {
         id: grupoMeta.id,
         name: grupoMeta.subject
@@ -2206,10 +2359,15 @@ const handleMessage = async (
       );
     }
 
-    const settings = await CompaniesSettings.findOne({
-      where: { companyId }
+    const settingsCacheKey = `companySettings:${companyId}`;
+    let settings: any;
+    const cachedSettings = await cacheLayer.get(settingsCacheKey);
+    if (cachedSettings) {
+      settings = JSON.parse(cachedSettings);
+    } else {
+      settings = await CompaniesSettings.findOne({ where: { companyId } });
+      await cacheLayer.set(settingsCacheKey, JSON.stringify(settings), "EX", 60);
     }
-    )
     const enableLGPD = settings.enableLGPD === "enabled";
 
     // contador
@@ -2234,7 +2392,6 @@ const handleMessage = async (
       settings,
     );
 
-4
     ticket = tck;
     await provider(ticket, msg, companyId, contact, wbot as WASocket);
 
@@ -3032,9 +3189,9 @@ const wbotMessageListener = (wbot: Session, companyId: number): void => {
 
     if (!messages) return;
 
-    messages.forEach(async (message: proto.IWebMessageInfo) => {
-
-      const messageExists = await Message.count({
+    for (const message of messages) {
+      try {
+        const messageExists = await Message.count({
         where: { wid: message.key.id!, companyId }
       });
 
@@ -3060,12 +3217,13 @@ const wbotMessageListener = (wbot: Session, companyId: number): void => {
         await verifyCampaignMessageAndCloseTicket(message, companyId, wbot);
       }
 
-
-      if (message.key.remoteJid?.endsWith("@g.us")) {
-        handleMsgAck(message as any, 2)
+        if (message.key.remoteJid?.endsWith("@g.us")) {
+          handleMsgAck(message as any, 2)
+        }
+      } catch (err) {
+        logger.error({ err }, `[messages.upsert] erro ao processar mensagem ${message.key.id} — continuando loop`);
       }
-
-    });
+    }
 
     // messages.forEach(async (message: proto.IWebMessageInfo) => {
     //   const messageExists = await Message.count({
@@ -3085,8 +3243,6 @@ const wbotMessageListener = (wbot: Session, companyId: number): void => {
 
     if (messageUpdate.length === 0) return;
     messageUpdate.forEach(async (message: WAMessageUpdate) => {
-
-      (wbot as WASocket)!.readMessages([message.key])
 
       const msgUp = { ...messageUpdate }
       if (msgUp['0']?.update.messageStubType === 1 && msgUp['0']?.key.remoteJid !== 'status@broadcast') {

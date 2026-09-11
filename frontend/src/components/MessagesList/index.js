@@ -54,6 +54,7 @@ import { Stack } from "@mui/material";
 
 
 import './styles.css';
+import formatMentions from "../../utils/formatMentions";
 
 
 const useStyles = makeStyles((theme) => ({
@@ -1004,6 +1005,34 @@ const MessagesList = ({
     if (messagesList.length > 0) {
       const viewMessagesList = messagesList.map((message, index) => {
 
+        if (message.mediaType === "merge_separator") {
+          return (
+            <React.Fragment key={message.id}>
+              {renderDailyTimestamps(message, index)}
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                margin: "12px 16px",
+                gap: 8
+              }}>
+                <div style={{ flex: 1, height: 1, backgroundColor: "#1976d2", opacity: 0.4 }} />
+                <span style={{
+                  fontSize: "0.75rem",
+                  color: "#1976d2",
+                  backgroundColor: "#e3f2fd",
+                  border: "1px solid #90caf9",
+                  borderRadius: 12,
+                  padding: "2px 10px",
+                  whiteSpace: "nowrap"
+                }}>
+                  {message.body}
+                </span>
+                <div style={{ flex: 1, height: 1, backgroundColor: "#1976d2", opacity: 0.4 }} />
+              </div>
+            </React.Fragment>
+          );
+        }
+
         if (message.mediaType === "call_log") {
           return (
             <React.Fragment key={message.id}>
@@ -1140,7 +1169,7 @@ const MessagesList = ({
                       )}
 
                       {(message.mediaType === "image" && path.basename(message.mediaUrl) === message.body) || (message.mediaType !== "audio" && message.mediaType != "reactionMessage" && message.mediaType != "locationMessage" && message.mediaType !== "contactMessage") && (
-                        <MarkdownWrapper>{(lgpdDeleteMessage && message.isDeleted) ? "🚫 _Mensagem apagada_ " : message.body}</MarkdownWrapper>
+                        <MarkdownWrapper>{(lgpdDeleteMessage && message.isDeleted) ? "🚫 _Mensagem apagada_ " : formatMentions(message.body)}</MarkdownWrapper>
                       )}
 
                       {message.quotedMsg && message.mediaType === "reactionMessage" && (
@@ -1251,7 +1280,7 @@ const MessagesList = ({
                   )}
 
                   {(message.mediaType === "image" && path.basename(message.mediaUrl) === message.body) || (message.mediaType !== "audio" && message.mediaType != "reactionMessage" && message.mediaType != "locationMessage" && message.mediaType !== "contactMessage") && (
-                    <MarkdownWrapper>{message.body}</MarkdownWrapper>
+                    <MarkdownWrapper>{formatMentions(message.body)}</MarkdownWrapper>
                   )}
 
                   {message.quotedMsg && message.mediaType === "reactionMessage" && (

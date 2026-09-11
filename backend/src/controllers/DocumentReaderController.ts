@@ -6,6 +6,167 @@ import TaskFile from "../models/TaskFile";
 import TemplateLeitura from "../models/TemplateLeitura";
 import Task from "../models/Task";
 import AppError from "../errors/AppError";
+import { Op } from "sequelize";
+
+const templateAttributes = [
+  "id",
+  "nome",
+  "tipo",
+  "descricao",
+  "ativo",
+  "campos",
+  "validacoes",
+  "exemplos",
+  "arquivoEspelhoNome",
+  "arquivoEspelhoPath",
+  "arquivoEspelhoMimeType",
+  "arquivoEspelhoSize",
+  "textoEspelho",
+  "dadosEspelho",
+  "instrucoesIa",
+  "createdAt",
+  "updatedAt"
+];
+
+const buildCaptureRegex = (label: string, valuePattern = "(.+)") =>
+  `${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[:\\s]*${valuePattern}`;
+
+const detectTemplateSuggestion = (text: string, originalName: string) => {
+  const lower = text.toLowerCase();
+  const fileTitle = originalName.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ");
+
+  if (lower.includes("simples nacional") || lower.includes("das ")) {
+    return {
+      nome: "Guia Simples Nacional",
+      tipo: "guia_simples_nacional",
+      descricao: "Guia ou comprovante relacionado ao Simples Nacional"
+    };
+  }
+
+  if (lower.includes("darf") || lower.includes("documento de arrecadação")) {
+    return {
+      nome: "DARF",
+      tipo: "darf",
+      descricao: "Documento de Arrecadação de Receitas Federais"
+    };
+  }
+
+  if (lower.includes("fgts") || lower.includes("fundo de garantia")) {
+    return {
+      nome: "Guia FGTS",
+      tipo: "guia_fgts",
+      descricao: "Guia ou comprovante relacionado ao FGTS"
+    };
+  }
+
+  if (lower.includes("comprovante") || lower.includes("pagamento efetuado")) {
+    return {
+      nome: "Comprovante de Pagamento",
+      tipo: "comprovante_pagamento",
+      descricao: "Comprovante simples de pagamento"
+    };
+  }
+
+  return {
+    nome: fileTitle || "Novo Modelo de Leitura",
+    tipo: "modelo_leitura",
+    descricao: "Modelo criado a partir de arquivo enviado"
+  };
+};
+
+const suggestFieldsFromText = (text: string) => {
+  const fields: any[] = [];
+  const addField = (nome: string, tipo: string, regex: string, instrucao: string, obrigatorio = true) => {
+    if (!fields.some(field => field.nome === nome)) {
+      fields.push({ nome, tipo, regex, obrigatorio, instrucao, descricao: instrucao });
+    }
+  };
+
+  if (/cnpj/i.test(text) || /\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/.test(text)) {
+    addField("cnpj", "cnpj", "(?:CNPJ|CNPJ/CPF)[:\\s]*([\\d./-]{14,18})", "Capturar o CNPJ do contribuinte ou empresa");
+  }
+
+  if (/cpf/i.test(text) || /\d{3}\.\d{3}\.\d{3}-\d{2}/.test(text)) {
+    addField("cpf", "cpf", "CPF[:\\s]*([\\d.-]{11,14})", "Capturar o CPF quando o documento for de pessoa fisica", false);
+  }
+
+  if (/raz[aã]o social|contribuinte|empresa|nome empresarial/i.test(text)) {
+    addField(
+      "razao_social",
+      "text",
+      "(?:Raz[aã]o Social|Nome Empresarial|Contribuinte|Empresa)[:\\s]+(.+)",
+      "Capturar o nome ou razao social"
+    );
+  }
+
+  if (/compet[eê]ncia|per[ií]odo de apura[cç][aã]o|pa\b/i.test(text)) {
+    addField(
+      "competencia",
+      "text",
+      "(?:Compet[eê]ncia|Per[ií]odo de Apura[cç][aã]o|PA)[:\\s]*(\\d{2}\\/\\d{4}|\\d{2}\\/\\d{2}\\/\\d{4})",
+      "Capturar a competencia ou periodo de apuracao"
+    );
+  }
+
+  if (/vencimento|venc\./i.test(text)) {
+    addField(
+      "vencimento",
+      "date",
+      "(?:Vencimento|Data de Vencimento|Venc\\.)[:\\s]*(\\d{2}[/-]\\d{2}[/-]\\d{4})",
+      "Capturar a data de vencimento"
+    );
+  }
+
+  if (/valor|total|principal/i.test(text)) {
+    addField(
+      "valor_total",
+      "currency",
+      "(?:Valor Total|Total|Valor do Documento|Valor Principal|Valor)[:\\s]*R?\\$?\\s*([\\d.,]+)",
+      "Capturar o valor principal ou valor total do documento"
+    );
+  }
+
+  if (/c[oó]digo de barras|linha digit[aá]vel|\d{44,48}/i.test(text)) {
+    addField(
+      "codigo_barras",
+      "barcode",
+      "(?:C[oó]digo de Barras|Linha Digit[aá]vel)[:\\s]*([\\d\\s.]+)",
+      "Capturar codigo de barras ou linha digitavel",
+      false
+    );
+  }
+
+  if (/data de pagamento|pagamento efetuado|pago em/i.test(text)) {
+    addField(
+      "data_pagamento",
+      "date",
+      "(?:Data de Pagamento|Pago em|Pagamento efetuado em)[:\\s]*(\\d{2}[/-]\\d{2}[/-]\\d{4})",
+      "Capturar a data em que o pagamento foi realizado",
+      false
+    );
+  }
+
+  if (/c[oó]digo da receita|receita/i.test(text)) {
+    addField(
+      "codigo_receita",
+      "text",
+      "(?:C[oó]digo da Receita|Receita)[:\\s]*(\\d{4})",
+      "Capturar o codigo da receita",
+      false
+    );
+  }
+
+  return fields.length ? fields : [
+    {
+      nome: "campo_principal",
+      tipo: "text",
+      regex: buildCaptureRegex("Campo principal"),
+      obrigatorio: true,
+      instrucao: "Ajuste este campo com a informacao principal que deve ser capturada",
+      descricao: "Ajuste este campo com a informacao principal que deve ser capturada"
+    }
+  ];
+};
 
 /**
  * Upload de arquivo e leitura automática
@@ -458,10 +619,25 @@ export const listTemplates = async (
   res: Response
 ): Promise<Response> => {
   const { companyId } = req.user;
+  const { searchParam, onlyActive } = req.query;
+
+  const where: any = { companyId };
+
+  if (onlyActive === "true") {
+    where.ativo = true;
+  }
+
+  if (searchParam) {
+    where[Op.or] = [
+      { nome: { [Op.iLike]: `%${searchParam}%` } },
+      { tipo: { [Op.iLike]: `%${searchParam}%` } },
+      { descricao: { [Op.iLike]: `%${searchParam}%` } }
+    ];
+  }
 
   const templates = await TemplateLeitura.findAll({
-    where: { companyId, ativo: true },
-    attributes: ["id", "nome", "tipo", "descricao"],
+    where,
+    attributes: templateAttributes,
     order: [["nome", "ASC"]]
   });
 
@@ -476,7 +652,21 @@ export const createTemplate = async (
   res: Response
 ): Promise<Response> => {
   const { companyId } = req.user;
-  const { nome, descricao, tipo, campos, validacoes, exemplos } = req.body;
+  const {
+    nome,
+    descricao,
+    tipo,
+    campos,
+    validacoes,
+    exemplos,
+    instrucoesIa,
+    arquivoEspelhoNome,
+    arquivoEspelhoMimeType,
+    arquivoEspelhoSize,
+    textoEspelho,
+    dadosEspelho,
+    ativo = true
+  } = req.body;
 
   if (!nome || !tipo || !campos || !Array.isArray(campos)) {
     throw new AppError(
@@ -492,8 +682,14 @@ export const createTemplate = async (
     campos,
     validacoes,
     exemplos,
+    instrucoesIa,
+    arquivoEspelhoNome,
+    arquivoEspelhoMimeType,
+    arquivoEspelhoSize,
+    textoEspelho,
+    dadosEspelho,
     companyId,
-    ativo: true
+    ativo
   });
 
   return res.status(201).json(template);
@@ -508,8 +704,16 @@ export const updateTemplate = async (
 ): Promise<Response> => {
   const { templateId } = req.params;
   const { companyId } = req.user;
-  const { nome, descricao, tipo, campos, validacoes, exemplos, ativo } =
-    req.body;
+  const {
+    nome,
+    descricao,
+    tipo,
+    campos,
+    validacoes,
+    exemplos,
+    instrucoesIa,
+    ativo
+  } = req.body;
 
   const template = await TemplateLeitura.findOne({
     where: { id: templateId, companyId }
@@ -526,10 +730,50 @@ export const updateTemplate = async (
     campos,
     validacoes,
     exemplos,
+    instrucoesIa,
     ativo
   });
 
   return res.json(template);
+};
+
+/**
+ * Excluir template
+ */
+export const deleteTemplate = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { templateId } = req.params;
+  const { companyId } = req.user;
+
+  const template = await TemplateLeitura.findOne({
+    where: { id: templateId, companyId }
+  });
+
+  if (!template) {
+    throw new AppError("Template não encontrado", 404);
+  }
+
+  const inUse = await TaskFile.count({
+    where: { templateLeituraId: template.id, companyId }
+  });
+
+  if (inUse > 0) {
+    await template.update({ ativo: false });
+    return res.json({
+      success: true,
+      message: "Modelo inativado porque já possui arquivos vinculados"
+    });
+  }
+
+  if (template.arquivoEspelhoPath) {
+    await DigitalOceanService.delete(template.arquivoEspelhoPath);
+  }
+
+  await template.destroy();
+
+  return res.json({ success: true });
 };
 
 /**
@@ -551,4 +795,139 @@ export const getTemplate = async (
   }
 
   return res.json(template);
+};
+
+/**
+ * Analisa arquivo sem precisar criar o template antes.
+ */
+export const analyzeTemplateFile = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const file = req.file;
+
+  if (!file) {
+    throw new AppError("Arquivo não enviado", 400);
+  }
+
+  if (!DocumentReaderService.isSupportedFileType(file.mimetype)) {
+    throw new AppError(
+      `Tipo de arquivo não suportado: ${file.mimetype}. Use PDF ou imagens (JPG, JPEG, PNG, TIFF ou BMP)`,
+      400
+    );
+  }
+
+  const extractionResult = await DocumentReaderService.extractText(
+    file.buffer,
+    file.mimetype,
+    file.originalname
+  );
+
+  const textoEspelho = DocumentReaderService.preprocessText(extractionResult.text);
+  const suggestion = detectTemplateSuggestion(textoEspelho, file.originalname);
+  const campos = suggestFieldsFromText(textoEspelho);
+
+  return res.json({
+    success: true,
+    suggestion: {
+      ...suggestion,
+      campos,
+      instrucoesIa:
+        "Identifique se o arquivo pertence a este modelo e capture os campos cadastrados com base no texto extraido do documento.",
+      arquivoEspelhoNome: file.originalname,
+      arquivoEspelhoMimeType: file.mimetype,
+      arquivoEspelhoSize: file.size,
+      textoEspelho,
+      dadosEspelho: {
+        dados: {},
+        confianca: extractionResult.confidence,
+        camposFaltantes: []
+      }
+    },
+    extraction: {
+      confidence: extractionResult.confidence,
+      textPreview: textoEspelho.substring(0, 2000),
+      metadata: extractionResult.metadata
+    }
+  });
+};
+
+/**
+ * Upload do documento espelho do template
+ */
+export const uploadTemplateExample = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { templateId } = req.params;
+  const { companyId } = req.user;
+  const file = req.file;
+
+  if (!file) {
+    throw new AppError("Arquivo espelho não enviado", 400);
+  }
+
+  if (!DocumentReaderService.isSupportedFileType(file.mimetype)) {
+    throw new AppError(
+      `Tipo de arquivo não suportado: ${file.mimetype}. Use PDF ou imagens (JPG, JPEG, PNG, TIFF ou BMP)`,
+      400
+    );
+  }
+
+  const template = await TemplateLeitura.findOne({
+    where: { id: templateId, companyId }
+  });
+
+  if (!template) {
+    throw new AppError("Template não encontrado", 404);
+  }
+
+  const uploadResult = await DigitalOceanService.upload({
+    companyId,
+    folder: `templates-leitura/${templateId}`,
+    file,
+    isPublic: false,
+    generateThumbnail: file.mimetype.startsWith("image/")
+  });
+
+  const extractionResult = await DocumentReaderService.extractText(
+    file.buffer,
+    file.mimetype,
+    file.originalname
+  );
+
+  const textoEspelho = DocumentReaderService.preprocessText(extractionResult.text);
+  const parseResult = DocumentParserService.extractData(textoEspelho, template as any);
+
+  if (template.arquivoEspelhoPath) {
+    try {
+      await DigitalOceanService.delete(template.arquivoEspelhoPath);
+    } catch (error) {
+      console.error("Erro ao remover arquivo espelho anterior:", error);
+    }
+  }
+
+  await template.update({
+    arquivoEspelhoNome: file.originalname,
+    arquivoEspelhoPath: uploadResult.path,
+    arquivoEspelhoMimeType: file.mimetype,
+    arquivoEspelhoSize: file.size,
+    textoEspelho,
+    dadosEspelho: {
+      dados: parseResult.dados,
+      confianca: parseResult.confianca,
+      camposFaltantes: parseResult.camposFaltantes
+    }
+  });
+
+  return res.json({
+    success: true,
+    template,
+    extraction: {
+      textPreview: textoEspelho.substring(0, 1000),
+      dados: parseResult.dados,
+      confianca: parseResult.confianca,
+      camposFaltantes: parseResult.camposFaltantes
+    }
+  });
 };

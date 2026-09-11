@@ -12,5 +12,6 @@ const routes = express.Router();
 routes.get("/whatsapp-stories", isAuth, WhatsappStoryController.index);
 routes.post("/whatsapp-stories/publish", isAuth, upload.single("media"), WhatsappStoryController.publish);
 routes.put("/whatsapp-stories/:storyId/seen", isAuth, WhatsappStoryController.markSeen);
+routes.delete("/whatsapp-stories/:storyId", isAuth, WhatsappStoryController.destroy);
 
 export default routes;

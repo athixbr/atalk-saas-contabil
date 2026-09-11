@@ -25,4 +25,6 @@ ticketRoutes.delete("/tickets/:ticketId", isAuth, TicketController.remove);
 
 ticketRoutes.post("/tickets/closeAll", isAuth, TicketController.closeAll);
 
+ticketRoutes.post("/tickets/merge", isAuth, TicketController.merge);
+
 export default ticketRoutes;

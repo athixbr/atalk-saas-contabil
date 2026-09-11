@@ -4,6 +4,7 @@ import AppError from "../../errors/AppError";
 import Whatsapp from "../../models/Whatsapp";
 import path from "path";
 import fs from "fs";
+import DigitalOceanService from "../DigitalOceanService";
 
 export const mediaUpload = async (req: Request, res: Response): Promise<Response> => {
     const { whatsappId } = req.params;
@@ -34,11 +35,14 @@ export const deleteMedia = async (
     try {
       const whatsapp = await Whatsapp.findByPk(whatsappId);
       const filePath = path.resolve("public", whatsapp.greetingMediaAttachment);
-      const fileExists = fs.existsSync(filePath);
-      if (fileExists) {
+      if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
+      } else {
+        try {
+          await DigitalOceanService.delete(whatsapp.greetingMediaAttachment);
+        } catch (_) {}
       }
-  
+
       whatsapp.greetingMediaAttachment = null
       await whatsapp.save();
       return res.send({ message: "Arquivo excluído" });

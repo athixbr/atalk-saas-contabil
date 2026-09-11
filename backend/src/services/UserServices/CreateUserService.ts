@@ -3,8 +3,7 @@ import * as Yup from "yup";
 import AppError from "../../errors/AppError";
 import { SerializeUser } from "../../helpers/SerializeUser";
 import User from "../../models/User";
-import Plan from "../../models/Plan";
-import Company from "../../models/Company";
+import DepartamentoUsuario from "../../models/DepartamentoUsuario";
 
 interface Request {
   email: string;
@@ -21,6 +20,8 @@ interface Request {
   defaultMenu?: string;
   allowGroup?: boolean;
   wpp?: string;
+  isActive?: boolean;
+  departamentos?: Array<{ departamentoId: number; isCoordenador: boolean }>;
 }
 
 interface Response {
@@ -28,6 +29,7 @@ interface Response {
   name: string;
   id: number;
   profile: string;
+  isActive: boolean;
 }
 
 const CreateUserService = async ({
@@ -44,31 +46,10 @@ const CreateUserService = async ({
   defaultTheme,
   defaultMenu,
   allowGroup,
-  wpp
+  wpp,
+  isActive = true,
+  departamentos = []
 }: Request): Promise<Response> => {
-  if (companyId !== undefined) {
-    const company = await Company.findOne({
-      where: {
-        id: companyId
-      },
-      include: [{ model: Plan, as: "plan" }]
-    });
-
-    if (company !== null) {
-      const usersCount = await User.count({
-        where: {
-          companyId
-        }
-      });
-
-      if (usersCount >= company.plan.users) {
-        throw new AppError(
-          `Número máximo de usuários já alcançado: ${usersCount}`
-        );
-      }
-    }
-  }
-
   const schema = Yup.object().shape({
     name: Yup.string().required().min(2),
     email: Yup.string()
@@ -108,12 +89,23 @@ const CreateUserService = async ({
       defaultTheme,
       defaultMenu,
       allowGroup,
-      wpp: wpp || null
+      wpp: wpp || null,
+      isActive
     },
     { include: ["queues", "company"] }
   );
 
   await user.$set("queues", queueIds);
+
+  if (departamentos.length > 0) {
+    await DepartamentoUsuario.bulkCreate(
+      departamentos.map(d => ({
+        userId: user.id,
+        departamentoId: d.departamentoId,
+        isCoordenador: d.isCoordenador || false
+      }))
+    );
+  }
 
   await user.reload();
 

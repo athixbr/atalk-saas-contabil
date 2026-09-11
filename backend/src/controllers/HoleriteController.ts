@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import path from "path";
 import fs from "fs";
+import mime from "mime-types";
+import DigitalOceanService from "../services/DigitalOceanService";
 import ListHoleritesService from "../services/HoleriteServices/ListHoleritesService";
 import CreateHoleriteService from "../services/HoleriteServices/CreateHoleriteService";
 import DeleteHoleriteService from "../services/HoleriteServices/DeleteHoleriteService";
@@ -71,9 +73,23 @@ export const download = async (req: Request, res: Response): Promise<void> => {
 
   const filePath = path.join(__dirname, "..", "..", "public", holerite.arquivoPdf);
 
-  if (!fs.existsSync(filePath)) {
-    throw new AppError("Arquivo não encontrado", 404);
+  if (fs.existsSync(filePath)) {
+    res.download(filePath);
+    return;
   }
 
-  res.download(filePath);
+  try {
+    const stream = DigitalOceanService.getDownloadStream(holerite.arquivoPdf);
+    stream.on("error", () => {
+      if (!res.headersSent) res.status(404).json({ error: "Arquivo não encontrado" });
+    });
+    res.setHeader("Content-Type", mime.lookup(holerite.arquivoPdf) || "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${path.basename(holerite.arquivoPdf)}"`
+    );
+    stream.pipe(res);
+  } catch (err) {
+    throw new AppError("Arquivo não encontrado", 404);
+  }
 };

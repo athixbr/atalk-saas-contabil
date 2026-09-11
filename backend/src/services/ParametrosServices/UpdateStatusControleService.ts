@@ -4,12 +4,14 @@ import AppError from "../../errors/AppError";
 interface Request {
   id: number;
   nome: string;
+  cor?: string;
   companyId: number;
 }
 
 const UpdateStatusControleService = async ({
   id,
   nome,
+  cor,
   companyId,
 }: Request): Promise<StatusControle> => {
   const item = await StatusControle.findOne({
@@ -26,6 +28,7 @@ const UpdateStatusControleService = async ({
 
   await item.update({
     nome: nome.trim(),
+    ...(cor !== undefined && { cor }),
   });
 
   return item;

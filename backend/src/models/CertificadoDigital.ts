@@ -9,9 +9,11 @@ import {
   AllowNull,
   Default,
   ForeignKey,
-  BelongsTo
+  BelongsTo,
+  DataType
 } from "sequelize-typescript";
 import Company from "./Company";
+import Cliente from "./Cliente";
 
 @Table({ tableName: "CertificadosDigitais" })
 class CertificadoDigital extends Model<CertificadoDigital> {
@@ -26,6 +28,13 @@ class CertificadoDigital extends Model<CertificadoDigital> {
 
   @BelongsTo(() => Company)
   company: any;
+
+  @ForeignKey(() => Cliente)
+  @Column
+  clienteId: number;
+
+  @BelongsTo(() => Cliente)
+  cliente: any;
 
   @AllowNull(false)
   @Column
@@ -64,6 +73,22 @@ class CertificadoDigital extends Model<CertificadoDigital> {
 
   @Column
   serialNumber: string;
+
+  @Default(false)
+  @Column
+  notificarEmail: boolean;
+
+  @Default(false)
+  @Column
+  notificarWhatsapp: boolean;
+
+  @Default([45, 30, 15, 5])
+  @Column(DataType.JSON)
+  lembretesDias: number[];
+
+  @Default([])
+  @Column(DataType.JSON)
+  notificacoesEnviadas: any[];
 
   @AllowNull(false)
   @Default(true)

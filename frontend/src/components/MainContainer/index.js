@@ -18,11 +18,11 @@ const useStyles = makeStyles(theme => ({
 	},
 }));
 
-const MainContainer = ({ children }) => {
+const MainContainer = ({ children, fullWidth = false }) => {
 	const classes = useStyles();
 
 	return (
-		<Container className={classes.mainContainer}>
+		<Container className={classes.mainContainer} maxWidth={fullWidth ? false : "lg"} disableGutters={fullWidth}>
 			<div className={classes.contentWrapper}>{children}</div>
 		</Container>
 	);

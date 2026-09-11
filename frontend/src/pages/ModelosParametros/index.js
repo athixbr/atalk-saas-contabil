@@ -25,17 +25,26 @@ import {
 } from "@material-ui/icons";
 import { useHistory } from "react-router-dom";
 import { toast } from "react-toastify";
-import MainContainer from "../../components/MainContainer";
 import MainHeader from "../../components/MainHeader";
 import Title from "../../components/Title";
 import MainHeaderButtonsWrapper from "../../components/MainHeaderButtonsWrapper";
 import api from "../../services/api";
 
 const useStyles = makeStyles((theme) => ({
+  mainContainer: {
+    display: "flex",
+    flexDirection: "column",
+    height: "100%",
+    padding: theme.spacing(3),
+    width: "100%",
+    boxSizing: "border-box",
+  },
   mainPaper: {
     flex: 1,
     padding: theme.spacing(3),
     overflowY: "scroll",
+    width: "100%",
+    boxSizing: "border-box",
     ...theme.scrollbarStyles,
   },
   tableContainer: {
@@ -104,7 +113,7 @@ const ModelosParametros = () => {
   };
 
   return (
-    <MainContainer>
+    <div className={classes.mainContainer}>
       <MainHeader>
         <Title>Modelos de Parâmetros</Title>
         <MainHeaderButtonsWrapper>
@@ -207,7 +216,7 @@ const ModelosParametros = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </MainContainer>
+    </div>
   );
 };
 

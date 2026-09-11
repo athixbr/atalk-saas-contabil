@@ -15,6 +15,7 @@ import Whatsapp from "../../models/Whatsapp";
 import CompaniesSettings from "../../models/CompaniesSettings";
 import CreateLogTicketService from "./CreateLogTicketService";
 import AppError from "../../errors/AppError";
+import CreateTicketMetricsService from "../TicketMetricsServices/CreateTicketMetricsService";
 
 import { NotifyPlantaoService } from "../PlantaoServices/NotifyPlantaoService";
 import Message from "../../models/Message";
@@ -191,6 +192,7 @@ const _doFindOrCreateTicket = async (
       whatsappId: whatsapp.id,
       userId: ticket.userId
     });
+    CreateTicketMetricsService({ ticketId: ticket.id, companyId }).catch(() => {});
     isCreated = true;
   }
 

@@ -1,5 +1,7 @@
 import Socio from "../../models/Socio";
+import Cliente from "../../models/Cliente";
 import AppError from "../../errors/AppError";
+import GetNextCodigoSistemaService from "../ClienteServices/GetNextCodigoSistemaService";
 
 interface Dependente {
   nome: string;
@@ -10,7 +12,9 @@ interface Dependente {
 
 interface Request {
   nome: string;
-  cpf: string;
+  codigoErp?: string;
+  codigoSistema?: string;
+  cpf?: string;
   rg?: string;
   dataNascimento?: Date;
   nacionalidade?: string;
@@ -35,11 +39,14 @@ interface Request {
   chavePix?: string;
   observacoes?: string;
   ativo?: boolean;
+  clienteOrigemId?: number | string;
   companyId: number;
 }
 
 const CreateSocioService = async ({
   nome,
+  codigoErp,
+  codigoSistema,
   cpf,
   rg,
   dataNascimento,
@@ -65,6 +72,7 @@ const CreateSocioService = async ({
   chavePix,
   observacoes,
   ativo = true,
+  clienteOrigemId,
   companyId,
 }: Request): Promise<Socio> => {
   // Validações
@@ -72,29 +80,50 @@ const CreateSocioService = async ({
     throw new AppError("Nome do sócio é obrigatório", 400);
   }
 
-  if (!cpf || cpf.trim() === "") {
-    throw new AppError("CPF é obrigatório", 400);
+  let codigoErpSanitizado = codigoErp?.trim() || null;
+  if (codigoErpSanitizado && !/^\d{7}$/.test(codigoErpSanitizado)) {
+    throw new AppError("Código ERP deve conter exatamente 7 dígitos", 400);
   }
 
-  // Limpar CPF (remover pontos e traços)
-  const cpfLimpo = cpf.replace(/\D/g, "");
+  let codigoSistemaSanitizado = codigoSistema?.trim() || null;
 
-  if (cpfLimpo.length !== 11) {
-    throw new AppError("CPF inválido", 400);
+  if (clienteOrigemId) {
+    const clienteOrigem = await Cliente.findOne({
+      where: { id: clienteOrigemId, companyId },
+      attributes: ["id", "codigoErp", "codigoSistema"],
+    });
+
+    if (!clienteOrigem) {
+      throw new AppError("Cliente de origem não encontrado", 404);
+    }
+
+    codigoErpSanitizado = clienteOrigem.codigoErp?.trim() || null;
+    codigoSistemaSanitizado = clienteOrigem.codigoSistema?.trim() || String(clienteOrigem.id);
   }
 
-  // Verificar se CPF já existe na company
-  const socioExistente = await Socio.findOne({
-    where: { cpf: cpfLimpo, companyId },
-  });
+  // CPF/CNPJ é opcional; quando informado, deve ser válido e único na company
+  let cpfLimpo: string | null = null;
+  if (cpf && cpf.trim() !== "") {
+    cpfLimpo = cpf.replace(/\D/g, "");
 
-  if (socioExistente) {
-    throw new AppError("CPF já cadastrado nesta empresa", 400);
+    if (![11, 14].includes(cpfLimpo.length)) {
+      throw new AppError("CPF/CNPJ inválido", 400);
+    }
+
+    const socioExistente = await Socio.findOne({
+      where: { cpf: cpfLimpo, companyId },
+    });
+
+    if (socioExistente) {
+      throw new AppError("CPF/CNPJ já cadastrado nesta empresa", 400);
+    }
   }
 
   // Criar sócio (validar campos vazios para null)
   const socio = await Socio.create({
     nome,
+    codigoErp: codigoErpSanitizado,
+    codigoSistema: codigoSistemaSanitizado || await GetNextCodigoSistemaService(companyId),
     cpf: cpfLimpo,
     rg: rg && rg.trim() !== "" ? rg : null,
     dataNascimento: dataNascimento && !isNaN(new Date(dataNascimento).getTime()) ? dataNascimento : null,
@@ -120,6 +149,7 @@ const CreateSocioService = async ({
     chavePix: chavePix && chavePix.trim() !== "" ? chavePix : null,
     observacoes: observacoes && observacoes.trim() !== "" ? observacoes : null,
     ativo,
+    clienteOrigemId: clienteOrigemId ? Number(clienteOrigemId) : null,
     companyId,
   });
 

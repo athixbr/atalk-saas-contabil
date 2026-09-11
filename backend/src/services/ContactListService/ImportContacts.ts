@@ -11,7 +11,7 @@ export async function ImportContacts(
   companyId: number,
   file: Express.Multer.File | undefined
 ) {
-  const workbook = XLSX.readFile(file?.path as string);
+  const workbook = XLSX.read(file?.buffer, { type: "buffer" });
   const worksheet = head(Object.values(workbook.Sheets)) as any;
   const rows: any[] = XLSX.utils.sheet_to_json(worksheet, { header: 0 });
   const contacts = rows.map(row => {

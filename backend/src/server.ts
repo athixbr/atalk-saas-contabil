@@ -5,6 +5,7 @@ import { logger } from "./utils/logger";
 import { StartAllWhatsAppsSessions } from "./services/WbotServices/StartAllWhatsAppsSessions";
 import Company from "./models/Company";
 import { startQueueProcess } from "./queues";
+import TarefasRecorrentesCron from "./jobs/TarefasRecorrentesCron";
 
 const server = app.listen(process.env.PORT, async () => {
   const companies = await Company.findAll();
@@ -17,6 +18,10 @@ const server = app.listen(process.env.PORT, async () => {
   Promise.all(allPromises).then(async () => {
     await startQueueProcess();
   });
+
+  const tarefasRecorrentesCron = new TarefasRecorrentesCron();
+  tarefasRecorrentesCron.start();
+
   logger.info(`Server started on port: ${process.env.PORT}`);
 });
 

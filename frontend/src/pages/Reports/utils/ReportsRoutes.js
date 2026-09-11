@@ -12,6 +12,10 @@ const reportsRoutes = {
       label: '⏱️ Análise de Tempo',
       to: '/reports/tickets/time-analysis',
     },
+    {
+      label: '📋 Logs em Tempo Real',
+      to: '/reports/tickets/logs',
+    },
   ],
   research: [
     {

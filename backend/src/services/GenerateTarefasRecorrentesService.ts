@@ -6,7 +6,12 @@ import TarefaGeradaHistorico from "../models/TarefaGeradaHistorico";
 import Cliente from "../models/Cliente";
 import Socio from "../models/Socio";
 import Departamento from "../models/Departamento";
-import { addDays, subDays, format, isWeekend, isSaturday, getDaysInMonth } from "date-fns";
+import { addDays, subDays, format, isSaturday, isSunday, getDaysInMonth } from "date-fns";
+import {
+  getNesimoDiaUtil,
+  getUltimoDiaUtil,
+  parseDiaUtilSentinela
+} from "./TarefaRecorrenteService/businessDay";
 
 interface GenerateTarefasParams {
   companyId?: number;
@@ -70,18 +75,49 @@ class GenerateTarefasRecorrentesService {
 
         // Para cada mês selecionado
         for (const mes of mesesGerar) {
-          const diaEntrega = entregasMensais[mes];
-          
-          if (!diaEntrega) {
+          const diaEntregaRaw = entregasMensais[mes];
+
+          if (
+            diaEntregaRaw === "" ||
+            diaEntregaRaw === null ||
+            diaEntregaRaw === undefined ||
+            diaEntregaRaw === "nao_tem"
+          ) {
             console.log(`⏭️ Tarefa ${tarefaRecorrente.nomeTarefa}: sem dia configurado para mês ${mes}`);
             continue;
           }
 
-          // Validar se o dia existe no mês
           const diasNoMes = getDaysInMonth(new Date(anoGeracao, mes - 1));
-          if (diaEntrega > diasNoMes) {
-            resultado.erros.push(`Tarefa "${tarefaRecorrente.nomeTarefa}": dia ${diaEntrega} inválido para mês ${mes}/${anoGeracao}`);
-            continue;
+
+          const sabadoUtil = !!tarefaRecorrente.sabadoUtil;
+          const nDiaUtil = parseDiaUtilSentinela(diaEntregaRaw);
+
+          // "ultimo" é o sentinela de "Último dia do mês": se ajusta sozinho
+          // todo ano (28/29 em fevereiro conforme bissexto, 30/31 nos demais)
+          let diaEntrega: number;
+          if (diaEntregaRaw === "ultimo") {
+            diaEntrega = diasNoMes;
+          } else if (diaEntregaRaw === "ultimo_util") {
+            diaEntrega = getUltimoDiaUtil(anoGeracao, mes, sabadoUtil);
+          } else if (nDiaUtil !== null) {
+            const dia = getNesimoDiaUtil(anoGeracao, mes, nDiaUtil, sabadoUtil);
+            if (dia === null) {
+              resultado.erros.push(`Tarefa "${tarefaRecorrente.nomeTarefa}": mês ${mes}/${anoGeracao} não possui ${nDiaUtil}º dia útil`);
+              continue;
+            }
+            diaEntrega = dia;
+          } else {
+            diaEntrega = Number(diaEntregaRaw);
+            if (Number.isNaN(diaEntrega) || diaEntrega < 1 || diaEntrega > diasNoMes) {
+              // 29/02 é válido apenas em anos bissextos: em anos comuns não é
+              // erro de configuração, apenas não há entrega naquele ano
+              if (mes === 2 && diaEntrega === 29) {
+                console.log(`⏭️ Tarefa ${tarefaRecorrente.nomeTarefa}: 29/02 não existe em ${anoGeracao} (ano não bissexto), pulando`);
+              } else {
+                resultado.erros.push(`Tarefa "${tarefaRecorrente.nomeTarefa}": dia ${diaEntregaRaw} inválido para mês ${mes}/${anoGeracao}`);
+              }
+              continue;
+            }
           }
 
           console.log(`✅ Gerando tarefa: ${tarefaRecorrente.nomeTarefa} para ${diaEntrega}/${mes}/${anoGeracao}`);
@@ -183,21 +219,24 @@ class GenerateTarefasRecorrentesService {
     // Data de entrega base
     let dataEntrega = new Date(anoEntrega, mesEntrega - 1, diaEntrega);
 
-    // Ajustar se cair em dia não útil
-    if (tarefa.prazosFixosDiasNaoUteis || tarefa.sabadoUtil) {
-      if (isWeekend(dataEntrega)) {
-        const ehSabado = isSaturday(dataEntrega);
-        
-        if (ehSabado && tarefa.sabadoUtil) {
-          // Sábado é útil, mantém
-        } else {
-          // Ajustar conforme configuração
-          if (tarefa.prazosFixosDiasNaoUteis) {
-            while (isWeekend(dataEntrega) || (isSaturday(dataEntrega) && !tarefa.sabadoUtil)) {
-              dataEntrega = subDays(dataEntrega, 1);
-            }
-          }
-        }
+    const prazoFixo = tarefa.prazosFixos === "sim"
+      ? "antecipar_dia_anterior"
+      : tarefa.prazosFixos === "nao"
+        ? "manter_dia_exato"
+        : tarefa.prazosFixos;
+
+    const isDiaNaoUtil = (data: Date) => {
+      if (isSunday(data)) return true;
+      return isSaturday(data) && !tarefa.sabadoUtil;
+    };
+
+    if (prazoFixo === "antecipar_dia_anterior") {
+      while (isDiaNaoUtil(dataEntrega)) {
+        dataEntrega = subDays(dataEntrega, 1);
+      }
+    } else if (prazoFixo === "postergar_proximo_dia_util") {
+      while (isDiaNaoUtil(dataEntrega)) {
+        dataEntrega = addDays(dataEntrega, 1);
       }
     }
 

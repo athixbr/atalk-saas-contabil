@@ -62,7 +62,7 @@ import {
   Reply,
 } from "@material-ui/icons";
 import AddIcon from "@material-ui/icons/Add";
-import { CameraAlt } from "@material-ui/icons";
+import CameraAlt from "@material-ui/icons/CameraAlt";
 import MicRecorder from "mic-recorder-to-mp3";
 import clsx from "clsx";
 import { ReplyMessageContext } from "../../context/ReplyingMessage/ReplyingMessageContext";

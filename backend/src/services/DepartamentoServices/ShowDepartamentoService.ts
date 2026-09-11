@@ -47,12 +47,14 @@ const ShowDepartamentoService = async ({
   return {
     id: departamento.id,
     nome: departamento.nome,
-    usuarios: departamento.departamentoUsuarios.map((du) => ({
-      id: du.user.id,
-      name: du.user.name,
-      email: du.user.email,
-      isCoordenador: du.isCoordenador,
-    })),
+    usuarios: departamento.departamentoUsuarios
+      .filter((du) => du.user)
+      .map((du) => ({
+        id: du.user.id,
+        name: du.user.name,
+        email: du.user.email,
+        isCoordenador: du.isCoordenador,
+      })),
   };
 };
 

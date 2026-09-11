@@ -26,9 +26,11 @@ import {
   Select,
   MenuItem,
 } from "@material-ui/core";
-import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Phone, Email } from "@material-ui/icons";
+import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, AccountTree as AccountTreeIcon, Apps as AppsIcon, Phone, Email } from "@material-ui/icons";
 import { toast } from "react-toastify";
 import api from "../../services/api";
+import ContatoDepartamentosModal from "../ContatoDepartamentosModal";
+import ContatoAppAcessoModal from "../ContatoAppAcessoModal";
 
 const ClienteContato = ({ clienteId }) => {
   const [contatos, setContatos] = useState([]);
@@ -36,6 +38,10 @@ const ClienteContato = ({ clienteId }) => {
   const [loading, setLoading] = useState(false);
   const [openDialog, setOpenDialog] = useState(false);
   const [editingContato, setEditingContato] = useState(null);
+  const [openDepartamentosModal, setOpenDepartamentosModal] = useState(false);
+  const [contatoDepartamentos, setContatoDepartamentos] = useState(null);
+  const [openAppAcessoModal, setOpenAppAcessoModal] = useState(false);
+  const [contatoAppAcesso, setContatoAppAcesso] = useState(null);
   const [formData, setFormData] = useState({
     nome: "",
     cargo: "",
@@ -156,6 +162,26 @@ const ClienteContato = ({ clienteId }) => {
     }
   };
 
+  const handleOpenDepartamentosModal = (contato) => {
+    setContatoDepartamentos(contato);
+    setOpenDepartamentosModal(true);
+  };
+
+  const handleCloseDepartamentosModal = () => {
+    setOpenDepartamentosModal(false);
+    setContatoDepartamentos(null);
+  };
+
+  const handleOpenAppAcessoModal = (contato) => {
+    setContatoAppAcesso(contato);
+    setOpenAppAcessoModal(true);
+  };
+
+  const handleCloseAppAcessoModal = () => {
+    setOpenAppAcessoModal(false);
+    setContatoAppAcesso(null);
+  };
+
   const handleDelete = async (contatoId) => {
     if (!window.confirm("Deseja realmente excluir este contato?")) {
       return;
@@ -238,6 +264,22 @@ const ClienteContato = ({ clienteId }) => {
                       disabled={loading}
                     >
                       <EditIcon />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      title="Departamentos"
+                      onClick={() => handleOpenDepartamentosModal(contato)}
+                      disabled={loading}
+                    >
+                      <AccountTreeIcon />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      title="Acesso ao App"
+                      onClick={() => handleOpenAppAcessoModal(contato)}
+                      disabled={loading}
+                    >
+                      <AppsIcon />
                     </IconButton>
                     <IconButton
                       size="small"
@@ -360,6 +402,20 @@ const ClienteContato = ({ clienteId }) => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <ContatoDepartamentosModal
+        open={openDepartamentosModal}
+        onClose={handleCloseDepartamentosModal}
+        clienteId={clienteId}
+        contato={contatoDepartamentos}
+      />
+
+      <ContatoAppAcessoModal
+        open={openAppAcessoModal}
+        onClose={handleCloseAppAcessoModal}
+        clienteId={clienteId}
+        contato={contatoAppAcesso}
+      />
     </Box>
   );
 };

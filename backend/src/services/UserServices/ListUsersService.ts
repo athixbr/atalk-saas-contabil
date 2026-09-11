@@ -7,12 +7,15 @@ import Company from "../../models/Company";
 import User from "../../models/User";
 import Plan from "../../models/Plan";
 import Ticket from "../../models/Ticket";
+import Departamento from "../../models/Departamento";
 
 interface Request {
   searchParam?: string;
   pageNumber?: string | number;
   profile?: string;
   companyId?: number;
+  orderBy?: string;
+  order?: string;
 }
 
 interface Response {
@@ -24,8 +27,25 @@ interface Response {
 const ListUsersService = async ({
   searchParam = "",
   pageNumber = "1",
-  companyId
+  companyId,
+  orderBy = "createdAt",
+  order = "DESC"
 }: Request): Promise<Response> => {
+  const allowedOrderFields = [
+    "id",
+    "name",
+    "email",
+    "profile",
+    "online",
+    "isActive",
+    "startWork",
+    "endWork",
+    "createdAt",
+    "updatedAt"
+  ];
+  const safeOrderBy = allowedOrderFields.includes(orderBy) ? orderBy : "createdAt";
+  const safeOrder = String(order).toUpperCase() === "ASC" ? "ASC" : "DESC";
+
   const whereCondition = {
     [Op.or]: [
       {
@@ -50,7 +70,7 @@ const ListUsersService = async ({
     //attributes: ["name", "id", "email", "companyId", "profile", "createdAt", "online", "startWork", "endWork", "farewellMessage","allTicket"],
     limit,
     offset,
-    order: [["createdAt", "DESC"]],
+    order: [[safeOrderBy, safeOrder]],
     include: [
       { model: Queue, as: "queues", attributes: ["id", "name", "color"] },
       {
@@ -73,7 +93,13 @@ const ListUsersService = async ({
           },
         ]
       },
-      { model: Ticket, as: "tickets"}
+      { model: Ticket, as: "tickets"},
+      {
+        model: Departamento,
+        as: "departamentos",
+        attributes: ["id", "nome"],
+        through: { attributes: ["isCoordenador"] }
+      }
     ]
   });
 

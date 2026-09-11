@@ -4,17 +4,20 @@ import ShowClienteService from "../services/ClienteServices/ShowClienteService";
 import CreateClienteService from "../services/ClienteServices/CreateClienteService";
 import UpdateClienteService from "../services/ClienteServices/UpdateClienteService";
 import DeleteClienteService from "../services/ClienteServices/DeleteClienteService";
+import GetNextCodigoSistemaService from "../services/ClienteServices/GetNextCodigoSistemaService";
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
   const { includeCertidoes } = req.query;
-  const { searchParam, tipoCliente, ativo, page = "1", limit = "10" } = req.query as any;
+  const { searchParam, tipoCliente, recorrencia, ativo, estado, page = "1", limit = "10" } = req.query as any;
 
   const { clientes, count, hasMore } = await ListClientesService({
     companyId,
     searchParam,
     tipoCliente,
+    recorrencia,
     ativo: ativo !== undefined ? ativo === "true" : undefined,
+    estado,
     page: parseInt(page),
     limit: parseInt(limit),
   });
@@ -40,6 +43,13 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
   });
 
   return res.json(cliente);
+};
+
+export const nextCodigoSistema = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const codigoSistema = await GetNextCodigoSistemaService(companyId);
+
+  return res.json({ codigoSistema });
 };
 
 export const store = async (req: Request, res: Response): Promise<Response> => {
@@ -73,6 +83,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     certidoesSelecionadas,
     // Novos campos
     tipoServico,
+    recorrencia,
     codigoErp,
     codigoSistema,
     apelido,
@@ -84,6 +95,8 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     statusId,
     statusComplementarId,
     segmentoId,
+    atuacaoId,
+    atuacaoIds,
     sedeClienteId,
     regimeTributarioFederalId,
     regimeTributarioEstadualId,
@@ -148,6 +161,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     companyId,
     // Novos campos
     tipoServico,
+    recorrencia,
     codigoErp,
     codigoSistema,
     apelido,
@@ -159,6 +173,8 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     statusId,
     statusComplementarId,
     segmentoId,
+    atuacaoId,
+    atuacaoIds,
     sedeClienteId,
     regimeTributarioFederalId,
     regimeTributarioEstadualId,
@@ -228,6 +244,7 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
     certidoesSelecionadas,
     // Novos campos
     tipoServico,
+    recorrencia,
     codigoErp,
     codigoSistema,
     apelido,
@@ -239,6 +256,8 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
     statusId,
     statusComplementarId,
     segmentoId,
+    atuacaoId,
+    atuacaoIds,
     sedeClienteId,
     regimeTributarioFederalId,
     regimeTributarioEstadualId,
@@ -304,6 +323,7 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
     companyId,
     // Novos campos
     tipoServico,
+    recorrencia,
     codigoErp,
     codigoSistema,
     apelido,
@@ -315,6 +335,8 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
     statusId,
     statusComplementarId,
     segmentoId,
+    atuacaoId,
+    atuacaoIds,
     sedeClienteId,
     regimeTributarioFederalId,
     regimeTributarioEstadualId,

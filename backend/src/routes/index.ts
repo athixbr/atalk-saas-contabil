@@ -46,6 +46,7 @@ import tarefaConfigRoutes from "./tarefaConfigRoutes";
 import controleClienteRoutes from "./controleClienteRoutes";
 import controleConfigRoutes from "./controleConfigRoutes";
 import clienteRoutes from "./clienteRoutes";
+import cnaeRoutes from "./cnaeRoutes";
 import socioRoutes from "./socioRoutes";
 import departamentoRoutes from "./departamentoRoutes";
 import parametrosRoutes from "./parametrosRoutes";
@@ -56,6 +57,7 @@ import tipoServicoRoutes from "./tipoServicoRoutes";
 import grupoServicoRoutes from "./grupoServicoRoutes";
 import certidaoRoutes from "./certidaoRoutes";
 import gedRoutes from "./gedRoutes";
+import nfeXmlRoutes from "./nfeXmlRoutes";
 import knowledgeBaseArticleRoutes from "./knowledgeBaseArticleRoutes";
 import knowledgeBaseCategoryRoutes from "./knowledgeBaseCategoryRoutes";
 import crmLeadRoutes from "./crmLeadRoutes";
@@ -72,10 +74,15 @@ import perfilCargoRoutes from "./perfilCargoRoutes";
 import billingRoutes from "./billingRoutes";
 import campaignGrupoRoutes from "./campaignGrupoRoutes";
 import clienteViewPreferenceRoutes from "./clienteViewPreferenceRoutes";
+import userViewPreferenceRoutes from "./userViewPreferenceRoutes";
+import tarefaRecorrenteViewPreferenceRoutes from "./tarefaRecorrenteViewPreferenceRoutes";
 import userClientesPreferencesRoutes from "./userClientesPreferencesRoutes";
 import whatsappGroupRoutes from "./whatsappGroupRoutes";
 import wwebjsRoutes from "./wwebjsRoutes";
 import documentReaderRoutes from "./documentReaderRoutes";
+import whatsappStoryRoutes from "./whatsappStoryRoutes";
+import emailRoutes from "./emailRoutes";
+import whatsappNotifRoutes from "./whatsappNotifRoutes";
 
 const routes = Router();
 
@@ -132,12 +139,15 @@ routes.use(checklistRoutes);
 
 // Módulo de Clientes e Departamentos
 routes.use(clienteRoutes);
+routes.use(cnaeRoutes);
 routes.use(socioRoutes);
 routes.use(departamentoRoutes);
 routes.use(parametrosRoutes);
 routes.use(modeloParametrosRoutes);
 routes.use(clienteViewPreferenceRoutes);
+routes.use(userViewPreferenceRoutes);
 routes.use(userClientesPreferencesRoutes);
+routes.use(tarefaRecorrenteViewPreferenceRoutes);
 
 // Módulo de Serviços
 routes.use(tipoServicoRoutes);
@@ -146,6 +156,7 @@ routes.use(grupoServicoRoutes);
 // Módulo de Certidões e Documentos
 routes.use(certidaoRoutes);
 routes.use(gedRoutes);
+routes.use(nfeXmlRoutes);
 routes.use(documentReaderRoutes);
 
 // Base de Conhecimento
@@ -170,5 +181,10 @@ routes.use(billingRoutes);
 routes.use(campaignGrupoRoutes);
 routes.use(whatsappGroupRoutes);
 routes.use(wwebjsRoutes);
+routes.use(whatsappStoryRoutes);
+
+// Módulo de E-mail
+routes.use(emailRoutes);
+routes.use(whatsappNotifRoutes);
 
 export default routes;

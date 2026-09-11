@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { makeStyles } from "@material-ui/core/styles";
 import api from "../../services/api";
+import toastError from "../../errors/toastError";
 import { toast } from "react-toastify";
 import {
   Paper,
@@ -12,21 +13,20 @@ import {
   FormGroup,
   FormControlLabel,
   Checkbox,
-  Grid,
   Divider,
   Box,
   Card,
-  CardContent,
   Avatar,
   Chip,
   CircularProgress,
   Radio,
-  RadioGroup,
+  InputAdornment,
 } from "@material-ui/core";
 import {
   Save as SaveIcon,
   ArrowBack as ArrowBackIcon,
-  Person as PersonIcon,
+  Search as SearchIcon,
+  PeopleOutline as PeopleOutlineIcon,
 } from "@material-ui/icons";
 import { useHistory, useParams } from "react-router-dom";
 import MainContainer from "../../components/MainContainer";
@@ -44,19 +44,25 @@ const useStyles = makeStyles((theme) => ({
   formSection: {
     marginBottom: theme.spacing(3),
   },
+  usuariosSearch: {
+    marginBottom: theme.spacing(1.5),
+  },
   usuariosCard: {
     marginTop: theme.spacing(2),
-    padding: theme.spacing(2),
+    padding: theme.spacing(1),
     backgroundColor: theme.palette.background.default,
+    maxHeight: 420,
+    overflowY: "auto",
+    ...theme.scrollbarStyles,
   },
   usuarioItem: {
     display: "flex",
     alignItems: "center",
     gap: theme.spacing(2),
     padding: theme.spacing(1),
+    borderRadius: theme.shape.borderRadius,
     "&:hover": {
       backgroundColor: theme.palette.action.hover,
-      borderRadius: theme.shape.borderRadius,
     },
   },
   avatar: {
@@ -70,6 +76,18 @@ const useStyles = makeStyles((theme) => ({
     backgroundColor: theme.palette.primary.light,
     borderRadius: theme.shape.borderRadius,
   },
+  emptyState: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    padding: theme.spacing(4, 2),
+    color: theme.palette.text.secondary,
+  },
+  emptyIcon: {
+    fontSize: 40,
+    marginBottom: theme.spacing(1),
+    opacity: 0.5,
+  },
 }));
 
 const DepartamentosCadastroPage = () => {
@@ -77,46 +95,47 @@ const DepartamentosCadastroPage = () => {
   const history = useHistory();
   const { id } = useParams();
 
-  const [loading, setLoading] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [usuarios, setUsuarios] = useState([]);
+  const [usuarioSearch, setUsuarioSearch] = useState("");
   const [formData, setFormData] = useState({
     nome: "",
     usuariosSelecionados: [],
     coordenadorId: null,
   });
 
-  const fetchUsuarios = async () => {
-    try {
-      const { data } = await api.get("/departamentos/users");
-      setUsuarios(data.users || []);
-    } catch (error) {
-      toast.error("Erro ao carregar usuários");
-      console.error("Erro ao buscar usuários:", error);
-    }
-  };
-
-  const fetchDepartamento = async () => {
-    if (!id) return;
-    setLoading(true);
-    try {
-      const { data } = await api.get(`/departamentos/${id}`);
-      const coordenador = data.usuarios.find(u => u.isCoordenador);
-      setFormData({
-        nome: data.nome,
-        usuariosSelecionados: data.usuarios.map(u => u.id),
-        coordenadorId: coordenador ? coordenador.id : null,
-      });
-    } catch (error) {
-      toast.error("Erro ao carregar departamento");
-      console.error("Erro ao buscar departamento:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchUsuarios();
-    fetchDepartamento();
+    const loadData = async () => {
+      setLoadingData(true);
+      try {
+        const requests = [api.get("/departamentos/users")];
+        if (id) {
+          requests.push(api.get(`/departamentos/${id}`));
+        }
+        const [usersRes, deptRes] = await Promise.all(requests);
+
+        setUsuarios(usersRes.data.users || []);
+
+        if (deptRes) {
+          const coordenador = deptRes.data.usuarios.find(
+            (u) => u.isCoordenador
+          );
+          setFormData({
+            nome: deptRes.data.nome,
+            usuariosSelecionados: deptRes.data.usuarios.map((u) => u.id),
+            coordenadorId: coordenador ? coordenador.id : null,
+          });
+        }
+      } catch (error) {
+        toastError(error);
+      } finally {
+        setLoadingData(false);
+      }
+    };
+
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const handleInputChange = (e) => {
@@ -131,9 +150,12 @@ const DepartamentosCadastroPage = () => {
       newSelected.push(usuarioId);
     } else {
       newSelected.splice(currentIndex, 1);
-      // Se desmarcar o coordenador, limpar a seleção
       if (formData.coordenadorId === usuarioId) {
-        setFormData({ ...formData, usuariosSelecionados: newSelected, coordenadorId: null });
+        setFormData({
+          ...formData,
+          usuariosSelecionados: newSelected,
+          coordenadorId: null,
+        });
         return;
       }
     }
@@ -147,7 +169,7 @@ const DepartamentosCadastroPage = () => {
 
   const handleSelectAll = () => {
     if (formData.usuariosSelecionados.length === usuarios.length) {
-      setFormData({ ...formData, usuariosSelecionados: [] });
+      setFormData({ ...formData, usuariosSelecionados: [], coordenadorId: null });
     } else {
       setFormData({
         ...formData,
@@ -158,22 +180,17 @@ const DepartamentosCadastroPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (formData.usuariosSelecionados.length === 0) {
-      toast.warning("Selecione pelo menos um usuário para o departamento.");
+
+    if (!formData.nome || !formData.nome.trim()) {
+      toast.warn("Informe o nome do departamento");
       return;
     }
 
-    if (!formData.coordenadorId) {
-      toast.warning("Selecione um coordenador para o departamento.");
-      return;
-    }
-
-    setLoading(true);
+    setSaving(true);
     try {
       const payload = {
-        nome: formData.nome,
-        usuarios: formData.usuariosSelecionados.map(userId => ({
+        nome: formData.nome.trim(),
+        usuarios: formData.usuariosSelecionados.map((userId) => ({
           userId,
           isCoordenador: userId === formData.coordenadorId,
         })),
@@ -186,13 +203,12 @@ const DepartamentosCadastroPage = () => {
         await api.post("/departamentos", payload);
         toast.success("Departamento criado com sucesso!");
       }
-      
+
       history.push("/departamentos");
     } catch (error) {
-      toast.error("Erro ao salvar departamento");
-      console.error("Erro ao salvar departamento:", error);
+      toastError(error);
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
@@ -200,14 +216,25 @@ const DepartamentosCadastroPage = () => {
     history.push("/departamentos");
   };
 
-  const getInitials = (nome) => {
+  const getInitials = (nome = "") => {
     return nome
       .split(" ")
+      .filter(Boolean)
       .map((n) => n[0])
       .join("")
       .toUpperCase()
       .substring(0, 2);
   };
+
+  const filteredUsuarios = useMemo(() => {
+    if (!usuarioSearch.trim()) return usuarios;
+    const term = usuarioSearch.trim().toLowerCase();
+    return usuarios.filter(
+      (u) =>
+        u.name?.toLowerCase().includes(term) ||
+        u.email?.toLowerCase().includes(term)
+    );
+  }, [usuarios, usuarioSearch]);
 
   return (
     <MainContainer>
@@ -225,136 +252,208 @@ const DepartamentosCadastroPage = () => {
       </MainHeader>
 
       <Paper className={classes.mainPaper} variant="outlined">
-        <form onSubmit={handleSubmit}>
-          {/* Nome */}
-          <div className={classes.formSection}>
-            <TextField
-              label="Nome do Departamento"
-              name="nome"
-              value={formData.nome}
-              onChange={handleInputChange}
-              required
-              fullWidth
-              variant="outlined"
-              placeholder="Ex: Fiscal, Contabilidade, RH..."
-            />
-          </div>
+        {loadingData ? (
+          <Box display="flex" justifyContent="center" p={5}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            {/* Nome */}
+            <div className={classes.formSection}>
+              <TextField
+                label="Nome do Departamento"
+                name="nome"
+                value={formData.nome}
+                onChange={handleInputChange}
+                required
+                fullWidth
+                variant="outlined"
+                placeholder="Ex: Fiscal, Contabilidade, RH..."
+                autoFocus
+              />
+            </div>
 
-          <Divider style={{ margin: "24px 0" }} />
+            <Divider style={{ margin: "24px 0" }} />
 
-          {/* Usuários */}
-          <div className={classes.formSection}>
-            <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-              <FormLabel component="legend">
-                <Typography variant="h6">Usuários do Departamento</Typography>
-              </FormLabel>
-              <Button
+            {/* Usuários */}
+            <div className={classes.formSection}>
+              <Box
+                display="flex"
+                justifyContent="space-between"
+                alignItems="center"
+                mb={2}
+                flexWrap="wrap"
+                gridGap={8}
+              >
+                <FormLabel component="legend">
+                  <Typography variant="h6">Usuários do Departamento</Typography>
+                </FormLabel>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={handleSelectAll}
+                  disabled={usuarios.length === 0}
+                >
+                  {formData.usuariosSelecionados.length === usuarios.length &&
+                  usuarios.length > 0
+                    ? "Desmarcar Todos"
+                    : "Selecionar Todos"}
+                </Button>
+              </Box>
+
+              <TextField
+                className={classes.usuariosSearch}
+                placeholder="Buscar usuário por nome ou e-mail..."
+                value={usuarioSearch}
+                onChange={(e) => setUsuarioSearch(e.target.value)}
                 variant="outlined"
                 size="small"
-                onClick={handleSelectAll}
+                fullWidth
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" style={{ color: "gray" }} />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+
+              <FormControl component="fieldset" fullWidth>
+                <Card className={classes.usuariosCard} variant="outlined">
+                  {filteredUsuarios.length === 0 ? (
+                    <Box className={classes.emptyState}>
+                      <PeopleOutlineIcon className={classes.emptyIcon} />
+                      <Typography variant="body2">
+                        {usuarios.length === 0
+                          ? "Nenhum usuário disponível"
+                          : "Nenhum usuário encontrado para essa busca"}
+                      </Typography>
+                    </Box>
+                  ) : (
+                    <FormGroup>
+                      {filteredUsuarios.map((usuario) => (
+                        <div key={usuario.id} className={classes.usuarioItem}>
+                          <FormControlLabel
+                            control={
+                              <Checkbox
+                                checked={formData.usuariosSelecionados.includes(
+                                  usuario.id
+                                )}
+                                onChange={() => handleUsuarioToggle(usuario.id)}
+                                color="primary"
+                              />
+                            }
+                            label={
+                              <Box
+                                display="flex"
+                                alignItems="center"
+                                gridGap={16}
+                                flex={1}
+                              >
+                                <Avatar className={classes.avatar}>
+                                  {getInitials(usuario.name)}
+                                </Avatar>
+                                <Box flex={1}>
+                                  <Typography variant="body1">
+                                    {usuario.name}
+                                  </Typography>
+                                  <Typography
+                                    variant="caption"
+                                    color="textSecondary"
+                                  >
+                                    {usuario.email}
+                                  </Typography>
+                                </Box>
+                                {formData.usuariosSelecionados.includes(
+                                  usuario.id
+                                ) && (
+                                  <>
+                                    <Radio
+                                      checked={
+                                        formData.coordenadorId === usuario.id
+                                      }
+                                      onChange={() =>
+                                        handleCoordenadorChange(usuario.id)
+                                      }
+                                      onClick={(e) => e.stopPropagation()}
+                                      value={usuario.id}
+                                      name="coordenador"
+                                      color="primary"
+                                      size="small"
+                                    />
+                                    <Chip
+                                      label={
+                                        formData.coordenadorId === usuario.id
+                                          ? "Coordenador"
+                                          : "Membro"
+                                      }
+                                      size="small"
+                                      color={
+                                        formData.coordenadorId === usuario.id
+                                          ? "primary"
+                                          : "default"
+                                      }
+                                    />
+                                  </>
+                                )}
+                              </Box>
+                            }
+                            style={{ width: "100%", margin: 0 }}
+                          />
+                        </div>
+                      ))}
+                    </FormGroup>
+                  )}
+                </Card>
+              </FormControl>
+
+              {formData.usuariosSelecionados.length > 0 && (
+                <Box className={classes.selectedCount}>
+                  <Typography variant="body2" align="center">
+                    <strong>{formData.usuariosSelecionados.length}</strong>{" "}
+                    {formData.usuariosSelecionados.length === 1
+                      ? "usuário selecionado"
+                      : "usuários selecionados"}
+                    {formData.coordenadorId && (
+                      <>
+                        {" | "}
+                        <strong>Coordenador:</strong>{" "}
+                        {
+                          usuarios.find((u) => u.id === formData.coordenadorId)
+                            ?.name
+                        }
+                      </>
+                    )}
+                  </Typography>
+                </Box>
+              )}
+            </div>
+
+            <Divider style={{ margin: "24px 0" }} />
+
+            {/* Botões de Ação */}
+            <Box display="flex" justifyContent="flex-end" gridGap={16}>
+              <Button variant="outlined" onClick={handleCancel} disabled={saving}>
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                variant="contained"
+                color="primary"
+                startIcon={
+                  saving ? (
+                    <CircularProgress size={20} color="inherit" />
+                  ) : (
+                    <SaveIcon />
+                  )
+                }
+                disabled={saving}
               >
-                {formData.usuariosSelecionados.length === usuarios.length
-                  ? "Desmarcar Todos"
-                  : "Selecionar Todos"}
+                {saving ? "Salvando..." : "Salvar Departamento"}
               </Button>
             </Box>
-
-            <Card className={classes.usuariosCard}>
-              {loading ? (
-                <Box display="flex" justifyContent="center" p={3}>
-                  <CircularProgress />
-                </Box>
-              ) : (
-                <FormGroup>
-                  {usuarios.map((usuario) => (
-                    <div key={usuario.id} className={classes.usuarioItem}>
-                      <FormControlLabel
-                        control={
-                          <Checkbox
-                            checked={formData.usuariosSelecionados.includes(
-                              usuario.id
-                            )}
-                            onChange={() => handleUsuarioToggle(usuario.id)}
-                            color="primary"
-                          />
-                        }
-                        label={
-                          <Box display="flex" alignItems="center" gap={2} flex={1}>
-                            <Avatar className={classes.avatar}>
-                              {getInitials(usuario.name)}
-                            </Avatar>
-                            <Box flex={1}>
-                              <Typography variant="body1">
-                                {usuario.name}
-                              </Typography>
-                              <Typography variant="caption" color="textSecondary">
-                                {usuario.email}
-                              </Typography>
-                            </Box>
-                            {formData.usuariosSelecionados.includes(usuario.id) && (
-                              <Radio
-                                checked={formData.coordenadorId === usuario.id}
-                                onChange={() => handleCoordenadorChange(usuario.id)}
-                                value={usuario.id}
-                                name="coordenador"
-                                color="primary"
-                                size="small"
-                              />
-                            )}
-                            {formData.usuariosSelecionados.includes(usuario.id) && (
-                              <Chip
-                                label={formData.coordenadorId === usuario.id ? "Coordenador" : "Membro"}
-                                size="small"
-                                color={formData.coordenadorId === usuario.id ? "primary" : "default"}
-                              />
-                            )}
-                          </Box>
-                        }
-                        style={{ width: "100%", margin: 0 }}
-                      />
-                    </div>
-                  ))}
-                </FormGroup>
-              )}
-            </Card>
-
-            {formData.usuariosSelecionados.length > 0 && (
-              <Box className={classes.selectedCount}>
-                <Typography variant="body2" align="center">
-                  <strong>{formData.usuariosSelecionados.length}</strong>{" "}
-                  {formData.usuariosSelecionados.length === 1
-                    ? "usuário selecionado"
-                    : "usuários selecionados"}
-                  {formData.coordenadorId && (
-                    <>
-                      {" | "}
-                      <strong>Coordenador:</strong>{" "}
-                      {usuarios.find(u => u.id === formData.coordenadorId)?.name}
-                    </>
-                  )}
-                </Typography>
-              </Box>
-            )}
-          </div>
-
-          <Divider style={{ margin: "24px 0" }} />
-
-          {/* Botões de Ação */}
-          <Box display="flex" justifyContent="flex-end" gap={2}>
-            <Button variant="outlined" onClick={handleCancel} disabled={loading}>
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              variant="contained"
-              color="primary"
-              startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
-              disabled={loading}
-            >
-              {loading ? "Salvando..." : "Salvar Departamento"}
-            </Button>
-          </Box>
-        </form>
+          </form>
+        )}
       </Paper>
     </MainContainer>
   );

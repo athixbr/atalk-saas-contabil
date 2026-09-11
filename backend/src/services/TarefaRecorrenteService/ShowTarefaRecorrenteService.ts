@@ -3,6 +3,8 @@ import Cliente from "../../models/Cliente";
 import Socio from "../../models/Socio";
 import Departamento from "../../models/Departamento";
 import User from "../../models/User";
+import EmailTemplate from "../../models/EmailTemplate";
+import WhatsappTemplate from "../../models/WhatsappTemplate";
 import AppError from "../../errors/AppError";
 
 interface Request {
@@ -16,6 +18,9 @@ const ShowTarefaRecorrenteService = async ({
 }: Request): Promise<TarefaRecorrente> => {
   const tarefaRecorrente = await TarefaRecorrente.findOne({
     where: { id, companyId },
+    attributes: {
+      exclude: ["diasConclusao"]
+    },
     include: [
       {
         model: Departamento,
@@ -31,7 +36,7 @@ const ShowTarefaRecorrenteService = async ({
         model: Cliente,
         as: "clientes",
         attributes: ["id", "nome", "cpf", "cnpj", "email", "codigoErp"],
-        through: { attributes: [] }
+        through: { attributes: ["vencimento", "controleComDataId"] }
       },
       {
         model: Socio,
@@ -44,6 +49,16 @@ const ShowTarefaRecorrenteService = async ({
         as: "usuarios",
         attributes: ["id", "name", "email", "profile"],
         through: { attributes: [] }
+      },
+      {
+        model: EmailTemplate,
+        as: "emailTemplate",
+        attributes: ["id", "title", "subject"]
+      },
+      {
+        model: WhatsappTemplate,
+        as: "whatsappTemplate",
+        attributes: ["id", "title"]
       }
     ]
   });
@@ -51,6 +66,7 @@ const ShowTarefaRecorrenteService = async ({
   if (!tarefaRecorrente) {
     throw new AppError("ERR_TAREFA_RECORRENTE_NOT_FOUND", 404);
   }
+  tarefaRecorrente.setDataValue("codigo", String(tarefaRecorrente.id));
 
   return tarefaRecorrente;
 };

@@ -30,10 +30,6 @@ const UpdateDepartamentoService = async ({
     throw new AppError("Nome do departamento é obrigatório", 400);
   }
 
-  if (!usuarios || usuarios.length === 0) {
-    throw new AppError("Selecione pelo menos um usuário para o departamento", 400);
-  }
-
   const departamento = await Departamento.findOne({
     where: { id, companyId },
   });
@@ -59,14 +55,15 @@ const UpdateDepartamentoService = async ({
     where: { departamentoId: departamento.id },
   });
 
-  // Criar novas associações
-  const usuariosData = usuarios.map((u) => ({
-    departamentoId: departamento.id,
-    userId: u.userId,
-    isCoordenador: u.isCoordenador || false,
-  }));
-
-  await DepartamentoUsuario.bulkCreate(usuariosData);
+  // Criar novas associações (pode ser vazio)
+  if (usuarios && usuarios.length > 0) {
+    const usuariosData = usuarios.map((u) => ({
+      departamentoId: departamento.id,
+      userId: u.userId,
+      isCoordenador: u.isCoordenador || false,
+    }));
+    await DepartamentoUsuario.bulkCreate(usuariosData);
+  }
 
   return {
     id: departamento.id,

@@ -35,11 +35,25 @@ const windowEnv = {
 const envScript = `<script>window.ENV = ${JSON.stringify(windowEnv)};</script>`;
 indexHtml = indexHtml.replace("</head>", `${envScript}\n</head>`);
 
-// Arquivos estáticos (JS, CSS, imagens, fontes)
-app.use(express.static(BUILD_DIR));
+// Arquivos estáticos (JS, CSS, imagens, fontes).
+// Os arquivos em /static têm hash no nome (gerado a cada build), então podem
+// ficar em cache "para sempre" — uma build nova sempre gera nomes novos.
+app.use(
+  express.static(BUILD_DIR, {
+    setHeaders: (res, filePath) => {
+      if (filePath.includes(`${path.sep}static${path.sep}`)) {
+        res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      } else {
+        res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      }
+    },
+  })
+);
 
-// SPA fallback — todas as rotas devolvem o index.html com window.ENV
+// SPA fallback — todas as rotas devolvem o index.html com window.ENV,
+// sempre revalidado para que o navegador nunca sirva uma versão antiga.
 app.get("/*", (_req, res) => {
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   res.send(indexHtml);
 });
 

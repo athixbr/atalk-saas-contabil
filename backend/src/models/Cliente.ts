@@ -18,6 +18,7 @@ import Company from "./Company";
 import Status from "./Status";
 import StatusComplementar from "./StatusComplementar";
 import Segmento from "./Segmento";
+import Atuacao from "./Atuacao";
 import SedeCliente from "./SedeCliente";
 import RegimeTributarioFederal from "./RegimeTributarioFederal";
 import RegimeTributarioEstadual from "./RegimeTributarioEstadual";
@@ -52,6 +53,9 @@ import StatusControle from "./StatusControle";
 import Socio from "./Socio";
 import ClienteSocio from "./ClienteSocio";
 import DemaisIdentificadores from "./DemaisIdentificadores";
+import ClienteVigencia from "./ClienteVigencia";
+import DocumentoClienteAcesso from "./DocumentoClienteAcesso";
+import CertificadoDigital from "./CertificadoDigital";
 
 @Table({ tableName: "Clientes" })
 class Cliente extends Model<Cliente> {
@@ -70,6 +74,12 @@ class Cliente extends Model<Cliente> {
   @BelongsToMany(() => Socio, () => ClienteSocio)
   socios: any[];
 
+  @HasMany(() => DocumentoClienteAcesso)
+  acessosDocumentos: any[];
+
+  @HasMany(() => CertificadoDigital)
+  certificadosDigitais: any[];
+
   @AllowNull(false)
   @Column
   nome: string;
@@ -77,6 +87,10 @@ class Cliente extends Model<Cliente> {
   @Default("recorrente")
   @Column(DataType.ENUM("interno", "recorrente", "esporadico"))
   tipoServico: "interno" | "recorrente" | "esporadico";
+
+  @Default("recorrente")
+  @Column(DataType.ENUM("recorrente", "nao_recorrente"))
+  recorrencia: "recorrente" | "nao_recorrente";
 
   @Column
   codigoErp: string;
@@ -95,6 +109,7 @@ class Cliente extends Model<Cliente> {
   @Column
   cnpj: string;
 
+  @AllowNull(false)
   @Column
   razaoSocial: string;
 
@@ -104,9 +119,11 @@ class Cliente extends Model<Cliente> {
   @Column
   inscricaoMunicipal: string;
 
+  @AllowNull(false)
   @Column
   nomeFantasia: string;
 
+  @AllowNull(false)
   @Column
   apelido: string;
 
@@ -200,6 +217,17 @@ class Cliente extends Model<Cliente> {
 
   @BelongsTo(() => Segmento)
   segmento: any;
+
+  @ForeignKey(() => Atuacao)
+  @Column
+  atuacaoId: number;
+
+  @Default([])
+  @Column(DataType.JSON)
+  atuacaoIds: number[];
+
+  @BelongsTo(() => Atuacao)
+  atuacao: any;
 
   @ForeignKey(() => SedeCliente)
   @Column
@@ -421,6 +449,9 @@ class Cliente extends Model<Cliente> {
 
   @HasMany(() => DemaisIdentificadores)
   demaisIdentificadores: any[];
+
+  @HasMany(() => ClienteVigencia, { as: "vigencias" })
+  vigencias: any[];
 
   @CreatedAt
   createdAt: Date;

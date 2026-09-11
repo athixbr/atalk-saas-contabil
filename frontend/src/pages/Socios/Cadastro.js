@@ -6,10 +6,7 @@ import {
   Button,
   TextField,
   FormControl,
-  FormLabel,
-  RadioGroup,
   FormControlLabel,
-  Radio,
   Grid,
   Divider,
   IconButton,
@@ -19,9 +16,6 @@ import {
   InputLabel,
   Switch,
   CircularProgress,
-  Card,
-  CardContent,
-  CardHeader,
   Table,
   TableBody,
   TableCell,
@@ -29,14 +23,12 @@ import {
   TableRow,
   Chip,
   Tooltip,
-  Link,
 } from "@material-ui/core";
 import {
   Save as SaveIcon,
   ArrowBack as ArrowBackIcon,
   Add as AddIcon,
   Delete as DeleteIcon,
-  Business as BusinessIcon,
   Edit as EditIcon,
   Launch as LaunchIcon,
   Search as SearchIcon,
@@ -74,15 +66,6 @@ const useStyles = makeStyles((theme) => ({
     alignItems: "center",
     minHeight: "400px",
   },
-  dependenteCard: {
-    marginBottom: theme.spacing(2),
-    position: "relative",
-  },
-  deleteButton: {
-    position: "absolute",
-    top: theme.spacing(1),
-    right: theme.spacing(1),
-  },
   empresaCard: {
     marginBottom: theme.spacing(2),
     backgroundColor: theme.palette.background.default,
@@ -101,10 +84,6 @@ const estadosCivis = [
   { value: "divorciado", label: "Divorciado(a)" },
   { value: "viuvo", label: "Viúvo(a)" },
   { value: "uniao_estavel", label: "União Estável" },
-];
-
-const parentescos = [
-  "Filho(a)", "Cônjuge", "Companheiro(a)", "Pai", "Mãe", "Irmão(ã)", "Avô(ó)", "Neto(a)", "Outro"
 ];
 
 const SociosCadastro = () => {
@@ -141,6 +120,8 @@ const SociosCadastro = () => {
   });
 
   const [formData, setFormData] = useState({
+    codigoSistema: "",
+    codigoErp: "",
     nome: "",
     cpf: "",
     rg: "",
@@ -159,39 +140,39 @@ const SociosCadastro = () => {
     bairro: "",
     cidade: "",
     estado: "",
-    dependentes: [],
-    banco: "",
-    agencia: "",
-    conta: "",
-    tipoConta: "",
-    chavePix: "",
     observacoes: "",
     ativo: true,
-  });
-
-  const [dependenteForm, setDependenteForm] = useState({
-    nome: "",
-    cpf: "",
-    parentesco: "",
-    dataNascimento: "",
+    clientes: [],
   });
 
   useEffect(() => {
     if (id) {
       loadSocio();
+    } else {
+      loadProximoCodigoSistemaSocio();
     }
     loadEmpresas();
   }, [id]);
+
+  const loadProximoCodigoSistemaSocio = async () => {
+    try {
+      const { data } = await api.get("/socios/proximo-codigo-sistema");
+      setFormData((prev) => ({
+        ...prev,
+        codigoSistema: data.codigoSistema || "",
+      }));
+    } catch (error) {
+      console.error("Erro ao carregar próximo código do sócio:", error);
+    }
+  };
 
   const loadEmpresas = async (searchQuery = "") => {
     try {
       setSearchingEmpresas(true);
       const { data } = await api.get("/clientes", {
         params: {
-          tipoCliente: "juridica",
-          ativo: "true",
           searchParam: searchQuery || empresaSearchTerm,
-          limit: 50,
+          limit: 9999,
         },
       });
       setEmpresas(data.clientes || []);
@@ -207,6 +188,8 @@ const SociosCadastro = () => {
     try {
       const { data } = await api.get(`/socios/${id}`);
       setFormData({
+        codigoSistema: data.codigoSistema || String(data.id || ""),
+        codigoErp: data.codigoErp || "",
         nome: data.nome || "",
         cpf: data.cpf || "",
         rg: data.rg || "",
@@ -225,14 +208,9 @@ const SociosCadastro = () => {
         bairro: data.bairro || "",
         cidade: data.cidade || "",
         estado: data.estado || "",
-        dependentes: data.dependentes || [],
-        banco: data.banco || "",
-        agencia: data.agencia || "",
-        conta: data.conta || "",
-        tipoConta: data.tipoConta || "",
-        chavePix: data.chavePix || "",
         observacoes: data.observacoes || "",
         ativo: data.ativo !== undefined ? data.ativo : true,
+        clientes: data.clientes || [],
       });
     } catch (error) {
       toast.error("Erro ao carregar sócio");
@@ -244,36 +222,10 @@ const SociosCadastro = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
-  };
-
-  const handleDependenteChange = (e) => {
-    const { name, value } = e.target;
-    setDependenteForm({ ...dependenteForm, [name]: value });
-  };
-
-  const handleAddDependente = () => {
-    if (!dependenteForm.nome || !dependenteForm.cpf || !dependenteForm.parentesco) {
-      toast.error("Preencha nome, CPF e parentesco do dependente");
-      return;
-    }
-
     setFormData({
       ...formData,
-      dependentes: [...formData.dependentes, dependenteForm],
+      [name]: name === "codigoErp" ? value.replace(/\D/g, "").slice(0, 7) : value,
     });
-
-    setDependenteForm({
-      nome: "",
-      cpf: "",
-      parentesco: "",
-      dataNascimento: "",
-    });
-  };
-
-  const handleRemoveDependente = (index) => {
-    const newDependentes = formData.dependentes.filter((_, i) => i !== index);
-    setFormData({ ...formData, dependentes: newDependentes });
   };
 
   const handleCepBlur = async () => {
@@ -314,16 +266,28 @@ const SociosCadastro = () => {
     e.preventDefault();
 
     if (!formData.nome || !formData.cpf) {
-      toast.error("Nome e CPF são obrigatórios");
+      toast.error("Nome e CPF/CNPJ são obrigatórios");
       return;
     }
 
+    if (![11, 14].includes(formData.cpf.replace(/\D/g, "").length)) {
+      toast.error("CPF/CNPJ inválido");
+      return;
+    }
+
+    if (formData.codigoErp && !/^\d{7}$/.test(formData.codigoErp)) {
+      toast.error("Código ERP deve conter exatamente 7 dígitos");
+      return;
+    }
+
+    const { clientes, ...socioPayload } = formData;
+
     try {
       if (id) {
-        await api.put(`/socios/${id}`, formData);
+        await api.put(`/socios/${id}`, socioPayload);
         toast.success("Sócio atualizado com sucesso");
       } else {
-        await api.post("/socios", formData);
+        await api.post("/socios", socioPayload);
         toast.success("Sócio cadastrado com sucesso");
       }
       history.push("/socios");
@@ -340,6 +304,22 @@ const SociosCadastro = () => {
       .replace(/(\d{3})(\d)/, "$1.$2")
       .replace(/(\d{3})(\d{1,2})/, "$1-$2")
       .replace(/(-\d{2})\d+?$/, "$1");
+  };
+
+  const formatCpfCnpj = (value) => {
+    if (!value) return "";
+    const digits = value.replace(/\D/g, "");
+
+    if (digits.length > 11) {
+      return digits
+        .slice(0, 14)
+        .replace(/^(\d{2})(\d)/, "$1.$2")
+        .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
+        .replace(/\.(\d{3})(\d)/, ".$1/$2")
+        .replace(/(\d{4})(\d)/, "$1-$2");
+    }
+
+    return formatCPF(digits);
   };
 
   const formatCEP = (value) => {
@@ -533,9 +513,29 @@ const SociosCadastro = () => {
             Dados Pessoais
           </Typography>
           <Grid container spacing={2}>
+            <Grid item xs={12} sm={3}>
+              <TextField
+                label="Código do Sistema"
+                name="codigoSistema"
+                value={formData.codigoSistema || "Será gerado ao salvar"}
+                fullWidth
+                disabled
+              />
+            </Grid>
+            <Grid item xs={12} sm={3}>
+              <TextField
+                label="Código ERP"
+                name="codigoErp"
+                value={formData.codigoErp}
+                onChange={handleInputChange}
+                fullWidth
+                placeholder="0000000"
+                inputProps={{ maxLength: 7 }}
+              />
+            </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
-                label="Nome Completo"
+                label="Nome"
                 name="nome"
                 value={formData.nome}
                 onChange={handleInputChange}
@@ -545,15 +545,15 @@ const SociosCadastro = () => {
             </Grid>
             <Grid item xs={12} sm={3}>
               <TextField
-                label="CPF"
+                label="CPF/CNPJ"
                 name="cpf"
-                value={formatCPF(formData.cpf)}
+                value={formatCpfCnpj(formData.cpf)}
                 onChange={(e) =>
                   setFormData({ ...formData, cpf: e.target.value.replace(/\D/g, "") })
                 }
                 fullWidth
                 required
-                inputProps={{ maxLength: 14 }}
+                inputProps={{ maxLength: 18 }}
               />
             </Grid>
             <Grid item xs={12} sm={3}>
@@ -749,168 +749,6 @@ const SociosCadastro = () => {
 
           <Divider style={{ margin: "24px 0" }} />
 
-          {/* DEPENDENTES */}
-          <Typography variant="h6" className={classes.sectionTitle}>
-            Dependentes (para IRPF)
-          </Typography>
-
-          {formData.dependentes.length > 0 && (
-            <Box mb={2}>
-              {formData.dependentes.map((dep, index) => (
-                <Card key={index} className={classes.dependenteCard} variant="outlined">
-                  <CardContent>
-                    <IconButton
-                      className={classes.deleteButton}
-                      size="small"
-                      onClick={() => handleRemoveDependente(index)}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                    <Typography variant="subtitle2">
-                      <strong>{dep.nome}</strong> - {dep.parentesco}
-                    </Typography>
-                    <Typography variant="body2" color="textSecondary">
-                      CPF: {formatCPF(dep.cpf)}
-                      {dep.dataNascimento && ` | Nascimento: ${dep.dataNascimento}`}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              ))}
-            </Box>
-          )}
-
-          <Card variant="outlined">
-            <CardHeader title="Adicionar Dependente" />
-            <CardContent>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={4}>
-                  <TextField
-                    label="Nome"
-                    name="nome"
-                    value={dependenteForm.nome}
-                    onChange={handleDependenteChange}
-                    fullWidth
-                    size="small"
-                  />
-                </Grid>
-                <Grid item xs={12} sm={3}>
-                  <TextField
-                    label="CPF"
-                    name="cpf"
-                    value={formatCPF(dependenteForm.cpf)}
-                    onChange={(e) =>
-                      setDependenteForm({
-                        ...dependenteForm,
-                        cpf: e.target.value.replace(/\D/g, ""),
-                      })
-                    }
-                    fullWidth
-                    size="small"
-                    inputProps={{ maxLength: 14 }}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={3}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Parentesco</InputLabel>
-                    <Select
-                      name="parentesco"
-                      value={dependenteForm.parentesco}
-                      onChange={handleDependenteChange}
-                    >
-                      {parentescos.map((p) => (
-                        <MenuItem key={p} value={p}>
-                          {p}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} sm={2}>
-                  <TextField
-                    label="Nascimento"
-                    name="dataNascimento"
-                    type="date"
-                    value={dependenteForm.dataNascimento}
-                    onChange={handleDependenteChange}
-                    fullWidth
-                    size="small"
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </Grid>
-              </Grid>
-              <Box mt={2}>
-                <Button
-                  variant="outlined"
-                  color="primary"
-                  startIcon={<AddIcon />}
-                  onClick={handleAddDependente}
-                  size="small"
-                >
-                  Adicionar Dependente
-                </Button>
-              </Box>
-            </CardContent>
-          </Card>
-
-          <Divider style={{ margin: "24px 0" }} />
-
-          {/* DADOS BANCÁRIOS */}
-          <Typography variant="h6" className={classes.sectionTitle}>
-            Dados Bancários (Pró-labore)
-          </Typography>
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={4}>
-              <TextField
-                label="Banco"
-                name="banco"
-                value={formData.banco}
-                onChange={handleInputChange}
-                fullWidth
-                placeholder="Ex: Banco do Brasil"
-              />
-            </Grid>
-            <Grid item xs={12} sm={2}>
-              <TextField
-                label="Agência"
-                name="agencia"
-                value={formData.agencia}
-                onChange={handleInputChange}
-                fullWidth
-              />
-            </Grid>
-            <Grid item xs={12} sm={3}>
-              <TextField
-                label="Conta"
-                name="conta"
-                value={formData.conta}
-                onChange={handleInputChange}
-                fullWidth
-              />
-            </Grid>
-            <Grid item xs={12} sm={3}>
-              <FormControl fullWidth>
-                <InputLabel>Tipo de Conta</InputLabel>
-                <Select name="tipoConta" value={formData.tipoConta} onChange={handleInputChange}>
-                  <MenuItem value="">Selecione</MenuItem>
-                  <MenuItem value="corrente">Conta Corrente</MenuItem>
-                  <MenuItem value="poupanca">Poupança</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Chave PIX"
-                name="chavePix"
-                value={formData.chavePix}
-                onChange={handleInputChange}
-                fullWidth
-                placeholder="CPF, e-mail, celular ou chave aleatória"
-              />
-            </Grid>
-          </Grid>
-
-          <Divider style={{ margin: "24px 0" }} />
-
           {/* EMPRESAS VINCULADAS - CRUD COMPLETO */}
           {id && (
             <>
@@ -1065,6 +903,7 @@ const SociosCadastro = () => {
             <Grid item xs={12}>
               <Autocomplete
                 options={empresas}
+                filterOptions={(options) => options}
                 getOptionLabel={(option) => {
                   const cnpjFormatted = formatCNPJ(option.cnpj || option.cpfCnpj);
                   return `${option.razaoSocial || option.nome} - ${cnpjFormatted}`;
@@ -1075,8 +914,11 @@ const SociosCadastro = () => {
                   setEmpresaSearchTerm(value);
                   if (value && value.length >= 3) {
                     loadEmpresas(value);
+                  } else if (!value) {
+                    loadEmpresas("");
                   }
                 }}
+                noOptionsText="Nenhuma empresa encontrada"
                 loading={searchingEmpresas}
                 renderOption={(option) => (
                   <Box style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>

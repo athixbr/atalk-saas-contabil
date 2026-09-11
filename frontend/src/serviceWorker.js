@@ -9,8 +9,6 @@
 
 // To learn more about the benefits of this model and instructions on how to
 // opt-in, read https://bit.ly/CRA-PWA
-import { toast } from "react-toastify";
-
 const isLocalhost = Boolean(
   window.location.hostname === 'localhost' ||
     // [::1] is the IPv6 localhost address.
@@ -37,20 +35,21 @@ export function register(config) {
     window.addEventListener('load', () => {
       const swUrl = `${process.env.PUBLIC_URL}/service-worker.js`;
 
-      if (isLocalhost) {
-        // This is running on localhost. Let's check if a service worker still exists or not.
-        checkValidServiceWorker(swUrl, config);
+      // Recarrega a página quando um novo service worker assume o controle
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!refreshing) {
+          refreshing = true;
+          window.location.reload();
+        }
+      });
 
-        // Add some additional logging to localhost, pointing developers to the
-        // service worker/PWA documentation.
+      if (isLocalhost) {
+        checkValidServiceWorker(swUrl, config);
         navigator.serviceWorker.ready.then(() => {
-          console.log(
-            'This web app is being served cache-first by a service ' +
-              'worker. To learn more, visit https://bit.ly/CRA-PWA'
-          );
+          console.log('App sendo servido pelo service worker.');
         });
       } else {
-        // Is not localhost. Just register service worker
         registerValidSW(swUrl, config);
       }
     });
@@ -69,36 +68,10 @@ function registerValidSW(swUrl, config) {
         installingWorker.onstatechange = () => {
           if (installingWorker.state === 'installed') {
             if (navigator.serviceWorker.controller) {
-              // At this point, the updated precached content has been fetched,
-              // but the previous service worker will still serve the older
-              // content until all client tabs are closed.
-              toast.dismiss(`Nova atualização disponível!\n Clique aqui para atualizar.`, {
-                position: 'top-right',
-                autoClose: false, // Mantém a notificação visível até o clique
-                closeOnClick: false, // Não fecha a notificação automaticamente
-                onClick: () => {
-                  if (window.location) {
-                    window.location.reload(true);
-                  }
-                },
-              });
-
-              console.log(
-                'New content is available and will be used when all ' +
-                  'tabs for this page are closed. See https://bit.ly/CRA-PWA.'
-              );
-
-              // Execute callback
-              if (config && config.onUpdate) {
-                config.onUpdate(registration);
-              }
+              // Nova versão disponível: força ativação imediata sem precisar fechar abas
+              installingWorker.postMessage({ type: 'SKIP_WAITING' });
             } else {
-              // At this point, everything has been precached.
-              // It's the perfect time to display a
-              // "Content is cached for offline use." message.
-              console.log('Content is cached for offline use.');
-
-              // Execute callback
+              console.log('Conteúdo armazenado para uso offline.');
               if (config && config.onSuccess) {
                 config.onSuccess(registration);
               }
@@ -145,12 +118,21 @@ function checkValidServiceWorker(swUrl, config) {
 
 export function unregister() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.ready
-      .then(registration => {
-        registration.unregister();
+    navigator.serviceWorker
+      .getRegistrations()
+      .then(registrations => {
+        registrations.forEach(registration => registration.unregister());
       })
       .catch(error => {
         console.error(error.message);
       });
+  }
+
+  // Remove qualquer cache deixado pelo service worker antigo, para que o
+  // navegador volte a buscar sempre a versão atual dos arquivos.
+  if ('caches' in window) {
+    caches.keys().then(names => {
+      names.forEach(name => caches.delete(name));
+    });
   }
 }

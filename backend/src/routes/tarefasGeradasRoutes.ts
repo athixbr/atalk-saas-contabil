@@ -17,6 +17,7 @@ tarefasGeradasRoutes.get("/tarefas-geradas/:id/historico", isAuth, TarefasGerada
 tarefasGeradasRoutes.post("/tarefas-geradas/gerar-lote", isAuth, TarefasGeradasController.gerarLote);
 tarefasGeradasRoutes.delete("/tarefas-geradas/:id", isAuth, TarefasGeradasController.excluirAvulsa);
 tarefasGeradasRoutes.post("/tarefas-geradas/excluir-lote", isAuth, TarefasGeradasController.excluirLote);
+tarefasGeradasRoutes.post("/tarefas-geradas/pausar-lote", isAuth, TarefasGeradasController.pausarLote);
 tarefasGeradasRoutes.get("/tarefas-recorrentes/com-geradas", isAuth, TarefasGeradasController.listarRecorrentesComGeradas);
 
 export default tarefasGeradasRoutes;

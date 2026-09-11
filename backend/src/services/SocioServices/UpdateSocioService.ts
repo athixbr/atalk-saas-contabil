@@ -1,4 +1,5 @@
 import Socio from "../../models/Socio";
+import Cliente from "../../models/Cliente";
 import AppError from "../../errors/AppError";
 
 interface Dependente {
@@ -11,6 +12,8 @@ interface Dependente {
 interface Request {
   socioData: {
     nome?: string;
+    codigoErp?: string;
+    codigoSistema?: string;
     cpf?: string;
     rg?: string;
     dataNascimento?: Date;
@@ -36,6 +39,7 @@ interface Request {
     chavePix?: string;
     observacoes?: string;
     ativo?: boolean;
+    clienteOrigemId?: number | string | null;
   };
   socioId: string | number;
   companyId: number;
@@ -54,12 +58,17 @@ const UpdateSocioService = async ({
     throw new AppError("Sócio não encontrado", 404);
   }
 
-  // Se CPF for alterado, validar
+  const codigoErpSanitizado = socioData.codigoErp?.trim() || null;
+  if (socioData.codigoErp !== undefined && codigoErpSanitizado && !/^\d{7}$/.test(codigoErpSanitizado)) {
+    throw new AppError("Código ERP deve conter exatamente 7 dígitos", 400);
+  }
+
+  // Se CPF/CNPJ for alterado, validar
   if (socioData.cpf && socioData.cpf !== socio.cpf) {
     const cpfLimpo = socioData.cpf.replace(/\D/g, "");
 
-    if (cpfLimpo.length !== 11) {
-      throw new AppError("CPF inválido", 400);
+    if (![11, 14].includes(cpfLimpo.length)) {
+      throw new AppError("CPF/CNPJ inválido", 400);
     }
 
     const socioExistente = await Socio.findOne({
@@ -67,7 +76,7 @@ const UpdateSocioService = async ({
     });
 
     if (socioExistente && socioExistente.id !== socio.id) {
-      throw new AppError("CPF já cadastrado para outro sócio", 400);
+      throw new AppError("CPF/CNPJ já cadastrado para outro sócio", 400);
     }
 
     socioData.cpf = cpfLimpo;
@@ -85,6 +94,22 @@ const UpdateSocioService = async ({
     } else {
       cleanedData[key] = value;
     }
+  }
+
+  if (socioData.codigoErp !== undefined) {
+    cleanedData.codigoErp = codigoErpSanitizado;
+  }
+
+  if (socioData.clienteOrigemId !== undefined && socioData.clienteOrigemId !== null) {
+    const clienteOrigem = await Cliente.findOne({
+      where: { id: socioData.clienteOrigemId, companyId },
+    });
+
+    if (!clienteOrigem) {
+      throw new AppError("Cliente de origem não encontrado", 404);
+    }
+
+    cleanedData.clienteOrigemId = Number(socioData.clienteOrigemId);
   }
 
   // Validar data de nascimento

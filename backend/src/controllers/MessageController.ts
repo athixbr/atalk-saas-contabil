@@ -39,6 +39,7 @@ import CompaniesSettings from "../models/CompaniesSettings";
 import EditWhatsAppMessage from "../services/MessageServices/EditWhatsAppMessage";
 import ListImagesService from "../services/MessageServices/ListImagesService";
 import ListAllMediaService from "../services/MessageServices/ListAllMediaService";
+import SearchMessagesService from "../services/MessageServices/SearchMessagesService";
 import { getWbot } from "../libs/wbot";
 
 
@@ -140,16 +141,13 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     if (medias) {
       await Promise.all(
         medias.map(async (media: Express.Multer.File) => {
-          // Upload para DigitalOcean Spaces e atualiza filename com CDN URL
+          // Upload para o storage (Backblaze B2 / DO Spaces) e atualiza filename com a URL
           try {
-            const fileBuffer = fs.readFileSync(media.path);
             const spacesKey = buildSpacesKey(companyId, media.filename);
-            const cdnUrl = await uploadBufferToSpaces(fileBuffer, spacesKey, media.mimetype);
+            const cdnUrl = await uploadBufferToSpaces(media.buffer, spacesKey, media.mimetype);
             media.filename = cdnUrl;
-            // Remove arquivo local após upload bem-sucedido para Spaces
-            try { fs.unlinkSync(media.path); } catch (_) {}
           } catch (spacesErr) {
-            console.warn(`[Spaces] Falha no upload do arquivo enviado: ${spacesErr.message}`);
+            console.warn(`[Storage] Falha no upload do arquivo enviado: ${spacesErr.message}`);
           }
 
           if (ticket.channel === "whatsapp") {
@@ -711,3 +709,20 @@ export const redownloadMedia = async (req: Request, res: Response): Promise<Resp
   return res.json({ status: "recovered", mediaUrl: message.mediaUrl });
 };
 
+export const searchMessages = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const { searchParam = "", mediaType = "all", pageNumber = "1" } = req.query as {
+    searchParam?: string;
+    mediaType?: string;
+    pageNumber?: string;
+  };
+
+  const result = await SearchMessagesService({
+    companyId,
+    searchParam,
+    mediaType,
+    pageNumber,
+  });
+
+  return res.json(result);
+};

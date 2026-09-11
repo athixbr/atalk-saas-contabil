@@ -25,6 +25,10 @@ import TicketTag from "../../models/TicketTag";
 import Tag from "../../models/Tag";
 import formatBody from "../../helpers/Mustache";
 import DeleteDialogChatBotsServices from '../DialogChatBotsServices/DeleteDialogChatBotsServices';
+import CreateTicketMetricsService from "../TicketMetricsServices/CreateTicketMetricsService";
+import UpdateTicketMetricsService from "../TicketMetricsServices/UpdateTicketMetricsService";
+import CreateTicketUserMetricsService from "../TicketMetricsServices/CreateTicketUserMetricsService";
+import UpdateTicketUserMetricsService from "../TicketMetricsServices/UpdateTicketUserMetricsService";
 
 interface TicketData {
   status?: string;
@@ -281,6 +285,12 @@ const UpdateTicketService = async ({
         status: "closed"
       });
 
+      // Finaliza métricas de tempo ao fechar ticket
+      UpdateTicketMetricsService({ ticketId: Number(ticketId), type: "close" }).catch(() => {});
+      if (ticket.userId) {
+        UpdateTicketUserMetricsService({ ticketId: Number(ticketId), userId: ticket.userId, action: "close" }).catch(() => {});
+      }
+
       await DeleteDialogChatBotsServices(ticket.contactId);
 
       io.to(oldStatus)
@@ -434,6 +444,11 @@ const UpdateTicketService = async ({
             });
           }
 
+    // Métricas de transferência: finaliza usuário anterior e cria para novo
+    if (oldUserId !== userId && !isNil(oldUserId)) {
+      UpdateTicketUserMetricsService({ ticketId: Number(ticketId), userId: oldUserId, action: "transfer" }).catch(() => {});
+    }
+
     await ticket.update({
       status,
       queueId,
@@ -494,6 +509,20 @@ const UpdateTicketService = async ({
         ticketId,
         type: "open"
       });
+
+      // Cria métricas de usuário quando inicia atendimento
+      if (userId) {
+        try {
+          const ticketMetric = await CreateTicketMetricsService({ ticketId: Number(ticketId), companyId });
+          await CreateTicketUserMetricsService({
+            ticketId: Number(ticketId),
+            ticketMetricId: ticketMetric.id,
+            userId: Number(userId),
+            companyId,
+            queueId: ticket.queueId || undefined
+          });
+        } catch (_) {}
+      }
 
       await DeleteDialogChatBotsServices(ticket.contactId);
     }

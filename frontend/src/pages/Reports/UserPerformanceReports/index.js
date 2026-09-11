@@ -31,17 +31,27 @@ import {
 import { useHistory } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api from '../../../services/api';
-import MainContainer from '../../../components/MainContainer';
 import MainHeader from '../../../components/MainHeader';
 import MainHeaderButtonsWrapper from '../../../components/MainHeaderButtonsWrapper';
 import Title from '../../../components/Title';
 import TableRowSkeleton from '../../../components/TableRowSkeleton';
 
 const useStyles = makeStyles((theme) => ({
+  mainContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100%',
+    padding: theme.spacing(3),
+    width: '100%',
+    boxSizing: 'border-box',
+  },
   mainPaper: {
     flex: 1,
     padding: theme.spacing(2),
-    overflowY: 'scroll',
+    overflowY: 'auto',
+    overflowX: 'hidden',
+    width: '100%',
+    boxSizing: 'border-box',
     ...theme.scrollbarStyles,
   },
   toolbarIcon: {
@@ -98,6 +108,10 @@ const useStyles = makeStyles((theme) => ({
     '& .MuiLinearProgress-bar': {
       backgroundColor: theme.palette.error.main,
     },
+  },
+  tableWrapper: {
+    width: '100%',
+    overflowX: 'auto',
   },
 }));
 
@@ -190,7 +204,7 @@ const UserPerformanceReports = () => {
   const topUsers = getTopUsers();
 
   return (
-    <MainContainer>
+    <div className={classes.mainContainer}>
       <Box sx={{ display: 'flex', flexDirection: 'row', width: '50px' }}>
         <div className={classes.toolbarIcon}>
           <IconButton onClick={handleBack}>
@@ -230,7 +244,7 @@ const UserPerformanceReports = () => {
         </MainHeaderButtonsWrapper>
       </MainHeader>
 
-      <Paper className={classes.mainPaper}>
+      <Paper className={classes.mainPaper} variant="outlined">
         {loading && <TableRowSkeleton />}
         
         {!loading && users.length === 0 && (
@@ -340,7 +354,8 @@ const UserPerformanceReports = () => {
             </Box>
 
             {/* TABELA DE PERFORMANCE */}
-            <Table size="small">
+            <div className={classes.tableWrapper}>
+              <Table size="small">
               <TableHead>
                 <TableRow>
                   <TableCell>Posição</TableCell>
@@ -415,7 +430,8 @@ const UserPerformanceReports = () => {
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
+              </Table>
+            </div>
 
             {/* RESUMO GERAL */}
             <Box mt={3} p={2} bgcolor="rgba(0, 0, 0, 0.02)" borderRadius={2}>
@@ -450,7 +466,7 @@ const UserPerformanceReports = () => {
           </>
         )}
       </Paper>
-    </MainContainer>
+    </div>
   );
 };
 

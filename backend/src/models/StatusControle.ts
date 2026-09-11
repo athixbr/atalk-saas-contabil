@@ -21,6 +21,9 @@ class StatusControle extends Model<StatusControle> {
   @Column
   nome: string;
 
+  @Column
+  cor: string;
+
   @ForeignKey(() => Company)
   @Column
   companyId: number;

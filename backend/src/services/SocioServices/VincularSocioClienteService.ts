@@ -17,8 +17,10 @@ interface Request {
   isAdministrador?: boolean;
   recebeProlabore?: boolean;
   valorProlabore?: number | string | null;
+  tipoParticipacao?: string | null;
   observacoes?: string | null;
   ativo?: boolean;
+  modoCadastro?: string;
   companyId: number;
 }
 
@@ -36,8 +38,10 @@ const VincularSocioClienteService = async ({
   isAdministrador = false,
   recebeProlabore = false,
   valorProlabore,
+  tipoParticipacao,
   observacoes,
   ativo = true,
+  modoCadastro = "avancado",
   companyId,
 }: Request): Promise<ClienteSocio> => {
   // Verificar se cliente existe e pertence à company
@@ -76,6 +80,8 @@ const VincularSocioClienteService = async ({
   const cleanDataSaida = dataSaida && !isNaN(new Date(dataSaida).getTime()) ? dataSaida : null;
   const cleanCargo = cargo && String(cargo).trim() !== "" ? cargo : null;
   const cleanObservacoes = observacoes && String(observacoes).trim() !== "" ? observacoes : null;
+  const cleanTipoParticipacao = tipoParticipacao && String(tipoParticipacao).trim() !== "" ? tipoParticipacao : null;
+  const cleanModoCadastro = modoCadastro === "basico" ? "basico" : "avancado";
 
   // Validar percentual se fornecido
   if (cleanPercentual !== null && (cleanPercentual < 0 || cleanPercentual > 100)) {
@@ -97,8 +103,10 @@ const VincularSocioClienteService = async ({
     isAdministrador,
     recebeProlabore,
     valorProlabore: cleanValorProlabore,
+    tipoParticipacao: cleanTipoParticipacao,
     observacoes: cleanObservacoes,
     ativo,
+    modoCadastro: cleanModoCadastro,
   });
 
   // Recarregar com relacionamentos

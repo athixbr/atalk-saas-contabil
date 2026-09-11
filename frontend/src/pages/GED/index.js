@@ -57,7 +57,6 @@ import { toast } from "react-toastify";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-import MainContainer from "../../components/MainContainer";
 import MainHeader from "../../components/MainHeader";
 import Title from "../../components/Title";
 import MainHeaderButtonsWrapper from "../../components/MainHeaderButtonsWrapper";
@@ -67,6 +66,14 @@ import api from "../../services/api";
 import { AuthContext } from "../../context/Auth/AuthContext";
 
 const useStyles = makeStyles((theme) => ({
+  fullWidthContainer: {
+    display: "flex",
+    flexDirection: "column",
+    height: "100%",
+    padding: theme.spacing(3),
+    width: "100%",
+    boxSizing: "border-box",
+  },
   mainPaper: {
     flex: 1,
     padding: theme.spacing(3),
@@ -542,7 +549,7 @@ const GED = () => {
   };
 
   return (
-    <MainContainer>
+    <div className={classes.fullWidthContainer}>
       <MainHeader>
         <Title>GED - Gestão Eletrônica de Documentos</Title>
         <MainHeaderButtonsWrapper>
@@ -1012,7 +1019,7 @@ const GED = () => {
           file={previewFile}
         />
       </Paper>
-    </MainContainer>
+    </div>
   );
 };
 

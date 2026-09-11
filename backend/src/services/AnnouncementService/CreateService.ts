@@ -8,6 +8,13 @@ interface Data {
   text: string;
   status: string;
   companyId: number;
+  tipo?: string;
+  usuariosIds?: number[];
+  departamentosIds?: number[];
+  expiresAt?: Date | null;
+  scheduledAt?: Date | null;
+  notifiedAt?: Date | null;
+  createdByUserId?: number;
 }
 
 const CreateService = async (data: Data): Promise<Announcement> => {

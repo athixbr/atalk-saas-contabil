@@ -2,12 +2,20 @@ import { createRequire } from "module";
 const _require = createRequire(import.meta.url);
 const pdfParse = _require("pdf-parse");
 import textract from "textract";
+import tesseract from "tesseract.js";
 import { promisify } from "util";
 import fs from "fs";
 import path from "path";
 import os from "os";
 
+const { recognize } = tesseract;
 const textractFromFile = promisify(textract.fromFileWithPath);
+const tesseractLangRoot = path.resolve(
+  process.cwd(),
+  "node_modules/@tesseract.js-data"
+);
+const tesseractLangPath = path.join(os.tmpdir(), "atalk-tesseract-lang");
+const tesseractCachePath = path.join(os.tmpdir(), "atalk-tesseract-cache");
 
 interface ExtractionResult {
   text: string;
@@ -16,6 +24,27 @@ interface ExtractionResult {
 }
 
 class DocumentReaderService {
+  private ensureTesseractLanguageFiles(): string {
+    fs.mkdirSync(tesseractLangPath, { recursive: true });
+    fs.mkdirSync(tesseractCachePath, { recursive: true });
+
+    ["por", "eng"].forEach(language => {
+      const source = path.join(
+        tesseractLangRoot,
+        language,
+        "4.0.0_best_int",
+        `${language}.traineddata.gz`
+      );
+      const target = path.join(tesseractLangPath, `${language}.traineddata.gz`);
+
+      if (!fs.existsSync(target) && fs.existsSync(source)) {
+        fs.copyFileSync(source, target);
+      }
+    });
+
+    return tesseractLangPath;
+  }
+
   /**
    * Extrair texto de PDF
    */
@@ -45,11 +74,35 @@ class DocumentReaderService {
     fileBuffer: Buffer,
     originalName: string
   ): Promise<ExtractionResult> {
+    try {
+      const result = await recognize(fileBuffer, "por+eng", {
+        langPath: this.ensureTesseractLanguageFiles(),
+        cachePath: tesseractCachePath,
+        gzip: true
+      });
+      const text = result?.data?.text || "";
+      const confidence = Number(result?.data?.confidence || 0) / 100;
+
+      if (text.trim()) {
+        return {
+          text,
+          confidence: confidence || 0.75,
+          metadata: {
+            method: "tesseract-js",
+            originalConfidence: result?.data?.confidence
+          }
+        };
+      }
+    } catch (tesseractError) {
+      console.error("Erro no OCR com tesseract.js:", tesseractError);
+    }
+
     // Textract precisa de um arquivo físico, criar temporário
     const tempDir = os.tmpdir();
+    const safeName = originalName.replace(/[^a-zA-Z0-9_.-]/g, "_");
     const tempFilePath = path.join(
       tempDir,
-      `ocr-${Date.now()}-${originalName}`
+      `ocr-${Date.now()}-${safeName}`
     );
 
     try {
@@ -61,15 +114,21 @@ class DocumentReaderService {
         preserveLineBreaks: true
       });
 
-      return {
-        text,
-        confidence: 0.85, // OCR geralmente tem menor confiança
-        metadata: {
-          method: "textract-ocr"
-        }
-      };
+      if (String(text || "").trim()) {
+        return {
+          text,
+          confidence: 0.65,
+          metadata: {
+            method: "textract-ocr"
+          }
+        };
+      }
+
+      throw new Error("OCR não encontrou texto na imagem");
     } catch (error) {
-      throw new Error(`Erro no OCR: ${error.message}`);
+      throw new Error(
+        `Erro no OCR da imagem. Verifique se a imagem está legível ou envie em PDF. Detalhes: ${error.message}`
+      );
     } finally {
       // Limpar arquivo temporário
       try {

@@ -40,7 +40,7 @@ const TicketsQueuesService = async ({
     {
       model: Contact,
       as: "contact",
-      attributes: ["id", "name", "number", "profilePicUrl"]
+      attributes: ["id", "name", "number", "profilePicUrl", "urlPicture", "companyId"]
     },
     {
       model: User,

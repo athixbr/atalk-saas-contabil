@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import React, { useContext, useEffect, useMemo, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { useHistory } from "react-router-dom";
 // import moment from "moment";
 import UserLanguageSelector from "../components/UserLanguageSelector";
@@ -34,7 +34,6 @@ import {
 } from "@material-ui/core";
 import InternalChat from "../components/InternalChat"; //Importa internal Chat
 
-import ChevronLeftIcon from "@material-ui/icons/ChevronLeft";
 import MenuIcon from "@material-ui/icons/Menu";
 // import AccountCircle from "@material-ui/icons/AccountCircle";
 // import whatsappIcon from "../assets/nopicture.png";
@@ -58,7 +57,6 @@ import ChatPopover from "../pages/Chat/ChatPopover";
 import { useDate } from "../hooks/useDate";
 
 import { Refresh } from "iconsax-react";
-import logo from "../assets/logo1.png";
 import { getBackendUrl } from "../config";
 import useSettings from "../hooks/useSettings";
 import { socketConnection } from "../services/socket";
@@ -67,7 +65,9 @@ import ColorModeContext from "./themeContext";
 
 const backendUrl = getBackendUrl();
 
-const drawerWidth = 256;
+// Rail de ícones fixo: o menu não expande mais para mostrar texto,
+// então a largura do drawer é constante em todas as resoluções.
+const drawerWidth = 72;
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -120,25 +120,28 @@ const useStyles = makeStyles((theme) => ({
   },
   appBar: {
     zIndex: theme.zIndex.drawer + 1,
+    marginLeft: drawerWidth,
+    width: `calc(100% - ${drawerWidth}px)`,
     transition: theme.transitions.create(["width", "margin"], {
       easing: theme.transitions.easing.sharp,
       duration: theme.transitions.duration.leavingScreen,
     }),
+    [theme.breakpoints.down("sm")]: {
+      marginLeft: 0,
+      width: "100%",
+    },
   },
-  appBarShift: {
-    marginLeft: drawerWidth,
-    width: `calc(100% - 275px)`,
-    transition: theme.transitions.create(["width", "margin"], {
-      easing: theme.transitions.easing.sharp,
-      duration: theme.transitions.duration.enteringScreen,
-    }),
+  appBarMobileHidden: {
     [theme.breakpoints.down("sm")]: {
       display: "none",
     },
   },
-  // menuButton: {
-  //   marginRight: 36,
-  // },
+  menuButton: {
+    // Só faz sentido no mobile: no desktop o rail de ícones é sempre visível.
+    [theme.breakpoints.up("sm")]: {
+      display: "none",
+    },
+  },
   menuButtonHidden: {
     display: "none",
   },
@@ -151,33 +154,9 @@ const useStyles = makeStyles((theme) => ({
     position: "relative",
     whiteSpace: "nowrap",
     overflowX: "hidden",
+    overflowY: "hidden",
     padding: "0 !important",
     width: drawerWidth,
-    transition: theme.transitions.create("width", {
-      easing: theme.transitions.easing.sharp,
-      duration: theme.transitions.duration.enteringScreen,
-    }),
-    overflowX: "hidden",
-    overflowY: "hidden",
-    [theme.breakpoints.down("md")]: {
-      width: 220,
-    },
-    [theme.breakpoints.down("sm")]: {
-      width: drawerWidth,
-    },
-  },
-
-  drawerPaperClose: {
-    overflowX: "hidden",
-    overflowY: "hidden",
-    transition: theme.transitions.create("width", {
-      easing: theme.transitions.easing.sharp,
-      duration: theme.transitions.duration.leavingScreen,
-    }),
-    width: theme.spacing(7),
-    [theme.breakpoints.up("sm")]: {
-      width: theme.spacing(9),
-    },
   },
 
   appBarSpacer: {
@@ -220,28 +199,6 @@ const useStyles = makeStyles((theme) => ({
   },
   NotificationsPopOver: {
     // color: theme.barraSuperior.secondary.main,
-  },
-  logo: {
-    width: "100%",
-    height: "45px",
-    maxWidth: 180,
-    position: "relative",
-    top: -20,
-    left: 20,
-    [theme.breakpoints.down("sm")]: {
-      width: "auto",
-      height: "100%",
-      maxWidth: 180,
-    },
-    logo: theme.logo,
-  },
-  iconButtonLogo: {
-    "&:hover": {
-      backgroundColor: "transparent", // Remove o fundo do hover
-    },
-  },
-  hideLogo: {
-    display: "none",
   },
   avatar2: {
     width: theme.spacing(6),
@@ -320,12 +277,6 @@ const LoggedInLayout = ({ children, themeToggle }) => {
   const { dateToClient } = useDate();
   const [profileUrl, setProfileUrl] = useState(null);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const mainListItems = useMemo(
-    () => <MainListItems drawerOpen={drawerOpen} collapsed={!drawerOpen} />,
-    [user, drawerOpen]
-  );
-
   const settings = useSettings();
 
   useEffect(() => {
@@ -348,11 +299,9 @@ const LoggedInLayout = ({ children, themeToggle }) => {
     // }
 
     if (document.body.offsetWidth > 600) {
-      if (user.defaultMenu === "closed") {
-        setDrawerOpen(false);
-      } else {
-        setDrawerOpen(true);
-      }
+      // Menu inicia recolhido (somente ícones) por padrão, exceto quando
+      // o usuário definiu explicitamente a preferência de abrir o menu.
+      setDrawerOpen(user.defaultMenu === "open");
     }
     if (user.defaultTheme === "dark" && theme.mode === "light") {
       colorMode.toggleColorMode();
@@ -487,51 +436,17 @@ const LoggedInLayout = ({ children, themeToggle }) => {
     <div className={classes.root}>
       <Drawer
         variant={drawerVariant}
-        className={drawerOpen ? classes.drawerPaper : classes.drawerPaperClose}
-        classes={{
-          paper: clsx(
-            classes.drawerPaper,
-            !drawerOpen && classes.drawerPaperClose
-          ),
-        }}
+        classes={{ paper: classes.drawerPaper }}
         open={drawerOpen}
       >
-        {/* <div className={classes.toolbarIcon}>
-          <img className={drawerOpen ? classes.logo : classes.hideLogo}
-            style={{
-              display: "block",
-              margin: "0 auto",
-              height: "50px",
-              width: "100%",
-            }}
-            alt="logo" />
-          <IconButton onClick={() => setDrawerOpen(!drawerOpen)}>
-            <ChevronLeftIcon style={{ color: "#25b6e8" }} />
-          </IconButton>
-        </div> */}
         <List className={classes.containerWithScroll}>
-          <IconButton
-            disableRipple
-            disableFocusRipple
-            className={classes.iconButtonLogo}
-            onClick={() => setDrawerOpen(!drawerOpen)}
-          >
-            <ChevronLeftIcon style={{ color: "#000" }} />
-            <img
-              src={logo}
-              className={drawerOpen ? classes.logo : classes.hideLogo}
-              alt="logo"
-            />
-          </IconButton>
-          {/* {mainListItems} */}
-          <MainListItems collapsed={!drawerOpen} />
+          <MainListItems drawerClose={drawerClose} />
         </List>
-        {/* <Divider /> */}
       </Drawer>
 
       <AppBar
         position="absolute"
-        className={clsx(classes.appBar, drawerOpen && classes.appBarShift)}
+        className={clsx(classes.appBar, drawerOpen && classes.appBarMobileHidden)}
         color="primary"
       >
         <Toolbar variant="dense" className={classes.toolbar}>
@@ -541,7 +456,10 @@ const LoggedInLayout = ({ children, themeToggle }) => {
             aria-label="open drawer"
             style={{ color: "white" }}
             onClick={() => setDrawerOpen(!drawerOpen)}
-            className={clsx(drawerOpen && classes.menuButtonHidden)}
+            className={clsx(
+              classes.menuButton,
+              drawerOpen && classes.menuButtonHidden
+            )}
           >
             <MenuIcon />
           </IconButton>

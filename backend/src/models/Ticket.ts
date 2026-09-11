@@ -175,6 +175,17 @@ class Ticket extends Model<Ticket> {
 
   @Column
   nextNotify: Date;
+
+  @Default(false)
+  @Column
+  isMerged: boolean;
+
+  @ForeignKey(() => Ticket)
+  @Column
+  mergedIntoTicketId: number;
+
+  @BelongsTo(() => Ticket, "mergedIntoTicketId")
+  mergedIntoTicket: any;
 }
 
 export default Ticket;

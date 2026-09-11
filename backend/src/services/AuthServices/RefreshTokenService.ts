@@ -9,6 +9,7 @@ import {
   createAccessToken,
   createRefreshToken
 } from "../../helpers/CreateTokens";
+import { jrtCookieOptions } from "../../helpers/SendRefreshToken";
 
 interface RefreshTokenPayload {
   id: string;
@@ -33,7 +34,7 @@ export const RefreshTokenService = async (
     const user = await ShowUserService(id);
 
     if (user.tokenVersion !== tokenVersion) {
-      res.clearCookie("jrt");
+      res.clearCookie("jrt", jrtCookieOptions);
       throw new AppError("ERR_SESSION_EXPIRED", 401);
     }
 
@@ -42,7 +43,7 @@ export const RefreshTokenService = async (
 
     return { user, newToken, refreshToken };
   } catch (err) {
-    res.clearCookie("jrt");
+    res.clearCookie("jrt", jrtCookieOptions);
     throw new AppError("ERR_SESSION_EXPIRED", 401);
   }
 };

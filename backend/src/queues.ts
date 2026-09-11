@@ -20,8 +20,10 @@ import CampaignShipping from "./models/CampaignShipping";
 import GetWhatsappWbot from "./helpers/GetWhatsappWbot";
 import sequelize from "./database";
 import { getMessageOptions } from "./services/WbotServices/SendWhatsAppMedia";
+import { ensureLocalFile } from "./helpers/uploadToSpaces";
 import { getIO } from "./libs/socket";
 import path from "path";
+import fs from "fs";
 import User from "./models/User";
 import Company from "./models/Company";
 import Contact from "./models/Contact";
@@ -39,6 +41,8 @@ import SendWhatsAppMessage from "./services/WbotServices/SendWhatsAppMessage";
 import UpdateTicketService from "./services/TicketServices/UpdateTicketService";
 import { addSeconds, differenceInSeconds } from "date-fns";
 import Invoices from "./models/Invoices";
+import Announcement from "./models/Announcement";
+import ResolveNotificationTargetUsersService from "./services/AnnouncementService/ResolveNotificationTargetUsersService";
 
 const nodemailer = require('nodemailer');
 const CronJob = require('cron').CronJob;
@@ -77,6 +81,7 @@ export const scheduleMonitor = new BullQueue("ScheduleMonitor", connection);
 export const sendScheduledMessages = new BullQueue("SendSacheduledMessages", connection);
 export const campaignQueue = new BullQueue("CampaignQueue", connection);
 export const queueMonitor = new BullQueue("QueueMonitor", connection);
+export const announcementMonitor = new BullQueue("AnnouncementMonitor", connection);
 
 export const messageQueue = new BullQueue("MessageQueue", connection, {
   limiter: {
@@ -173,6 +178,42 @@ async function handleSendScheduledMessage(job) {
       status: "ERRO"
     });
     logger.error("SendScheduledMessage -> SendMessage: error", e.message);
+    throw e;
+  }
+}
+
+async function handleVerifyScheduledAnnouncements(job) {
+  try {
+    const io = getIO();
+
+    const dueAnnouncements = await Announcement.findAll({
+      where: {
+        tipo: "admin_notification",
+        notifiedAt: null,
+        scheduledAt: { [Op.lte]: new Date() }
+      }
+    });
+
+    for (const announcement of dueAnnouncements) {
+      await announcement.update({ notifiedAt: new Date() });
+
+      const targetUserIds = await ResolveNotificationTargetUsersService(
+        announcement.usuariosIds,
+        announcement.departamentosIds
+      );
+
+      targetUserIds.forEach(targetUserId => {
+        io.emit(`user${targetUserId}-admin-notification`, {
+          action: "new",
+          record: announcement
+        });
+      });
+
+      logger.info(`Notificação agendada disparada: Announcement=${announcement.id}`);
+    }
+  } catch (e: any) {
+    Sentry.captureException(e);
+    logger.error("AnnouncementMonitor -> Verify: error", e.message);
     throw e;
   }
 }
@@ -600,10 +641,23 @@ async function handleDispatchCampaign(job) {
       if (campaign.mediaPath) {
         const publicFolder = path.resolve(__dirname, "..", "..", "public");
         const filePath = path.join(publicFolder, `company${campaign.companyId}`, campaign.mediaPath);
+        const storageKey = `company${campaign.companyId}/${campaign.mediaPath}`;
 
-        const options = await getMessageOptions(campaign.mediaName, filePath, campaign.companyId.toString());
-        if (Object.keys(options).length) {
-          await wbot.sendMessage(chatId, { ...options });
+        let resolvedPath: string | null = null;
+        try {
+          resolvedPath = await ensureLocalFile(filePath, storageKey);
+        } catch (err) {
+          logger.error(`campaignQueue -> DispatchCampaign -> falha ao obter mídia: ${err.message}`);
+        }
+
+        if (resolvedPath) {
+          const options = await getMessageOptions(campaign.mediaName, resolvedPath, campaign.companyId.toString());
+          if (options && Object.keys(options).length) {
+            await wbot.sendMessage(chatId, { ...options });
+          }
+          if (resolvedPath !== filePath && fs.existsSync(resolvedPath)) {
+            try { fs.unlinkSync(resolvedPath); } catch (_) {}
+          }
         }
       }
       await campaignShipping.update({ deliveredAt: moment() });
@@ -1110,6 +1164,11 @@ export async function startQueueProcess() {
 
   queueMonitor.process("VerifyQueueStatus", handleVerifyQueue);
 
+  announcementMonitor.process(
+    "VerifyScheduledAnnouncements",
+    handleVerifyScheduledAnnouncements
+  );
+
   scheduleMonitor.add(
     "Verify",
     {},
@@ -1142,6 +1201,15 @@ export async function startQueueProcess() {
     {},
     {
       repeat: { cron: "*/20 * * * * *", key: "verify-queue" },
+      removeOnComplete: true
+    }
+  );
+
+  announcementMonitor.add(
+    "VerifyScheduledAnnouncements",
+    {},
+    {
+      repeat: { cron: "*/20 * * * * *", key: "verify-scheduled-announcements" },
       removeOnComplete: true
     }
   );

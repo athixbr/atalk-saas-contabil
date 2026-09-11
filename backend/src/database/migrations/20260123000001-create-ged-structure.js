@@ -2,8 +2,30 @@
 
 module.exports = {
   up: async (queryInterface, Sequelize) => {
+    const tableExists = async tableName => {
+      try {
+        await queryInterface.describeTable(tableName);
+        return true;
+      } catch (error) {
+        return false;
+      }
+    };
+
+    const createTableIfMissing = async (tableName, attributes) => {
+      if (!(await tableExists(tableName))) {
+        await queryInterface.createTable(tableName, attributes);
+      }
+    };
+
+    const addIndexIfMissing = async (tableName, fields, name) => {
+      const indexes = await queryInterface.showIndex(tableName);
+      if (!indexes.some(index => index.name === name)) {
+        await queryInterface.addIndex(tableName, fields, { name });
+      }
+    };
+
     // Tabela de Pastas do GED
-    await queryInterface.createTable('GedFolders', {
+    await createTableIfMissing('GedFolders', {
       id: {
         type: Sequelize.INTEGER,
         autoIncrement: true,
@@ -94,7 +116,7 @@ module.exports = {
     });
 
     // Tabela de Arquivos do GED
-    await queryInterface.createTable('GedFiles', {
+    await createTableIfMissing('GedFiles', {
       id: {
         type: Sequelize.INTEGER,
         autoIncrement: true,
@@ -225,7 +247,7 @@ module.exports = {
     });
 
     // Tabela de Versões de Arquivos
-    await queryInterface.createTable('GedFileVersions', {
+    await createTableIfMissing('GedFileVersions', {
       id: {
         type: Sequelize.INTEGER,
         autoIncrement: true,
@@ -293,7 +315,7 @@ module.exports = {
     });
 
     // Tabela de Log de Atividades
-    await queryInterface.createTable('GedActivityLogs', {
+    await createTableIfMissing('GedActivityLogs', {
       id: {
         type: Sequelize.INTEGER,
         autoIncrement: true,
@@ -351,7 +373,7 @@ module.exports = {
     });
 
     // Tabela de Compartilhamentos
-    await queryInterface.createTable('GedShares', {
+    await createTableIfMissing('GedShares', {
       id: {
         type: Sequelize.INTEGER,
         autoIncrement: true,
@@ -445,7 +467,7 @@ module.exports = {
     });
 
     // Tabela de Comentários
-    await queryInterface.createTable('GedComments', {
+    await createTableIfMissing('GedComments', {
       id: {
         type: Sequelize.INTEGER,
         autoIncrement: true,
@@ -509,41 +531,41 @@ module.exports = {
     });
 
     // Índices para melhor performance
-    await queryInterface.addIndex('GedFolders', ['companyId']);
-    await queryInterface.addIndex('GedFolders', ['parentId']);
-    await queryInterface.addIndex('GedFolders', ['userId']);
-    await queryInterface.addIndex('GedFolders', ['type']);
-    await queryInterface.addIndex('GedFolders', ['clientId']);
-    await queryInterface.addIndex('GedFolders', ['departmentId']);
+    await addIndexIfMissing('GedFolders', ['companyId'], 'ged_folders_company_id');
+    await addIndexIfMissing('GedFolders', ['parentId'], 'ged_folders_parent_id');
+    await addIndexIfMissing('GedFolders', ['userId'], 'ged_folders_user_id');
+    await addIndexIfMissing('GedFolders', ['type'], 'ged_folders_type');
+    await addIndexIfMissing('GedFolders', ['clientId'], 'ged_folders_client_id');
+    await addIndexIfMissing('GedFolders', ['departmentId'], 'ged_folders_department_id');
 
-    await queryInterface.addIndex('GedFiles', ['companyId']);
-    await queryInterface.addIndex('GedFiles', ['folderId']);
-    await queryInterface.addIndex('GedFiles', ['userId']);
-    await queryInterface.addIndex('GedFiles', ['isDeleted']);
-    await queryInterface.addIndex('GedFiles', ['hash']);
-    await queryInterface.addIndex('GedFiles', ['name']);
+    await addIndexIfMissing('GedFiles', ['companyId'], 'ged_files_company_id');
+    await addIndexIfMissing('GedFiles', ['folderId'], 'ged_files_folder_id');
+    await addIndexIfMissing('GedFiles', ['userId'], 'ged_files_user_id');
+    await addIndexIfMissing('GedFiles', ['isDeleted'], 'ged_files_is_deleted');
+    await addIndexIfMissing('GedFiles', ['hash'], 'ged_files_hash');
+    await addIndexIfMissing('GedFiles', ['name'], 'ged_files_name');
 
-    await queryInterface.addIndex('GedFileVersions', ['fileId']);
-    await queryInterface.addIndex('GedFileVersions', ['companyId']);
-    await queryInterface.addIndex('GedFileVersions', ['isCurrent']);
+    await addIndexIfMissing('GedFileVersions', ['fileId'], 'ged_file_versions_file_id');
+    await addIndexIfMissing('GedFileVersions', ['companyId'], 'ged_file_versions_company_id');
+    await addIndexIfMissing('GedFileVersions', ['isCurrent'], 'ged_file_versions_is_current');
 
-    await queryInterface.addIndex('GedActivityLogs', ['companyId']);
-    await queryInterface.addIndex('GedActivityLogs', ['userId']);
-    await queryInterface.addIndex('GedActivityLogs', ['entityType', 'entityId']);
-    await queryInterface.addIndex('GedActivityLogs', ['action']);
-    await queryInterface.addIndex('GedActivityLogs', ['createdAt']);
+    await addIndexIfMissing('GedActivityLogs', ['companyId'], 'ged_activity_logs_company_id');
+    await addIndexIfMissing('GedActivityLogs', ['userId'], 'ged_activity_logs_user_id');
+    await addIndexIfMissing('GedActivityLogs', ['entityType', 'entityId'], 'ged_activity_logs_entity_type_entity_id');
+    await addIndexIfMissing('GedActivityLogs', ['action'], 'ged_activity_logs_action');
+    await addIndexIfMissing('GedActivityLogs', ['createdAt'], 'ged_activity_logs_created_at');
 
-    await queryInterface.addIndex('GedShares', ['companyId']);
-    await queryInterface.addIndex('GedShares', ['fileId']);
-    await queryInterface.addIndex('GedShares', ['folderId']);
-    await queryInterface.addIndex('GedShares', ['shareToken']);
-    await queryInterface.addIndex('GedShares', ['sharedWithUserId']);
-    await queryInterface.addIndex('GedShares', ['isActive']);
+    await addIndexIfMissing('GedShares', ['companyId'], 'ged_shares_company_id');
+    await addIndexIfMissing('GedShares', ['fileId'], 'ged_shares_file_id');
+    await addIndexIfMissing('GedShares', ['folderId'], 'ged_shares_folder_id');
+    await addIndexIfMissing('GedShares', ['shareToken'], 'ged_shares_share_token');
+    await addIndexIfMissing('GedShares', ['sharedWithUserId'], 'ged_shares_shared_with_user_id');
+    await addIndexIfMissing('GedShares', ['isActive'], 'ged_shares_is_active');
 
-    await queryInterface.addIndex('GedComments', ['fileId']);
-    await queryInterface.addIndex('GedComments', ['companyId']);
-    await queryInterface.addIndex('GedComments', ['userId']);
-    await queryInterface.addIndex('GedComments', ['parentId']);
+    await addIndexIfMissing('GedComments', ['fileId'], 'ged_comments_file_id');
+    await addIndexIfMissing('GedComments', ['companyId'], 'ged_comments_company_id');
+    await addIndexIfMissing('GedComments', ['userId'], 'ged_comments_user_id');
+    await addIndexIfMissing('GedComments', ['parentId'], 'ged_comments_parent_id');
   },
 
   down: async (queryInterface, Sequelize) => {

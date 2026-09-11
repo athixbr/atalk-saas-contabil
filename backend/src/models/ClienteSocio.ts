@@ -79,6 +79,10 @@ class ClienteSocio extends Model<ClienteSocio> {
   @Column(DataType.DECIMAL(15, 2))
   valorProlabore: number;
 
+  // Tipo de participação
+  @Column(DataType.STRING(50))
+  tipoParticipacao: string;
+
   // Controle
   @Column(DataType.TEXT)
   observacoes: string;
@@ -86,6 +90,12 @@ class ClienteSocio extends Model<ClienteSocio> {
   @Default(true)
   @Column
   ativo: boolean;
+
+  // Modo usado no formulário ("basico" ou "avancado") — define quais campos
+  // aparecem por padrão ao reabrir o vínculo para edição
+  @Default("avancado")
+  @Column(DataType.STRING(20))
+  modoCadastro: string;
 
   @CreatedAt
   createdAt: Date;

@@ -4,6 +4,7 @@ import fs from "fs";
 import crypto from "crypto";
 import sharp from "sharp";
 import { Stream } from "stream";
+import { getS3Client, BUCKET_NAME, prefixKey, unprefixKey, buildProxyUrl } from "../config/storage";
 
 interface UploadOptions {
   companyId: number;
@@ -26,20 +27,11 @@ interface UploadResult {
 class DigitalOceanService {
   private s3: AWS.S3;
   private bucketName: string;
-  private cdnEndpoint: string;
 
   constructor() {
-    // Configuração do Digital Ocean Spaces
-    this.s3 = new AWS.S3({
-      endpoint: process.env.DO_SPACES_ENDPOINT || "nyc3.digitaloceanspaces.com",
-      accessKeyId: process.env.DO_SPACES_KEY,
-      secretAccessKey: process.env.DO_SPACES_SECRET,
-      s3ForcePathStyle: false,
-      signatureVersion: "v4"
-    });
-
-    this.bucketName = process.env.DO_SPACES_BUCKET || "atalk";
-    this.cdnEndpoint = process.env.DO_SPACES_CDN || `https://${this.bucketName}.nyc3.cdn.digitaloceanspaces.com`;
+    // Configuração do storage (Backblaze B2 ou Digital Ocean Spaces, ambos S3-compatíveis)
+    this.s3 = getS3Client();
+    this.bucketName = BUCKET_NAME;
   }
 
   /**
@@ -83,7 +75,7 @@ class DigitalOceanService {
     // Upload do arquivo principal
     await this.s3.putObject({
       Bucket: this.bucketName,
-      Key: filePath,
+      Key: prefixKey(filePath),
       Body: fileBuffer,
       ContentType: mimeType,
       ACL: isPublic ? "public-read" : "private",
@@ -94,7 +86,7 @@ class DigitalOceanService {
       }
     }).promise();
 
-    const url = isPublic ? `${this.cdnEndpoint}/${filePath}` : "";
+    const url = isPublic ? buildProxyUrl(filePath) : "";
 
     const result: UploadResult = {
       path: filePath,
@@ -123,7 +115,7 @@ class DigitalOceanService {
   async download(filePath: string): Promise<Buffer> {
     const result = await this.s3.getObject({
       Bucket: this.bucketName,
-      Key: filePath
+      Key: prefixKey(filePath)
     }).promise();
 
     return result.Body as Buffer;
@@ -135,7 +127,7 @@ class DigitalOceanService {
   getDownloadStream(filePath: string): Stream {
     return this.s3.getObject({
       Bucket: this.bucketName,
-      Key: filePath
+      Key: prefixKey(filePath)
     }).createReadStream();
   }
 
@@ -145,7 +137,7 @@ class DigitalOceanService {
   async delete(filePath: string): Promise<void> {
     await this.s3.deleteObject({
       Bucket: this.bucketName,
-      Key: filePath
+      Key: prefixKey(filePath)
     }).promise();
   }
 
@@ -158,7 +150,7 @@ class DigitalOceanService {
     await this.s3.deleteObjects({
       Bucket: this.bucketName,
       Delete: {
-        Objects: filePaths.map(path => ({ Key: path }))
+        Objects: filePaths.map(path => ({ Key: prefixKey(path) }))
       }
     }).promise();
   }
@@ -170,8 +162,8 @@ class DigitalOceanService {
     // Copiar para novo local
     await this.s3.copyObject({
       Bucket: this.bucketName,
-      CopySource: `${this.bucketName}/${oldPath}`,
-      Key: newPath
+      CopySource: `${this.bucketName}/${prefixKey(oldPath)}`,
+      Key: prefixKey(newPath)
     }).promise();
 
     // Deletar arquivo antigo
@@ -184,8 +176,8 @@ class DigitalOceanService {
   async copy(sourcePath: string, destPath: string): Promise<void> {
     await this.s3.copyObject({
       Bucket: this.bucketName,
-      CopySource: `${this.bucketName}/${sourcePath}`,
-      Key: destPath
+      CopySource: `${this.bucketName}/${prefixKey(sourcePath)}`,
+      Key: prefixKey(destPath)
     }).promise();
   }
 
@@ -196,7 +188,7 @@ class DigitalOceanService {
     try {
       await this.s3.headObject({
         Bucket: this.bucketName,
-        Key: filePath
+        Key: prefixKey(filePath)
       }).promise();
       return true;
     } catch (error) {
@@ -210,7 +202,7 @@ class DigitalOceanService {
   async getMetadata(filePath: string) {
     const result = await this.s3.headObject({
       Bucket: this.bucketName,
-      Key: filePath
+      Key: prefixKey(filePath)
     }).promise();
 
     return {
@@ -227,7 +219,7 @@ class DigitalOceanService {
   getSignedUrl(filePath: string, expiresIn: number = 3600): string {
     return this.s3.getSignedUrl("getObject", {
       Bucket: this.bucketName,
-      Key: filePath,
+      Key: prefixKey(filePath),
       Expires: expiresIn
     });
   }
@@ -258,7 +250,7 @@ class DigitalOceanService {
       // Upload do thumbnail
       await this.s3.putObject({
         Bucket: this.bucketName,
-        Key: thumbnailPath,
+        Key: prefixKey(thumbnailPath),
         Body: thumbnailBuffer,
         ContentType: "image/jpeg",
         ACL: "private"
@@ -282,7 +274,7 @@ class DigitalOceanService {
    * Limpar arquivos antigos da lixeira (cron job)
    */
   async cleanupTrash(companyId: number, daysOld: number = 30): Promise<number> {
-    const prefix = `company${companyId}/ged/trash/`;
+    const prefix = prefixKey(`company${companyId}/ged/trash/`);
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysOld);
 
@@ -293,7 +285,7 @@ class DigitalOceanService {
 
     const toDelete = objects.Contents?.filter(obj => {
       return obj.LastModified && obj.LastModified < cutoffDate;
-    }).map(obj => obj.Key!) || [];
+    }).map(obj => unprefixKey(obj.Key!)) || [];
 
     if (toDelete.length > 0) {
       await this.deleteMany(toDelete);
@@ -306,7 +298,7 @@ class DigitalOceanService {
    * Obter uso de espaço por empresa
    */
   async getCompanyUsage(companyId: number): Promise<{ size: number; files: number }> {
-    const prefix = `company${companyId}/ged/`;
+    const prefix = prefixKey(`company${companyId}/ged/`);
     let totalSize = 0;
     let fileCount = 0;
     let continuationToken: string | undefined;

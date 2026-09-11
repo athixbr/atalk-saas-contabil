@@ -4,6 +4,7 @@ import isAuth from "../middleware/isAuth";
 import * as QuickMessageController from "../controllers/QuickMessageController";
 import multer from "multer";
 import uploadConfig from "../config/upload";
+import uploadFilesToStorage from "../middleware/uploadToStorage";
 
 const upload = multer(uploadConfig);
 
@@ -29,6 +30,7 @@ routes.post(
   "/quick-messages/:id/media-upload",
   isAuth,
   upload.array("file"),
+  uploadFilesToStorage,
   QuickMessageController.mediaUpload
 );
 

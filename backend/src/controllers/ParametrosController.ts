@@ -21,6 +21,10 @@ import ListSegmentoService from "../services/ParametrosServices/ListSegmentoServ
 import CreateSegmentoService from "../services/ParametrosServices/CreateSegmentoService";
 import UpdateSegmentoService from "../services/ParametrosServices/UpdateSegmentoService";
 import DeleteSegmentoService from "../services/ParametrosServices/DeleteSegmentoService";
+import ListAtuacaoService from "../services/ParametrosServices/ListAtuacaoService";
+import CreateAtuacaoService from "../services/ParametrosServices/CreateAtuacaoService";
+import UpdateAtuacaoService from "../services/ParametrosServices/UpdateAtuacaoService";
+import DeleteAtuacaoService from "../services/ParametrosServices/DeleteAtuacaoService";
 import ListSedeClienteService from "../services/ParametrosServices/ListSedeClienteService";
 import CreateSedeClienteService from "../services/ParametrosServices/CreateSedeClienteService";
 import UpdateSedeClienteService from "../services/ParametrosServices/UpdateSedeClienteService";
@@ -168,6 +172,16 @@ import ListStatusControleService from "../services/ParametrosServices/ListStatus
 import CreateStatusControleService from "../services/ParametrosServices/CreateStatusControleService";
 import UpdateStatusControleService from "../services/ParametrosServices/UpdateStatusControleService";
 import DeleteStatusControleService from "../services/ParametrosServices/DeleteStatusControleService";
+import ListControleComDataService from "../services/ParametrosServices/ListControleComDataService";
+import CreateControleComDataService from "../services/ParametrosServices/CreateControleComDataService";
+import UpdateControleComDataService from "../services/ParametrosServices/UpdateControleComDataService";
+import DeleteControleComDataService from "../services/ParametrosServices/DeleteControleComDataService";
+import ListEsferaService from "../services/ParametrosServices/ListEsferaService";
+import CreateEsferaService from "../services/ParametrosServices/CreateEsferaService";
+import UpdateEsferaService from "../services/ParametrosServices/UpdateEsferaService";
+import DeleteEsferaService from "../services/ParametrosServices/DeleteEsferaService";
+import TipoConta from "../models/TipoConta";
+import { Op } from "sequelize";
 
 // ========== STATUS ==========
 export const listStatus = async (req: Request, res: Response): Promise<Response> => {
@@ -386,6 +400,36 @@ export const deleteSegmento = async (req: Request, res: Response): Promise<Respo
   const { id } = req.params;
   await DeleteSegmentoService({ id: parseInt(id), companyId });
   return res.status(200).json({ message: "Segmento excluído com sucesso" });
+};
+
+// ========== ATUAÇÃO ==========
+export const listAtuacao = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const { searchParam } = req.query as { searchParam?: string };
+  const items = await ListAtuacaoService({ companyId, searchParam });
+  return res.status(200).json(items);
+};
+
+export const createAtuacao = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const { nome } = req.body;
+  const item = await CreateAtuacaoService({ nome, companyId });
+  return res.status(201).json(item);
+};
+
+export const updateAtuacao = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const { id } = req.params;
+  const { nome } = req.body;
+  const item = await UpdateAtuacaoService({ id: parseInt(id), nome, companyId });
+  return res.status(200).json(item);
+};
+
+export const deleteAtuacao = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const { id } = req.params;
+  await DeleteAtuacaoService({ id: parseInt(id), companyId });
+  return res.status(200).json({ message: "Atuação excluída com sucesso" });
 };
 
 // ========== SEDE CLIENTE ==========
@@ -1461,16 +1505,16 @@ export const listStatusControle = async (req: Request, res: Response): Promise<R
 
 export const createStatusControle = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
-  const { nome } = req.body;
-  const item = await CreateStatusControleService({ nome, companyId });
+  const { nome, cor } = req.body;
+  const item = await CreateStatusControleService({ nome, cor, companyId });
   return res.status(201).json(item);
 };
 
 export const updateStatusControle = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
   const { id } = req.params;
-  const { nome } = req.body;
-  const item = await UpdateStatusControleService({ id: parseInt(id), nome, companyId });
+  const { nome, cor } = req.body;
+  const item = await UpdateStatusControleService({ id: parseInt(id), nome, cor, companyId });
   return res.status(200).json(item);
 };
 
@@ -1479,4 +1523,98 @@ export const deleteStatusControle = async (req: Request, res: Response): Promise
   const { id } = req.params;
   await DeleteStatusControleService({ id: parseInt(id), companyId });
   return res.status(200).json({ message: "Status do controle excluído com sucesso" });
+};
+
+// ========== CONTROLE COM DATA ==========
+export const listControleComData = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const { searchParam } = req.query as { searchParam?: string };
+  const items = await ListControleComDataService({ companyId, searchParam });
+  return res.status(200).json(items);
+};
+
+export const createControleComData = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const { nome, cor } = req.body;
+  const item = await CreateControleComDataService({ nome, cor, companyId });
+  return res.status(201).json(item);
+};
+
+export const updateControleComData = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const { id } = req.params;
+  const { nome, cor } = req.body;
+  const item = await UpdateControleComDataService({ id: parseInt(id), nome, cor, companyId });
+  return res.status(200).json(item);
+};
+
+export const deleteControleComData = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const { id } = req.params;
+  await DeleteControleComDataService({ id: parseInt(id), companyId });
+  return res.status(200).json({ message: "Controle com data excluído com sucesso" });
+};
+
+// ========== ESFERA ==========
+export const listEsfera = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const { searchParam } = req.query as { searchParam?: string };
+  const items = await ListEsferaService({ companyId, searchParam });
+  return res.status(200).json(items);
+};
+
+export const createEsfera = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const { nome } = req.body;
+  const item = await CreateEsferaService({ nome, companyId });
+  return res.status(201).json(item);
+};
+
+export const updateEsfera = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const { id } = req.params;
+  const { nome } = req.body;
+  const item = await UpdateEsferaService({ id: parseInt(id), nome, companyId });
+  return res.status(200).json(item);
+};
+
+export const deleteEsfera = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const { id } = req.params;
+  await DeleteEsferaService({ id: parseInt(id), companyId });
+  return res.status(200).json({ message: "Esfera excluída com sucesso" });
+};
+
+export const listTipoConta = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const { searchParam } = req.query as { searchParam?: string };
+  const where: any = { companyId };
+  if (searchParam) where.nome = { [Op.iLike]: `%${searchParam}%` };
+  const items = await TipoConta.findAll({ where, order: [["nome", "ASC"]] });
+  return res.status(200).json(items);
+};
+
+export const createTipoConta = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const { nome, ativo } = req.body;
+  const item = await TipoConta.create({ nome, ativo: ativo !== undefined ? ativo : true, companyId } as any);
+  return res.status(201).json(item);
+};
+
+export const updateTipoConta = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const { id } = req.params;
+  const item = await TipoConta.findOne({ where: { id, companyId } });
+  if (!item) return res.status(404).json({ message: "Tipo de conta não encontrado" });
+  await item.update(req.body);
+  return res.status(200).json(item);
+};
+
+export const deleteTipoConta = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const { id } = req.params;
+  const item = await TipoConta.findOne({ where: { id, companyId } });
+  if (!item) return res.status(404).json({ message: "Tipo de conta não encontrado" });
+  await item.destroy();
+  return res.status(200).json({ message: "Tipo de conta excluído com sucesso" });
 };

@@ -7,17 +7,30 @@ import DeleteSocioService from "../services/SocioServices/DeleteSocioService";
 import VincularSocioClienteService from "../services/SocioServices/VincularSocioClienteService";
 import UpdateVinculoSocioService from "../services/SocioServices/UpdateVinculoSocioService";
 import DeleteVinculoSocioService from "../services/SocioServices/DeleteVinculoSocioService";
+import GetNextCodigoSistemaSocioService from "../services/SocioServices/GetNextCodigoSistemaSocioService";
 
 // CRUD Sócios
 
+export const nextCodigoSistema = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { companyId } = req.user;
+
+  const codigoSistema = await GetNextCodigoSistemaSocioService(companyId);
+
+  return res.json({ codigoSistema });
+};
+
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
-  const { searchParam, pageNumber, ativo } = req.query as any;
+  const { searchParam, pageNumber, limit, ativo } = req.query as any;
 
   const { socios, count, hasMore } = await ListSociosService({
     companyId,
     searchParam,
     pageNumber,
+    limit,
     ativo: ativo !== undefined ? ativo === "true" : undefined,
   });
 

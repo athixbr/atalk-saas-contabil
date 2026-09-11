@@ -8,7 +8,7 @@ import Cliente from "../../models/Cliente";
 interface Request {
   companyId: number;
   leadId?: number | string;
-  clientId?: number | string;
+  clienteId?: number | string;
   userId?: number | string;
   categoryId?: number | string;
   status?: string;
@@ -18,7 +18,7 @@ interface Request {
 const ListService = async ({
   companyId,
   leadId,
-  clientId,
+  clienteId,
   userId,
   categoryId,
   status,
@@ -30,8 +30,8 @@ const ListService = async ({
     whereCondition.leadId = leadId;
   }
 
-  if (clientId) {
-    whereCondition.clientId = clientId;
+  if (clienteId) {
+    whereCondition.clienteId = clienteId;
   }
 
   if (userId) {

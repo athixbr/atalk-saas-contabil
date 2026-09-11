@@ -1,6 +1,7 @@
 import TarefaRecorrente from "../../models/TarefaRecorrente";
 import TarefaRecorrenteCliente from "../../models/TarefaRecorrenteCliente";
 import TarefaRecorrenteSocio from "../../models/TarefaRecorrenteSocio";
+import TarefaRecorrenteUsuario from "../../models/TarefaRecorrenteUsuario";
 import AppError from "../../errors/AppError";
 
 interface Request {
@@ -26,6 +27,10 @@ const DeleteTarefaRecorrenteService = async ({
   });
 
   await TarefaRecorrenteSocio.destroy({
+    where: { tarefaRecorrenteId: id }
+  });
+
+  await TarefaRecorrenteUsuario.destroy({
     where: { tarefaRecorrenteId: id }
   });
 

@@ -205,7 +205,7 @@ const RecorrenciaModal = ({ open, onClose, recorrenciaId, onSave }) => {
   const loadRecorrencia = async () => {
     setLoading(true);
     try {
-      const { data } = await api.get(`/recorrencias/${recorrenciaId}`);
+      const { data } = await api.get(`/tarefas-recorrentes/${recorrenciaId}`);
       // Preencher todos os campos com os dados carregados
       setCodigo(data.codigo || "");
       setClassificacao(data.classificacao || "");
@@ -354,10 +354,10 @@ const RecorrenciaModal = ({ open, onClose, recorrenciaId, onSave }) => {
       };
 
       if (recorrenciaId) {
-        await api.put(`/recorrencias/${recorrenciaId}`, payload);
+        await api.put(`/tarefas-recorrentes/${recorrenciaId}`, payload);
         toast.success("Tarefa recorrente atualizada com sucesso");
       } else {
-        await api.post("/recorrencias", payload);
+        await api.post("/tarefas-recorrentes", payload);
         toast.success("Tarefa recorrente criada com sucesso");
       }
 

@@ -2,6 +2,7 @@ import express from "express";
 import isAuth from "../middleware/isAuth";
 import multer from "multer";
 import uploadConfig from "../config/upload";
+import uploadFilesToStorage from "../middleware/uploadToStorage";
 
 import * as TaskController from "../controllers/TaskController";
 
@@ -29,7 +30,7 @@ taskRoutes.put("/tasks/history/:historyId", isAuth, TaskController.updateHistory
 taskRoutes.delete("/tasks/history/:historyId", isAuth, TaskController.deleteHistory);
 
 // Rotas para arquivos
-taskRoutes.post("/tasks/:taskId/upload", isAuth, upload.array("files"), TaskController.uploadFile);
+taskRoutes.post("/tasks/:taskId/upload", isAuth, upload.array("files"), uploadFilesToStorage, TaskController.uploadFile);
 
 taskRoutes.get("/tasks/:taskId/files", isAuth, TaskController.listFiles);
 

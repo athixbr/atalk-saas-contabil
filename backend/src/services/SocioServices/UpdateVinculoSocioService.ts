@@ -14,8 +14,10 @@ interface Request {
     isAdministrador?: boolean;
     recebeProlabore?: boolean;
     valorProlabore?: number | string | null;
+    tipoParticipacao?: string | null;
     observacoes?: string | null;
     ativo?: boolean;
+    modoCadastro?: string;
   };
   vinculoId: string | number;
   companyId: number;
@@ -58,12 +60,16 @@ const UpdateVinculoSocioService = async ({
   const cleanDataSaida = vinculoData.dataSaida && !isNaN(new Date(vinculoData.dataSaida).getTime()) 
     ? vinculoData.dataSaida 
     : null;
-  const cleanCargo = vinculoData.cargo && vinculoData.cargo.trim() !== "" 
-    ? vinculoData.cargo 
+  const cleanCargo = vinculoData.cargo && vinculoData.cargo.trim() !== ""
+    ? vinculoData.cargo
     : null;
-  const cleanObservacoes = vinculoData.observacoes && vinculoData.observacoes.trim() !== "" 
-    ? vinculoData.observacoes 
+  const cleanObservacoes = vinculoData.observacoes && vinculoData.observacoes.trim() !== ""
+    ? vinculoData.observacoes
     : null;
+  const cleanTipoParticipacao = vinculoData.tipoParticipacao && String(vinculoData.tipoParticipacao).trim() !== ""
+    ? vinculoData.tipoParticipacao
+    : null;
+  const cleanModoCadastro = vinculoData.modoCadastro === "basico" ? "basico" : "avancado";
 
   // Validar percentual se fornecido
   if (cleanPercentual !== null && (cleanPercentual < 0 || cleanPercentual > 100)) {
@@ -83,8 +89,10 @@ const UpdateVinculoSocioService = async ({
     ...(vinculoData.isAdministrador !== undefined && { isAdministrador: vinculoData.isAdministrador }),
     ...(vinculoData.recebeProlabore !== undefined && { recebeProlabore: vinculoData.recebeProlabore }),
     ...(vinculoData.valorProlabore !== undefined && { valorProlabore: cleanValorProlabore }),
+    ...(vinculoData.tipoParticipacao !== undefined && { tipoParticipacao: cleanTipoParticipacao }),
     ...(vinculoData.observacoes !== undefined && { observacoes: cleanObservacoes }),
     ...(vinculoData.ativo !== undefined && { ativo: vinculoData.ativo }),
+    ...(vinculoData.modoCadastro !== undefined && { modoCadastro: cleanModoCadastro }),
   };
 
   await vinculo.update(cleanedData);

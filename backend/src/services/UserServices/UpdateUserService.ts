@@ -4,6 +4,7 @@ import AppError from "../../errors/AppError";
 import ShowUserService from "./ShowUserService";
 import Company from "../../models/Company";
 import User from "../../models/User";
+import DepartamentoUsuario from "../../models/DepartamentoUsuario";
 
 interface UserData {
   email?: string;
@@ -21,6 +22,8 @@ interface UserData {
   defaultMenu?: string;
   allowGroup?: boolean;
   wpp?: string;
+  isActive?: boolean;
+  departamentos?: Array<{ departamentoId: number; isCoordenador: boolean }>;
 }
 
 interface Request {
@@ -35,6 +38,7 @@ interface Response {
   name: string;
   email: string;
   profile: string;
+  isActive: boolean;
 }
 
 const UpdateUserService = async ({
@@ -72,7 +76,9 @@ const UpdateUserService = async ({
     defaultTheme,
     defaultMenu,
     allowGroup,
-    wpp
+    wpp,
+    isActive,
+    departamentos
 
   } = userData;
 
@@ -95,11 +101,25 @@ const UpdateUserService = async ({
     defaultTheme,
     defaultMenu,
     allowGroup,
-    wpp
+    wpp,
+    isActive
   });
 
   if (queueIds.length > 0)
     await user.$set("queues", queueIds);
+
+  if (departamentos !== undefined) {
+    await DepartamentoUsuario.destroy({ where: { userId: user.id } });
+    if (departamentos.length > 0) {
+      await DepartamentoUsuario.bulkCreate(
+        departamentos.map(d => ({
+          userId: user.id,
+          departamentoId: d.departamentoId,
+          isCoordenador: d.isCoordenador || false
+        }))
+      );
+    }
+  }
 
   await user.reload();
 
@@ -121,6 +141,7 @@ const UpdateUserService = async ({
     defaultTheme: user.defaultTheme,
     allowGroup: user.allowGroup,
     wpp: user.wpp,
+    isActive: user.isActive,
   };
 
   return serializedUser;

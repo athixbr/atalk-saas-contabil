@@ -20,6 +20,7 @@ import Company from "./Company";
 import Schedule from "./Schedule";
 import ContactTag from "./ContactTag";
 import Tag from "./Tag";
+import { buildProxyUrl } from "../config/storage";
 
 @Table
 class Contact extends Model<Contact> {
@@ -108,13 +109,12 @@ class Contact extends Model<Contact> {
 
   @Column
   get urlPicture(): string | null {
-    if (this.getDataValue("urlPicture")) {
-      
-      return this.getDataValue("urlPicture") === 'nopicture.png' ?   `${process.env.FRONTEND_URL}/nopicture.png` :
-      `${process.env.BACKEND_URL}${process.env.PROXY_PORT ?`:${process.env.PROXY_PORT}`:""}/public/company${this.companyId}/contacts/${this.getDataValue("urlPicture")}` 
-
+    const filename = this.getDataValue("urlPicture");
+    if (!filename) return null;
+    if (filename === 'nopicture.png') {
+      return `${process.env.FRONTEND_URL}/nopicture.png`;
     }
-    return null;
+    return buildProxyUrl(`company${this.companyId}/contacts/${filename}`);
   }
 }
 

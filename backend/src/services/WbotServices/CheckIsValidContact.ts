@@ -12,7 +12,7 @@ const CheckIsValidContact = async (number: string, companyId: number): Promise<v
       `${number}@s.whatsapp.net`
     );
     
-    if (!result && !result?.exists) {
+    if (!result || !result?.exists) {
       throw new AppError("invalidNumber");
     }
   } catch (err) {

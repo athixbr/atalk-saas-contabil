@@ -2,10 +2,11 @@ import Socio from "../../models/Socio";
 import Cliente from "../../models/Cliente";
 import ClienteSocio from "../../models/ClienteSocio";
 import __cjs_sequelize from "sequelize";
-const { Op } = __cjs_sequelize;
+const { Op, fn, col, where } = __cjs_sequelize;
 interface Request {
   searchParam?: string;
   pageNumber?: string | number;
+  limit?: string | number;
   companyId: number;
   ativo?: boolean;
 }
@@ -19,9 +20,11 @@ interface Response {
 const ListSociosService = async ({
   searchParam = "",
   pageNumber = "1",
+  limit: requestLimit = 100,
   companyId,
   ativo,
 }: Request): Promise<Response> => {
+  const searchDigits = searchParam ? searchParam.replace(/\D/g, "") : "";
   const whereCondition: any = {
     companyId,
   };
@@ -31,16 +34,60 @@ const ListSociosService = async ({
   }
 
   if (searchParam) {
-    whereCondition[Op.or] = [
+    const searchOr: any[] = [
       { nome: { [Op.iLike]: `%${searchParam}%` } },
-      { cpf: { [Op.like]: `%${searchParam.replace(/\D/g, "")}%` } },
+      { codigoErp: { [Op.iLike]: `%${searchParam}%` } },
+      { codigoSistema: { [Op.iLike]: `%${searchParam}%` } },
+      { cpf: { [Op.like]: `%${searchDigits || searchParam}%` } },
       { email: { [Op.iLike]: `%${searchParam}%` } },
       { telefone: { [Op.like]: `%${searchParam}%` } },
       { celular: { [Op.like]: `%${searchParam}%` } },
     ];
+
+    if (searchDigits) {
+      searchOr.push(
+        where(fn("regexp_replace", col("Socio.cpf"), "\\D", "", "g"), {
+          [Op.iLike]: `%${searchDigits}%`,
+        })
+      );
+    }
+
+    const clientesOrigemEncontrados = await Cliente.findAll({
+      attributes: ["id"],
+      where: {
+        companyId,
+        [Op.or]: [
+          { nome: { [Op.iLike]: `%${searchParam}%` } },
+          { nomeFantasia: { [Op.iLike]: `%${searchParam}%` } },
+          { apelido: { [Op.iLike]: `%${searchParam}%` } },
+          { razaoSocial: { [Op.iLike]: `%${searchParam}%` } },
+          { codigoErp: { [Op.iLike]: `%${searchParam}%` } },
+          { codigoSistema: { [Op.iLike]: `%${searchParam}%` } },
+          { cpf: { [Op.iLike]: `%${searchParam}%` } },
+          { cnpj: { [Op.iLike]: `%${searchParam}%` } },
+          ...(searchDigits
+            ? [
+                where(fn("regexp_replace", col("cpf"), "\\D", "", "g"), {
+                  [Op.iLike]: `%${searchDigits}%`,
+                }),
+                where(fn("regexp_replace", col("cnpj"), "\\D", "", "g"), {
+                  [Op.iLike]: `%${searchDigits}%`,
+                }),
+              ]
+            : []),
+        ],
+      },
+    });
+
+    const clienteOrigemIds = clientesOrigemEncontrados.map((cliente: any) => cliente.id);
+    if (clienteOrigemIds.length) {
+      searchOr.push({ clienteOrigemId: { [Op.in]: clienteOrigemIds } });
+    }
+
+    whereCondition[Op.or] = searchOr;
   }
 
-  const limit = 100;
+  const limit = Number(requestLimit) > 0 ? Number(requestLimit) : 100;
   const offset = limit * (+pageNumber - 1);
 
   const { count, rows: socios } = await Socio.findAndCountAll({
@@ -73,6 +120,23 @@ const ListSociosService = async ({
             "ativo",
           ],
         },
+      },
+      {
+        model: Cliente,
+        as: "clienteOrigem",
+        attributes: [
+          "id",
+          "codigoSistema",
+          "codigoErp",
+          "nome",
+          "nomeFantasia",
+          "razaoSocial",
+          "apelido",
+          "tipoCliente",
+          "cnpj",
+          "cpf"
+        ],
+        required: false,
       },
     ],
   });

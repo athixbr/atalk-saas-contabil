@@ -20,6 +20,7 @@ interface SerializedUser {
   allTicket: string;
   defaultTheme: string;
   defaultMenu: string;
+  isActive: boolean;
 }
 
 interface Request {
@@ -44,6 +45,10 @@ const AuthUserService = async ({
 
   if (!user) {
     throw new AppError("ERR_INVALID_CREDENTIALS", 401);
+  }
+
+  if (user.isActive === false) {
+    throw new AppError("ERR_USER_INACTIVE", 401);
   }
 
   const Hr = new Date();

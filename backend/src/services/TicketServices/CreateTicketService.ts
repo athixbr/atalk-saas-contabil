@@ -19,6 +19,7 @@ import CheckContactOpenTickets from "../../helpers/CheckContactOpenTickets";
 
 import CreateLogTicketService from "./CreateLogTicketService";
 import ShowTicketService from "./ShowTicketService";
+import CreateTicketMetricsService from "../TicketMetricsServices/CreateTicketMetricsService";
 
 interface Request {
   contactId: number;
@@ -100,6 +101,8 @@ const CreateTicketService = async ({
     ticketId: ticket.id,
     type: "create"
   });
+
+  CreateTicketMetricsService({ ticketId: ticket.id, companyId }).catch(() => {});
 
   return ticket;
 };

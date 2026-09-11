@@ -213,7 +213,8 @@ const ListTicketsServiceKanban = async ({
 
   whereCondition = {
     ...whereCondition,
-    companyId
+    companyId,
+    isMerged: { [Op.or]: [false, null] }
   };
 
   const { count, rows: tickets } = await Ticket.findAndCountAll({

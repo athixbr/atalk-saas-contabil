@@ -19,8 +19,18 @@ import ListCertidoesService from "../services/CertidaoServices/ListCertidoesServ
 
 import ConsultarCertidaoService from "../services/CertidaoServices/ConsultarCertidaoService";
 import Certidao from "../models/Certidao";
+import CertificadoDigital from "../models/CertificadoDigital";
 import { ReprocessarCertidoesService, ReprocessarCertidaoManualService } from "../services/CertidaoServices/ReprocessarCertidaoService";
 import ListLogsCertidaoService from "../services/CertidaoServices/ListLogsCertidaoService";
+import DocumentoClienteAcesso from "../models/DocumentoClienteAcesso";
+import Cliente from "../models/Cliente";
+import EmailConfig from "../models/EmailConfig";
+import Whatsapp from "../models/Whatsapp";
+import WhatsappLog from "../models/WhatsappLog";
+import TipoConta from "../models/TipoConta";
+import SendEmailService from "../services/SendEmailService";
+import { getWbot } from "../libs/wbot";
+import { decryptCredential, encryptCredential } from "../services/DocumentoClienteCredentialCrypto";
 
 // ==================== AGENDAMENTOS ====================
 
@@ -133,8 +143,9 @@ export const processarAgendamentosPendentes = async (req: Request, res: Response
 
 export const showCertificado = async (req: Request, res: Response): Promise<Response> => {
   const { companyId } = req.user;
+  const { clienteId } = req.query as { clienteId?: string };
   
-  const certificados = await ShowCertificadoDigitalService(companyId);
+  const certificados = await ShowCertificadoDigitalService(companyId, clienteId ? Number(clienteId) : undefined);
   
   return res.status(200).json(certificados);
 };export const uploadCertificado = async (req: Request, res: Response): Promise<Response> => {
@@ -144,7 +155,7 @@ export const showCertificado = async (req: Request, res: Response): Promise<Resp
     throw new AppError("Arquivo de certificado é obrigatório", 400);
   }
 
-  const { password } = req.body;
+  const { password, clienteId, notificarEmail, notificarWhatsapp, lembretesDias } = req.body;
 
   if (!password) {
     throw new AppError("Senha do certificado é obrigatória", 400);
@@ -152,11 +163,152 @@ export const showCertificado = async (req: Request, res: Response): Promise<Resp
 
   const certificado = await UploadCertificadoDigitalService({
     companyId,
+    clienteId: clienteId ? Number(clienteId) : undefined,
     file: req.file,
-    password
+    password,
+    notificarEmail: notificarEmail === "true" || notificarEmail === true,
+    notificarWhatsapp: notificarWhatsapp === "true" || notificarWhatsapp === true,
+    lembretesDias: parseLembretes(lembretesDias)
   });
 
   return res.status(200).json(certificado);
+};
+
+export const updateCertificado = async (req: Request, res: Response): Promise<Response> => {
+  const { certificadoId } = req.params;
+  const { companyId } = req.user;
+  const certificado = await CertificadoDigital.findOne({ where: { id: certificadoId, companyId } });
+  if (!certificado) throw new AppError("Certificado não encontrado", 404);
+
+  const { clienteId, password, notificarEmail, notificarWhatsapp, lembretesDias, ativo } = req.body;
+  await certificado.update({
+    clienteId: clienteId || null,
+    senhaEncriptada: password ? encryptCredential(password) : certificado.senhaEncriptada,
+    notificarEmail: Boolean(notificarEmail),
+    notificarWhatsapp: Boolean(notificarWhatsapp),
+    lembretesDias: parseLembretes(lembretesDias),
+    ativo: ativo !== undefined ? Boolean(ativo) : certificado.ativo
+  } as any);
+
+  return res.json(certificado);
+};
+
+export const senhaCertificado = async (req: Request, res: Response): Promise<Response> => {
+  const { certificadoId } = req.params;
+  const { companyId } = req.user;
+  const certificado = await CertificadoDigital.findOne({ where: { id: certificadoId, companyId } });
+  if (!certificado) throw new AppError("Certificado não encontrado", 404);
+  return res.json({ password: decryptCredential(certificado.senhaEncriptada) });
+};
+
+export const enviarAvisoCertificado = async (req: Request, res: Response): Promise<Response> => {
+  const { certificadoId } = req.params;
+  const { companyId } = req.user;
+  const { canais } = req.body as { canais?: string[] };
+  const certificado = await CertificadoDigital.findOne({
+    where: { id: certificadoId, companyId },
+    include: [{ model: Cliente, as: "cliente" }]
+  });
+  if (!certificado) throw new AppError("Certificado não encontrado", 404);
+
+  const cliente: any = (certificado as any).cliente;
+  if (!cliente) throw new AppError("Informe um cliente para este certificado", 400);
+
+  const validade = certificado.validade ? new Date(certificado.validade).toLocaleDateString("pt-BR") : "";
+  const assunto = `Aviso de vencimento do certificado digital - ${cliente.nome}`;
+  const texto = `Olá, ${cliente.nome}. O certificado digital ${certificado.titular || certificado.nomeArquivo} vence em ${validade}. Por favor, providencie a renovação.`;
+  const resultado: any = { email: null, whatsapp: null };
+
+  if ((canais || []).includes("email") || certificado.notificarEmail) {
+    if (!cliente.email) throw new AppError("Cliente sem email cadastrado", 400);
+    const config = await EmailConfig.findOne({ where: { companyId, active: true } });
+    if (!config) throw new AppError("Nenhuma configuração de email ativa encontrada", 400);
+    await SendEmailService({
+      companyId,
+      configId: config.id,
+      to: cliente.email,
+      subject: assunto,
+      html: `<p>${texto}</p>`
+    });
+    resultado.email = "sent";
+  }
+
+  if ((canais || []).includes("whatsapp") || certificado.notificarWhatsapp) {
+    const numero = String(cliente.celular || cliente.telefone || "").replace(/\D/g, "");
+    if (!numero) throw new AppError("Cliente sem WhatsApp/telefone cadastrado", 400);
+    const whatsapp = await Whatsapp.findOne({ where: { companyId, isDefaultNotification: true } });
+    if (!whatsapp) throw new AppError("Nenhuma conexão padrão de WhatsApp para notificações encontrada", 400);
+    const wbot = getWbot(whatsapp.id);
+    await wbot.sendMessage(`${numero}@s.whatsapp.net`, { text: texto } as any);
+    await WhatsappLog.create({ companyId, whatsappId: whatsapp.id, to: numero, body: texto, status: "sent" } as any);
+    resultado.whatsapp = "sent";
+  }
+
+  return res.json(resultado);
+};
+
+export const indexAcessos = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const { clienteId } = req.query as { clienteId?: string };
+  const acessos = await DocumentoClienteAcesso.findAll({
+    where: { companyId, ...(clienteId ? { clienteId: Number(clienteId) } : {}) },
+    include: [
+      { model: Cliente, as: "cliente", attributes: ["id", "nome", "email", "celular", "telefone"] },
+      { model: TipoConta, as: "tipoConta", attributes: ["id", "nome"] }
+    ],
+    order: [["updatedAt", "DESC"]]
+  });
+  return res.json(acessos.map((a: any) => ({ ...a.toJSON(), senha: decryptCredential(a.senhaEncriptada), senhaEncriptada: undefined })));
+};
+
+export const storeAcesso = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId } = req.user;
+  const { clienteId, tipoContaId, usuario, senha, observacoes, ativo, doisFatoresAtivo } = req.body;
+  if (!clienteId || !tipoContaId || !usuario || !senha) throw new AppError("Cliente, tipo, usuário e senha são obrigatórios", 400);
+  const acesso = await DocumentoClienteAcesso.create({
+    companyId,
+    clienteId,
+    tipoContaId,
+    usuario,
+    senhaEncriptada: encryptCredential(senha),
+    observacoes,
+    doisFatoresAtivo: Boolean(doisFatoresAtivo),
+    ativo: ativo !== undefined ? ativo : true
+  } as any);
+  return res.status(201).json(acesso);
+};
+
+export const updateAcesso = async (req: Request, res: Response): Promise<Response> => {
+  const { acessoId } = req.params;
+  const { companyId } = req.user;
+  const acesso = await DocumentoClienteAcesso.findOne({ where: { id: acessoId, companyId } });
+  if (!acesso) throw new AppError("Acesso não encontrado", 404);
+  const { clienteId, tipoContaId, usuario, senha, observacoes, ativo, doisFatoresAtivo } = req.body;
+  await acesso.update({
+    clienteId,
+    tipoContaId,
+    usuario,
+    senhaEncriptada: senha ? encryptCredential(senha) : acesso.senhaEncriptada,
+    observacoes,
+    doisFatoresAtivo: Boolean(doisFatoresAtivo),
+    ativo
+  } as any);
+  return res.json(acesso);
+};
+
+export const removeAcesso = async (req: Request, res: Response): Promise<Response> => {
+  const { acessoId } = req.params;
+  const { companyId } = req.user;
+  const acesso = await DocumentoClienteAcesso.findOne({ where: { id: acessoId, companyId } });
+  if (!acesso) throw new AppError("Acesso não encontrado", 404);
+  await acesso.destroy();
+  return res.json({ message: "Acesso removido com sucesso" });
+};
+
+const parseLembretes = (value: any): number[] => {
+  if (!value) return [45, 30, 15, 5];
+  const parsed = Array.isArray(value) ? value : JSON.parse(value);
+  return parsed.map((item: any) => Number(item)).filter((item: number) => item > 0);
 };
 
 export const removeCertificado = async (req: Request, res: Response): Promise<Response> => {

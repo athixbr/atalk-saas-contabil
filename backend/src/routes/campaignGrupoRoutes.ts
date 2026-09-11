@@ -2,6 +2,7 @@ import express from "express";
 import isAuth from "../middleware/isAuth";
 import multer from "multer";
 import uploadConfig from "../config/upload";
+import uploadFilesToStorage from "../middleware/uploadToStorage";
 
 import * as CampaignGrupoController from "../controllers/CampaignGrupoController";
 
@@ -18,7 +19,7 @@ routes.post("/campaign-grupos", isAuth, CampaignGrupoController.store);
 routes.post("/campaign-grupos/:id/cancel", isAuth, CampaignGrupoController.cancel);
 routes.post("/campaign-grupos/:id/restart", isAuth, CampaignGrupoController.restart);
 routes.post("/campaign-grupos/:id/process", isAuth, CampaignGrupoController.process);
-routes.post("/campaign-grupos/:id/media", isAuth, upload.array("file"), CampaignGrupoController.mediaUpload);
+routes.post("/campaign-grupos/:id/media", isAuth, upload.array("file"), uploadFilesToStorage, CampaignGrupoController.mediaUpload);
 routes.delete("/campaign-grupos/:id/media", isAuth, CampaignGrupoController.mediaDelete);
 
 // Rotas genéricas com :id por último

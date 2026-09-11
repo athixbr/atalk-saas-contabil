@@ -25,8 +25,27 @@ documentReaderRoutes.get("/templates-leitura/:templateId", isAuth, DocumentReade
 // Criar novo template
 documentReaderRoutes.post("/templates-leitura", isAuth, DocumentReaderController.createTemplate);
 
+// Analisar arquivo para sugerir cadastro de template
+documentReaderRoutes.post(
+  "/templates-leitura/analisar-arquivo",
+  isAuth,
+  upload.single("file"),
+  DocumentReaderController.analyzeTemplateFile
+);
+
 // Atualizar template
 documentReaderRoutes.put("/templates-leitura/:templateId", isAuth, DocumentReaderController.updateTemplate);
+
+// Enviar documento espelho do template
+documentReaderRoutes.post(
+  "/templates-leitura/:templateId/espelho",
+  isAuth,
+  upload.single("file"),
+  DocumentReaderController.uploadTemplateExample
+);
+
+// Excluir template
+documentReaderRoutes.delete("/templates-leitura/:templateId", isAuth, DocumentReaderController.deleteTemplate);
 
 // ========== Rotas de Arquivos de Tarefas ==========
 

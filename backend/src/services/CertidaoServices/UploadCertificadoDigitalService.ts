@@ -1,20 +1,28 @@
 import fs from "fs";
 import path from "path";
-import crypto from "crypto";
 import forge from "node-forge";
 import CertificadoDigital from "../../models/CertificadoDigital";
 import AppError from "../../errors/AppError";
+import { encryptCredential } from "../DocumentoClienteCredentialCrypto";
 
 interface Request {
   companyId: number;
+  clienteId?: number;
   file: Express.Multer.File;
   password: string;
+  notificarEmail?: boolean;
+  notificarWhatsapp?: boolean;
+  lembretesDias?: number[];
 }
 
 const UploadCertificadoDigitalService = async ({
   companyId,
+  clienteId,
   file,
-  password
+  password,
+  notificarEmail = false,
+  notificarWhatsapp = false,
+  lembretesDias = [45, 30, 15, 5]
 }: Request): Promise<CertificadoDigital> => {
   const publicFolder = path.resolve(__dirname, "..", "..", "..", "..", "public");
   const companyFolder = path.join(publicFolder, `company${companyId}`);
@@ -110,13 +118,14 @@ const UploadCertificadoDigitalService = async ({
   fs.writeFileSync(filePath, file.buffer as any);
 
   // Encriptar senha com AES-256-CBC (reversível)
-  const senhaEncriptada = encriptarSenha(password);
+  const senhaEncriptada = encryptCredential(password);
 
   // Caminho relativo
   const relativePath = `public/company${companyId}/certificados/${fileName}`;
 
   const certificado = await CertificadoDigital.create({
     companyId,
+    clienteId: clienteId || null,
     nomeArquivo: file.originalname,
     caminhoArquivo: relativePath,
     senhaEncriptada,
@@ -129,30 +138,14 @@ const UploadCertificadoDigitalService = async ({
     algoritmo: certInfo.algoritmo,
     serialNumber: certInfo.serialNumber,
     ativo: true,
-    dataUpload: new Date()
-  });
+    dataUpload: new Date(),
+    notificarEmail,
+    notificarWhatsapp,
+    lembretesDias,
+    notificacoesEnviadas: []
+  } as any);
 
   return certificado;
 };
-
-function encriptarSenha(senha: string): string {
-  const secretKey = process.env.CERT_PASSWORD_SECRET || "default-secret-key-change-me";
-  
-  // Gerar IV aleatório
-  const iv = crypto.randomBytes(16);
-  
-  // Criar chave de 32 bytes (256 bits) a partir do secret
-  const key = crypto.scryptSync(secretKey, "salt", 32);
-  
-  // Criar cipher
-  const cipher = crypto.createCipheriv("aes-256-cbc", key, iv);
-  
-  // Encriptar
-  let encrypted = cipher.update(senha, "utf8", "hex");
-  encrypted += cipher.final("hex");
-  
-  // Retornar no formato: iv:conteúdo_encriptado
-  return `${iv.toString("hex")}:${encrypted}`;
-}
 
 export default UploadCertificadoDigitalService;

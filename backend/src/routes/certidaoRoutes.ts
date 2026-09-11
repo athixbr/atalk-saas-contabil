@@ -34,7 +34,16 @@ certidaoRoutes.post("/certidoes/agendamentos-processar-pendentes", isAuth, Certi
 // ==================== ROTAS DE CERTIFICADO DIGITAL ====================
 certidaoRoutes.get("/certidoes/certificado", isAuth, CertidaoController.showCertificado);
 certidaoRoutes.post("/certidoes/certificado", isAuth, upload.single("certificado"), CertidaoController.uploadCertificado);
+certidaoRoutes.put("/certidoes/certificado/:certificadoId", isAuth, CertidaoController.updateCertificado);
+certidaoRoutes.get("/certidoes/certificado/:certificadoId/senha", isAuth, CertidaoController.senhaCertificado);
+certidaoRoutes.post("/certidoes/certificado/:certificadoId/enviar-aviso", isAuth, CertidaoController.enviarAvisoCertificado);
 certidaoRoutes.delete("/certidoes/certificado/:certificadoId", isAuth, CertidaoController.removeCertificado);
+
+// ==================== ROTAS DE ACESSOS GOV ====================
+certidaoRoutes.get("/documentos/acessos", isAuth, CertidaoController.indexAcessos);
+certidaoRoutes.post("/documentos/acessos", isAuth, CertidaoController.storeAcesso);
+certidaoRoutes.put("/documentos/acessos/:acessoId", isAuth, CertidaoController.updateAcesso);
+certidaoRoutes.delete("/documentos/acessos/:acessoId", isAuth, CertidaoController.removeAcesso);
 
 // ==================== ROTAS DE CERTIDÕES (Histórico) ====================
 certidaoRoutes.get("/certidoes", isAuth, CertidaoController.indexCertidoes);

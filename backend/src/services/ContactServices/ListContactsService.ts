@@ -1,10 +1,9 @@
 // @ts-ignore
-// @ts-ignore
-// @ts-ignore
-import { Sequelize, Op, Filterable } from "sequelize";
+import { Sequelize, Op } from "sequelize";
 import Contact from "../../models/Contact";
 import Ticket from "../../models/Ticket";
 import ContactTag from "../../models/ContactTag";
+import User from "../../models/User";
 
 import { intersection } from "lodash";
 import Tag from "../../models/Tag";
@@ -16,6 +15,8 @@ interface Request {
   companyId: number;
   tagsIds?: number[];
   isGroup?: string;
+  channel?: string;
+  active?: string;
 }
 
 interface Response {
@@ -26,77 +27,95 @@ interface Response {
 
 const ListContactsService = async ({
   searchParam = "",
-  pageNumber = "1", 
+  pageNumber = "1",
   companyId,
   tagsIds,
-  isGroup
+  isGroup,
+  channel,
+  active
 }: Request): Promise<Response> => {
-  const sanitizedSearchParam = removeAccents(searchParam.toLocaleLowerCase().trim());
+  const rawSearch = searchParam.trim();
+  const sanitizedSearchParam = removeAccents(rawSearch.toLocaleLowerCase());
 
-   let whereCondition: Filterable["where"] = {
-    [Op.or]: [
-      {
-        name: Sequelize.where(
-          Sequelize.fn("LOWER", Sequelize.col("Contact.name")),
-          "LIKE",
-          `%${sanitizedSearchParam}%`
+  // Build conditions array to avoid [Op.or] key collision
+  const andConditions: any[] = [
+    { companyId },
+    // Oculta contatos LID (identificadores internos do WhatsApp sem número real).
+    // Grupos são sempre incluídos; números válidos BR têm no máximo 13 dígitos.
+    {
+      [Op.or]: [
+        { isGroup: true },
+        Sequelize.where(
+          Sequelize.fn("length", Sequelize.col("Contact.number")),
+          { [Op.lte]: 13 }
         )
-      },
-      { number: { [Op.like]: `%${sanitizedSearchParam}%` } }
-    ]
-  };
+      ]
+    }
+  ];
 
-  whereCondition = {
-    ...whereCondition,
-    companyId
-  };
+  if (rawSearch) {
+    andConditions.push({
+      [Op.or]: [
+        {
+          name: Sequelize.where(
+            Sequelize.fn("LOWER", Sequelize.col("Contact.name")),
+            "LIKE",
+            `%${sanitizedSearchParam}%`
+          )
+        },
+        { name: { [Op.iLike]: `%${rawSearch}%` } },
+        { number: { [Op.like]: `%${rawSearch}%` } },
+        { email: { [Op.iLike]: `%${rawSearch}%` } }
+      ]
+    });
+  }
 
-  
   if (Array.isArray(tagsIds) && tagsIds.length > 0) {
-    const contactTagFilter: any[] | null = [];
-    // for (let tag of tags) {
     const contactTags = await ContactTag.findAll({
       where: { tagId: { [Op.in]: tagsIds } }
     });
-    if (contactTags) {
-      contactTagFilter.push(contactTags.map(t => t.contactId));
-    }
-    // }
-
+    const contactTagFilter: number[][] = [contactTags.map(t => t.contactId)];
     const contactTagsIntersection: number[] = intersection(...contactTagFilter);
-
-    whereCondition = {
-      ...whereCondition,
-      id: {
-        [Op.in]: contactTagsIntersection
-      }
-    };
+    andConditions.push({ id: { [Op.in]: contactTagsIntersection } });
   }
 
   if (isGroup === "false") {
-    whereCondition = {
-      ...whereCondition,
-      isGroup: false
-    }
+    andConditions.push({ isGroup: false });
   }
 
+  if (channel && channel !== "") {
+    andConditions.push({ channel });
+  }
 
-  const limit = 100;
+  if (active !== undefined && active !== "") {
+    andConditions.push({ active: active === "true" });
+  }
+
+  const whereCondition: any = { [Op.and]: andConditions };
+
+  const limit = 250;
   const offset = limit * (+pageNumber - 1);
 
   const { count, rows: contacts } = await Contact.findAndCountAll({
     where: whereCondition,
+    distinct: true,
     limit,
     include: [
       {
         model: Ticket,
         as: "tickets",
-        attributes: ["id", "status", "createdAt", "updatedAt"]
-      },   
+        attributes: ["id", "status", "createdAt", "updatedAt", "userId"],
+        include: [
+          {
+            model: User,
+            as: "user",
+            attributes: ["id", "name"]
+          }
+        ]
+      },
       {
         model: Tag,
-        as: "tags",
-        //include: ["tags"]
+        as: "tags"
       }
     ],
     offset,

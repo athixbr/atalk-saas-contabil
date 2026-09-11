@@ -19,6 +19,7 @@ interface CampoTemplate {
   tipo: "text" | "number" | "currency" | "date" | "cpf" | "cnpj" | "barcode" | "email";
   regex: string;
   obrigatorio: boolean;
+  instrucao?: string;
   transformacao?: string;
   descricao?: string;
 }
@@ -55,6 +56,27 @@ class TemplateLeitura extends Model<TemplateLeitura> {
 
   @Column(DataType.JSONB)
   exemplos: any; // Exemplos de documentos e resultados esperados
+
+  @Column
+  arquivoEspelhoNome: string;
+
+  @Column
+  arquivoEspelhoPath: string;
+
+  @Column
+  arquivoEspelhoMimeType: string;
+
+  @Column
+  arquivoEspelhoSize: number;
+
+  @Column(DataType.TEXT)
+  textoEspelho: string;
+
+  @Column(DataType.JSONB)
+  dadosEspelho: any;
+
+  @Column(DataType.TEXT)
+  instrucoesIa: string;
 
   @BelongsTo(() => Company)
   company: any;

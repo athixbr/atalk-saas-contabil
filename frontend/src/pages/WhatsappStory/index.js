@@ -30,6 +30,7 @@ import VideoLabelIcon from "@material-ui/icons/VideoLabel";
 import TextFieldsIcon from "@material-ui/icons/TextFields";
 import CloseIcon from "@material-ui/icons/Close";
 import SendIcon from "@material-ui/icons/Send";
+import DeleteIcon from "@material-ui/icons/Delete";
 
 import MainContainer from "../../components/MainContainer";
 import MainHeader from "../../components/MainHeader";
@@ -152,7 +153,7 @@ const BG_COLORS = [
   "#9900cc", "#ff3399", "#333333", "#006666",
 ];
 
-const StoryViewerDialog = ({ open, onClose, contactGroup, onMarkSeen }) => {
+const StoryViewerDialog = ({ open, onClose, contactGroup, onMarkSeen, onDelete }) => {
   const classes = useStyles({ backgroundColor: null });
   const [currentIdx, setCurrentIdx] = useState(0);
 
@@ -272,9 +273,22 @@ const StoryViewerDialog = ({ open, onClose, contactGroup, onMarkSeen }) => {
         >
           Anterior
         </Button>
-        <Typography variant="caption" style={{ color: "#aaa" }}>
-          {currentIdx + 1} / {stories.length}
-        </Typography>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Typography variant="caption" style={{ color: "#aaa" }}>
+            {currentIdx + 1} / {stories.length}
+          </Typography>
+          {onDelete && (
+            <Tooltip title="Excluir story">
+              <IconButton
+                size="small"
+                onClick={() => onDelete(current.id)}
+                style={{ color: "#ff4444" }}
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+        </div>
         <Button size="small" onClick={handleNext} style={{ color: "#25D366" }}>
           {currentIdx < stories.length - 1 ? "Próximo" : "Fechar"}
         </Button>
@@ -552,6 +566,33 @@ const WhatsappStory = () => {
     setViewerOpen(true);
   };
 
+  const handleDeleteStory = useCallback(async (storyId) => {
+    try {
+      await api.delete(`/whatsapp-stories/${storyId}`);
+      toast.success("Story excluído com sucesso!");
+      setContactGroups((prev) => {
+        const updated = prev
+          .map((g) => ({
+            ...g,
+            stories: g.stories.filter((s) => s.id !== storyId),
+          }))
+          .filter((g) => g.stories.length > 0);
+        return updated;
+      });
+      setSelectedGroup((prev) => {
+        if (!prev) return prev;
+        const stories = prev.stories.filter((s) => s.id !== storyId);
+        if (stories.length === 0) {
+          setViewerOpen(false);
+          return null;
+        }
+        return { ...prev, stories };
+      });
+    } catch (err) {
+      toastError(err);
+    }
+  }, []);
+
   return (
     <MainContainer>
       <MainHeader>
@@ -661,6 +702,7 @@ const WhatsappStory = () => {
         onClose={() => setViewerOpen(false)}
         contactGroup={selectedGroup}
         onMarkSeen={handleMarkSeen}
+        onDelete={handleDeleteStory}
       />
 
       {/* Dialog publicar story */}

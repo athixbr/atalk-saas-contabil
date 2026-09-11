@@ -200,7 +200,10 @@ const TicketsList = ({
   tags,
   showAll,
   selectedQueueIds,
-  isGroup
+  isGroup,
+  mergeMode,
+  selectedForMerge,
+  onToggleSelectForMerge
 }) => {
   const classes = useStyles();
   const [pageNumber, setPageNumber] = useState(1);
@@ -354,7 +357,13 @@ const TicketsList = ({
           ) : (
             <>
               {ticketsList.map((ticket) => (
-                <TicketListItem ticket={ticket} key={ticket.id} />
+                <TicketListItem
+                  ticket={ticket}
+                  key={ticket.id}
+                  mergeMode={mergeMode}
+                  isSelectedForMerge={selectedForMerge?.some(t => t.id === ticket.id)}
+                  onToggleSelectForMerge={onToggleSelectForMerge}
+                />
               ))}
             </>
           )}

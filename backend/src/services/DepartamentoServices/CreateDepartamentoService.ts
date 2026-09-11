@@ -28,10 +28,6 @@ const CreateDepartamentoService = async ({
     throw new AppError("Nome do departamento é obrigatório", 400);
   }
 
-  if (!usuarios || usuarios.length === 0) {
-    throw new AppError("Selecione pelo menos um usuário para o departamento", 400);
-  }
-
   // Verificar se já existe um departamento com o mesmo nome na empresa
   const existingDepartamento = await Departamento.findOne({
     where: { nome, companyId },
@@ -47,14 +43,15 @@ const CreateDepartamentoService = async ({
     companyId,
   });
 
-  // Associar usuários ao departamento
-  const usuariosData = usuarios.map((u) => ({
-    departamentoId: departamento.id,
-    userId: u.userId,
-    isCoordenador: u.isCoordenador || false,
-  }));
-
-  await DepartamentoUsuario.bulkCreate(usuariosData);
+  // Associar usuários ao departamento (pode ser vazio)
+  if (usuarios && usuarios.length > 0) {
+    const usuariosData = usuarios.map((u) => ({
+      departamentoId: departamento.id,
+      userId: u.userId,
+      isCoordenador: u.isCoordenador || false,
+    }));
+    await DepartamentoUsuario.bulkCreate(usuariosData);
+  }
 
   return {
     id: departamento.id,

@@ -4,6 +4,7 @@ import { getIO } from "../libs/socket";
 import { head } from "lodash";
 import fs from "fs";
 import path from "path";
+import DigitalOceanService from "../services/DigitalOceanService";
 
 import ListService from "../services/CampaignService/ListService";
 import CreateService from "../services/CampaignService/CreateService";
@@ -272,6 +273,8 @@ export const deleteMedia = async (
     const fileExists = fs.existsSync(filePath);
     if (fileExists) {
       fs.unlinkSync(filePath);
+    } else {
+      try { await DigitalOceanService.delete(campaign.mediaPath); } catch (_) {}
     }
 
     campaign.mediaPath = null;

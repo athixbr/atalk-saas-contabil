@@ -1,23 +1,22 @@
-import AWS from "aws-sdk";
 import mime from "mime-types";
 import path from "path";
 import os from "os";
 import fs from "fs";
+import axios from "axios";
 import { logger } from "../utils/logger";
+import {
+  getS3Client,
+  BUCKET_NAME,
+  prefixKey,
+  buildProxyUrl,
+  proxyUrlToKey
+} from "../config/storage";
 
-const s3 = new AWS.S3({
-  endpoint: process.env.DO_SPACES_ENDPOINT || "atl1.digitaloceanspaces.com",
-  accessKeyId: process.env.DO_SPACES_KEY,
-  secretAccessKey: process.env.DO_SPACES_SECRET,
-  s3ForcePathStyle: false,
-  signatureVersion: "v4"
-});
-
-const BUCKET = process.env.DO_SPACES_BUCKET || "atalk";
-const CDN = process.env.DO_SPACES_CDN || `https://${BUCKET}.atl1.cdn.digitaloceanspaces.com`;
+const s3 = getS3Client();
 
 /**
- * Faz upload de um Buffer para o DO Spaces e retorna a URL pública do CDN.
+ * Faz upload de um Buffer para o storage (Backblaze B2 ou DO Spaces, conforme .env)
+ * e retorna a URL de proxy servida pelo próprio backend (ver rota "/public" em app.ts).
  * A key deve seguir o padrão: company{id}/filename.ext
  */
 export async function uploadBufferToSpaces(
@@ -26,26 +25,23 @@ export async function uploadBufferToSpaces(
   mimeType?: string
 ): Promise<string> {
   const contentType = (mimeType || mime.lookup(key) || "application/octet-stream") as string;
-  logger.info(`[Spaces] ⬆ Enviando: ${key} (${contentType}, ${(buffer.length / 1024).toFixed(1)} KB)`);
+  logger.info(`[Storage] ⬆ Enviando: ${key} (${contentType}, ${(buffer.length / 1024).toFixed(1)} KB)`);
   await s3.putObject({
-    Bucket: BUCKET,
-    Key: key,
+    Bucket: BUCKET_NAME,
+    Key: prefixKey(key),
     Body: buffer,
-    ContentType: contentType,
-    ACL: "public-read"
+    ContentType: contentType
   }).promise();
-  const cdnUrl = buildCdnUrl(key);
-  logger.info(`[Spaces] ✅ Enviado: ${key} → ${cdnUrl}`);
-  return cdnUrl;
+  const proxyUrl = buildCdnUrl(key);
+  logger.info(`[Storage] ✅ Enviado: ${key} → ${proxyUrl}`);
+  return proxyUrl;
 }
 
 /**
- * Constrói a URL do CDN com encoding correto de caracteres especiais no path.
- * O # em especial precisa ser %23 para não ser interpretado como fragmento pelo browser.
+ * Constrói a URL pública (via proxy do backend) para uma key relativa do storage.
  */
 export function buildCdnUrl(key: string): string {
-  const encodedKey = key.split("/").map(segment => encodeURIComponent(segment)).join("/");
-  return `${CDN}/${encodedKey}`;
+  return buildProxyUrl(key);
 }
 
 /**
@@ -72,33 +68,33 @@ export function buildSpacesKey(
 }
 
 /**
- * Retorna true se a string for uma URL completa (arquivos novos no Spaces).
+ * Retorna true se a string for uma URL completa (arquivo já enviado ao storage).
  */
 export function isSpacesUrl(value: string): boolean {
   return typeof value === "string" && (value.startsWith("https://") || value.startsWith("http://"));
 }
 
 /**
- * Baixa um arquivo do DO Spaces e retorna o Buffer.
+ * Baixa um arquivo do storage e retorna o Buffer.
  */
 export async function downloadFromSpaces(key: string): Promise<Buffer> {
-  logger.info(`[Spaces] ⬇ Baixando: ${key}`);
-  const result = await s3.getObject({ Bucket: BUCKET, Key: key }).promise();
-  logger.info(`[Spaces] ✅ Download concluído: ${key}`);
+  logger.info(`[Storage] ⬇ Baixando: ${key}`);
+  const result = await s3.getObject({ Bucket: BUCKET_NAME, Key: prefixKey(key) }).promise();
+  logger.info(`[Storage] ✅ Download concluído: ${key}`);
   return result.Body as Buffer;
 }
 
 /**
- * Extrai a key S3 a partir de uma URL do CDN (faz decode do path).
- * Ex: "https://atalk.atl1.cdn.digitaloceanspaces.com/company2/file%23.jpg" => "company2/file#.jpg"
+ * Extrai a key do storage a partir de uma URL de proxy (faz decode do path).
+ * Ex: "https://app-api.atalk.com.br/public/company2/file%23.jpg" => "company2/file#.jpg"
  */
 export function cdnUrlToKey(cdnUrl: string): string {
-  const encoded = cdnUrl.replace(`${CDN}/`, "");
-  return decodeURIComponent(encoded);
+  return proxyUrlToKey(cdnUrl);
 }
 
 /**
- * Garante que o arquivo esteja disponível localmente (em temp), seja baixando do Spaces.
+ * Garante que o arquivo esteja disponível localmente (em temp), baixando do storage
+ * (ou de uma URL externa antiga, para mídias enviadas antes desta migração).
  * Retorna o caminho local para uso (ex: ffmpeg, readFileSync).
  * O chamador é responsável por deletar o arquivo temp após o uso.
  */
@@ -108,9 +104,16 @@ export async function ensureLocalFile(
 ): Promise<string> {
   if (fs.existsSync(mediaPath)) return mediaPath;
 
-  // Arquivo não existe localmente — baixa do Spaces para /tmp
   const filename = path.basename(mediaPath);
   const tempPath = path.join(os.tmpdir(), `atalk-dl-${Date.now()}-${filename}`);
+
+  if (isSpacesUrl(cdnUrlOrKey) && !cdnUrlOrKey.includes("/public/")) {
+    // URL externa (ex: mídia enviada antes da migração, hospedada em outro storage/CDN)
+    const response = await axios.get<ArrayBuffer>(cdnUrlOrKey, { responseType: "arraybuffer" });
+    fs.writeFileSync(tempPath, Buffer.from(response.data));
+    return tempPath;
+  }
+
   const key = isSpacesUrl(cdnUrlOrKey) ? cdnUrlToKey(cdnUrlOrKey) : cdnUrlOrKey;
   const buffer = await downloadFromSpaces(key);
   fs.writeFileSync(tempPath, buffer);

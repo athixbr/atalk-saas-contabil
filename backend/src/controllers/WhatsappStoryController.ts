@@ -3,6 +3,7 @@ import AppError from "../errors/AppError";
 import ListStoriesService from "../services/WhatsappStoryServices/ListStoriesService";
 import MarkStorySeenService from "../services/WhatsappStoryServices/MarkStorySeenService";
 import PublishStoryService from "../services/WhatsappStoryServices/PublishStoryService";
+import DeleteStoryService from "../services/WhatsappStoryServices/DeleteStoryService";
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const { companyId, profile } = req.user;
@@ -81,4 +82,18 @@ export const publish = async (req: Request, res: Response): Promise<Response> =>
   });
 
   return res.status(201).json(story);
+};
+
+export const destroy = async (req: Request, res: Response): Promise<Response> => {
+  const { companyId, profile } = req.user;
+
+  if (profile !== "admin") {
+    throw new AppError("ERR_NO_PERMISSION", 403);
+  }
+
+  const { storyId } = req.params;
+
+  await DeleteStoryService(Number(storyId), companyId);
+
+  return res.status(200).json({ message: "Story excluído com sucesso" });
 };

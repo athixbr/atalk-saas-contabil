@@ -1,10 +1,12 @@
 import Cliente from "../../models/Cliente";
+import __cjs_sequelize from "sequelize";
 import Socio from "../../models/Socio";
 import ClienteSocio from "../../models/ClienteSocio";
 import AppError from "../../errors/AppError";
 import Status from "../../models/Status";
 import StatusComplementar from "../../models/StatusComplementar";
 import Segmento from "../../models/Segmento";
+import Atuacao from "../../models/Atuacao";
 import SedeCliente from "../../models/SedeCliente";
 import RegimeTributarioFederal from "../../models/RegimeTributarioFederal";
 import RegimeTributarioEstadual from "../../models/RegimeTributarioEstadual";
@@ -39,6 +41,9 @@ import StatusControle from "../../models/StatusControle";
 import GrupoServico from "../../models/GrupoServico";
 import DemaisIdentificadores from "../../models/DemaisIdentificadores";
 import TipoDocumento from "../../models/TipoDocumento";
+import ClienteVigencia from "../../models/ClienteVigencia";
+
+const { Op } = __cjs_sequelize;
 
 interface Request {
   id: string | number;
@@ -55,6 +60,25 @@ const ShowClienteService = async ({
       {
         model: Socio,
         as: "socios",
+        include: [
+          {
+            model: Cliente,
+            as: "clienteOrigem",
+            attributes: [
+              "id",
+              "codigoSistema",
+              "codigoErp",
+              "nome",
+              "nomeFantasia",
+              "razaoSocial",
+              "apelido",
+              "tipoCliente",
+              "cnpj",
+              "cpf",
+            ],
+            required: false,
+          },
+        ],
         through: {
           attributes: [
             "id",
@@ -69,8 +93,10 @@ const ShowClienteService = async ({
             "isAdministrador",
             "recebeProlabore",
             "valorProlabore",
+            "tipoParticipacao",
             "observacoes",
             "ativo",
+            "modoCadastro",
           ],
         },
         required: false,
@@ -90,6 +116,12 @@ const ShowClienteService = async ({
       {
         model: Segmento,
         as: "segmento",
+        attributes: ["id", "nome"],
+        required: false,
+      },
+      {
+        model: Atuacao,
+        as: "atuacao",
         attributes: ["id", "nome"],
         required: false,
       },
@@ -293,11 +325,62 @@ const ShowClienteService = async ({
         ],
         required: false,
       },
+      {
+        model: ClienteVigencia,
+        as: "vigencias",
+        attributes: ["id", "dataInicial", "dataFinal", "createdAt"],
+        required: false,
+        order: [["dataInicial", "DESC"]],
+      },
     ],
   });
 
   if (!cliente) {
     throw new AppError("Cliente não encontrado", 404);
+  }
+
+  if (!cliente.codigoSistema) {
+    cliente.setDataValue("codigoSistema", String(cliente.id));
+  }
+
+  const socios = (cliente as any).socios || [];
+  const documentosSocios = socios
+    .map((socio: any) => (socio.cpf || "").replace(/\D/g, ""))
+    .filter((documento: string) => documento);
+
+  if (documentosSocios.length > 0) {
+    const clientesOrigem = await Cliente.findAll({
+      where: {
+        companyId,
+        id: { [Op.ne]: id },
+        [Op.or]: [
+          { cpf: { [Op.in]: documentosSocios } },
+          { cnpj: { [Op.in]: documentosSocios } },
+        ],
+      },
+      attributes: ["id", "nome", "razaoSocial", "nomeFantasia", "apelido", "cpf", "cnpj", "codigoErp", "codigoSistema"],
+    });
+
+    const clientesPorDocumento = new Map<string, Cliente>();
+    clientesOrigem.forEach((clienteOrigem: any) => {
+      const cpf = clienteOrigem.cpf ? String(clienteOrigem.cpf).replace(/\D/g, "") : "";
+      const cnpj = clienteOrigem.cnpj ? String(clienteOrigem.cnpj).replace(/\D/g, "") : "";
+      if (cpf) clientesPorDocumento.set(cpf, clienteOrigem);
+      if (cnpj) clientesPorDocumento.set(cnpj, clienteOrigem);
+    });
+
+    socios.forEach((socio: any) => {
+      const documento = socio.cpf ? String(socio.cpf).replace(/\D/g, "") : "";
+      const clienteOrigem = clientesPorDocumento.get(documento);
+      if (!clienteOrigem) return;
+
+      socio.setDataValue("codigoSistema", clienteOrigem.codigoSistema || String(clienteOrigem.id));
+      socio.setDataValue("codigoErp", clienteOrigem.codigoErp || socio.codigoErp || null);
+      socio.setDataValue("apelido", clienteOrigem.apelido || null);
+      socio.setDataValue("nomeFantasia", clienteOrigem.nomeFantasia || null);
+      socio.setDataValue("razaoSocial", clienteOrigem.razaoSocial || null);
+      socio.setDataValue("nome", socio.nome || clienteOrigem.apelido || clienteOrigem.nomeFantasia || clienteOrigem.razaoSocial || clienteOrigem.nome);
+    });
   }
 
   return cliente;

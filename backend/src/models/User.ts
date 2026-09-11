@@ -22,6 +22,8 @@ import UserQueue from "./UserQueue";
 import Company from "./Company";
 import QuickMessage from "./QuickMessage";
 import Whatsapp from "./Whatsapp";
+import Departamento from "./Departamento";
+import DepartamentoUsuario from "./DepartamentoUsuario";
 
 @Table
 class User extends Model<User> {
@@ -66,6 +68,10 @@ class User extends Model<User> {
 
   @Column
   online: boolean;
+
+  @Default(true)
+  @Column
+  isActive: boolean;
 
   @Default("00:00")
   @Column
@@ -120,6 +126,9 @@ class User extends Model<User> {
 
   @BelongsToMany(() => Queue, () => UserQueue)
   queues: any[];
+
+  @BelongsToMany(() => Departamento, () => DepartamentoUsuario)
+  departamentos: any[];
 
   @HasMany(() => QuickMessage, {
     onUpdate: "CASCADE",

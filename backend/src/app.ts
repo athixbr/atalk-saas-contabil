@@ -12,6 +12,7 @@ import AppError from "./errors/AppError";
 import routes from "./routes";
 import { logger } from "./utils/logger";
 import { messageQueue, sendScheduledMessages } from "./queues";
+import serveFromStorage from "./middleware/storageProxy";
 
 Sentry.init({ dsn: process.env.SENTRY_DSN });
 
@@ -35,9 +36,7 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(Sentry.Handlers.requestHandler());
 app.use("/public", express.static(uploadConfig.directory));
-app.use("/public", (_req: Request, res: Response) => {
-  res.status(404).json({ error: "File not found" });
-});
+app.use("/public", serveFromStorage);
 app.use(routes);
 
 app.use(Sentry.Handlers.errorHandler());

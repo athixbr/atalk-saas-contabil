@@ -23,6 +23,7 @@ import Typography from "@material-ui/core/Typography";
 import Grid from "@material-ui/core/Grid"
 
 import NewTicketModal from "../NewTicketModal";
+import MergeTicketModal from "../MergeTicketModal";
 import TicketsList from "../TicketsListCustom";
 import TabPanel from "../TabPanel";
 
@@ -195,6 +196,8 @@ const TicketsManagerTabs = () => {
   // const [hidden, setHidden] = useState(false);
 
   const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [selectedForMerge, setSelectedForMerge] = useState([]);
+  const [mergeModalOpen, setMergeModalOpen] = useState(false);
   const { setSelectedQueuesMessage } = useContext(QueueSelectedContext);
 
   useEffect(() => {
@@ -225,15 +228,22 @@ const TicketsManagerTabs = () => {
     };
   }, []);
 
-  // Detectar contactId na URL e abrir ticket automaticamente
+  // Detectar parâmetros na URL e aplicar filtros automáticos
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const contactId = params.get('contactId');
     const autoOpen = params.get('autoOpen');
+    const tabParam = params.get('tab');
 
     if (contactId && autoOpen === 'true') {
       handleOpenContactTicket(contactId);
-      // Limpar parâmetros da URL após processar
+      history.replace('/tickets');
+      return;
+    }
+
+    const validTabs = ['open', 'pending', 'closed'];
+    if (tabParam && validTabs.includes(tabParam)) {
+      setTab(tabParam);
       history.replace('/tickets');
     }
   }, [location.search]);
@@ -346,6 +356,23 @@ const TicketsManagerTabs = () => {
     fontSize: '10px'
   };
 
+  const handleMergeSelect = (ticket) => {
+    setSelectedForMerge(prev => {
+      const already = prev.some(t => t.id === ticket.id);
+      if (already) return prev.filter(t => t.id !== ticket.id);
+      const next = [...prev, ticket];
+      if (next.length === 2) {
+        setMergeModalOpen(true);
+      }
+      return next.slice(0, 2);
+    });
+  };
+
+  const handleMergeSuccess = () => {
+    setSelectedForMerge([]);
+    setMergeModalOpen(false);
+  };
+
   const handleCloseOrOpenTicket = ticket => {
     setNewTicketModalOpen(false);
     if (ticket !== undefined && ticket.uuid !== undefined) {
@@ -414,6 +441,13 @@ const TicketsManagerTabs = () => {
         onClose={(ticket) => {
           handleCloseOrOpenTicket(ticket);
         }}
+      />
+      <MergeTicketModal
+        open={mergeModalOpen}
+        onClose={() => { setMergeModalOpen(false); setSelectedForMerge([]); }}
+        ticketA={selectedForMerge[0]}
+        ticketB={selectedForMerge[1]}
+        onMergeSuccess={handleMergeSuccess}
       />
       <div className={classes.serachInputWrapper}>
         <SearchIcon className={classes.searchIcon} />
@@ -647,6 +681,8 @@ const TicketsManagerTabs = () => {
             updateCount={(val) => setOpenCount(val)}
             style={applyPanelStyle("open")}
             forceSearch={forceSearch}
+            selectedForMerge={selectedForMerge}
+            onMergeSelect={handleMergeSelect}
           />
           <TicketsList
             status="pending"
@@ -655,7 +691,8 @@ const TicketsManagerTabs = () => {
             updateCount={(val) => setPendingCount(val)}
             style={applyPanelStyle("pending")}
             forceSearch={forceSearch}
-
+            selectedForMerge={selectedForMerge}
+            onMergeSelect={handleMergeSelect}
           />
           <TicketsList
             status="group"
@@ -664,7 +701,8 @@ const TicketsManagerTabs = () => {
             updateCount={(val) => setGroupingCount(val)}
             style={applyPanelStyle("group")}
             forceSearch={forceSearch}
-
+            selectedForMerge={selectedForMerge}
+            onMergeSelect={handleMergeSelect}
           />
         </Paper>
       </TabPanel>

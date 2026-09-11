@@ -3,11 +3,18 @@ import AppError from "../../errors/AppError";
 import Queue from "../../models/Queue";
 import Company from "../../models/Company";
 import Plan from "../../models/Plan";
+import Departamento from "../../models/Departamento";
 
 const ShowUserService = async (id: string | number): Promise<User> => {
   const user = await User.findByPk(id, {
     include: [
       { model: Queue, as: "queues", attributes: ["id", "name", "color"] },
+      {
+        model: Departamento,
+        as: "departamentos",
+        attributes: ["id", "nome"],
+        through: { attributes: ["isCoordenador"] }
+      },
       {
         model: Company,
         as: "company",

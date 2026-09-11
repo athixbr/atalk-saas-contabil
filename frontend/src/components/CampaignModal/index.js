@@ -13,11 +13,17 @@ import TextField from "@material-ui/core/TextField";
 import Dialog from "@material-ui/core/Dialog";
 import DialogActions from "@material-ui/core/DialogActions";
 import DialogContent from "@material-ui/core/DialogContent";
-import DialogTitle from "@material-ui/core/DialogTitle";
 import CircularProgress from "@material-ui/core/CircularProgress";
 import AttachFileIcon from "@material-ui/icons/AttachFile";
 import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
+import CloseIcon from "@material-ui/icons/Close";
+import CampaignIcon from "@material-ui/icons/Send";
+import PersonIcon from "@material-ui/icons/Person";
+import DoneAllIcon from "@material-ui/icons/DoneAll";
+import InsertDriveFileIcon from "@material-ui/icons/InsertDriveFile";
 import Chip from '@material-ui/core/Chip';
+import Divider from "@material-ui/core/Divider";
+import Typography from "@material-ui/core/Typography";
 
 import { i18n } from "../../translate/i18n";
 import moment from "moment";
@@ -66,7 +72,181 @@ const useStyles = makeStyles((theme) => ({
     marginTop: -12,
     marginLeft: -12,
   },
+
+  dialogPaper: {
+    borderRadius: "20px",
+    overflow: "hidden",
+  },
+
+  dialogTitle: {
+    background: "linear-gradient(135deg, #1A4783 0%, #2d7dd2 100%)",
+    color: "#fff",
+    padding: "18px 24px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+
+  dialogTitleLeft: {
+    display: "flex",
+    alignItems: "center",
+    gap: "14px",
+  },
+
+  dialogTitleIcon: {
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderRadius: "12px",
+    padding: "10px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  closeButton: {
+    color: "#fff",
+  },
+
+  sectionTitle: {
+    fontWeight: 700,
+    color: "#1A4783",
+    fontSize: "0.95rem",
+    marginBottom: "8px",
+    marginTop: "4px",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  },
+
+  sectionDivider: {
+    margin: "4px 0 16px 0",
+    backgroundColor: "#eef1f7",
+  },
+
+  tabs: {
+    background: "#f2f2f2",
+    border: "1px solid #e6e6e6",
+    borderRadius: "10px",
+    minHeight: "40px",
+  },
+
+  submitButton: {
+    borderRadius: "10px",
+    fontWeight: 600,
+    color: "#fff",
+    background: "linear-gradient(135deg, #1A4783 0%, #2d7dd2 100%)",
+    boxShadow: "0 4px 12px rgba(26,71,131,0.3)",
+    "&:hover": {
+      background: "linear-gradient(135deg, #163c6e 0%, #256bb3 100%)",
+    },
+    "&.Mui-disabled": {
+      color: "rgba(255,255,255,0.6)",
+    },
+  },
+
+  outlinedButton: {
+    borderRadius: "10px",
+  },
+
+  previewContainer: {
+    borderRadius: "16px",
+    overflow: "hidden",
+    boxShadow: "0 2px 12px rgba(0,0,0,0.12)",
+    border: "1px solid #e0e0e0",
+    height: "100%",
+    minHeight: "260px",
+    display: "flex",
+    flexDirection: "column",
+  },
+  previewHeader: {
+    background: "linear-gradient(135deg, #075E54 0%, #128C7E 100%)",
+    color: "#fff",
+    padding: "10px 14px",
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+  },
+  previewAvatar: {
+    width: "32px",
+    height: "32px",
+    borderRadius: "50%",
+    backgroundColor: "rgba(255,255,255,0.25)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  previewBody: {
+    flex: 1,
+    background:
+      "#e5ddd5 url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23d5cec4' fill-opacity='0.4'%3E%3Cpath d='M0 0h30v30H0zM30 30h30v30H30z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")",
+    padding: "14px",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "flex-end",
+    gap: "8px",
+  },
+  previewMediaChip: {
+    alignSelf: "flex-end",
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    background: "#DCF8C6",
+    padding: "8px 10px",
+    borderRadius: "10px 10px 2px 10px",
+    fontSize: "12px",
+    maxWidth: "85%",
+    wordBreak: "break-word",
+    boxShadow: "0 1px 2px rgba(0,0,0,0.15)",
+  },
+  previewBubble: {
+    alignSelf: "flex-end",
+    background: "#DCF8C6",
+    padding: "8px 10px",
+    borderRadius: "10px 10px 2px 10px",
+    maxWidth: "85%",
+    boxShadow: "0 1px 2px rgba(0,0,0,0.15)",
+  },
+  previewText: {
+    fontSize: "13.5px",
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+    color: "#111",
+  },
+  previewMeta: {
+    display: "flex",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    gap: "3px",
+    marginTop: "3px",
+  },
+  previewTime: {
+    fontSize: "10px",
+    color: "#667781",
+  },
+  previewEmpty: {
+    color: "#8a8a8a",
+    fontSize: "13px",
+    fontStyle: "italic",
+    textAlign: "center",
+    margin: "auto",
+    padding: "0 12px",
+  },
 }));
+
+const PREVIEW_SAMPLE_VARIABLES = {
+  nome: "João Silva",
+  numero: "5511999999999",
+  email: "joao.silva@email.com",
+};
+
+const buildPreviewText = (text) => {
+  if (!text) return "";
+  let preview = text;
+  Object.entries(PREVIEW_SAMPLE_VARIABLES).forEach(([key, value]) => {
+    preview = preview.replace(new RegExp(`\\{${key}\\}`, "gi"), value);
+  });
+  return preview;
+};
 
 const CampaignSchema = Yup.object().shape({
   name: Yup.string()
@@ -305,6 +485,79 @@ const CampaignModal = ({
     );
   };
 
+  const renderMessagePreview = (rawText) => {
+    const previewText = buildPreviewText(rawText);
+    const mediaName = attachment != null ? attachment.name : campaign.mediaName;
+    const hasMedia = Boolean(attachment || campaign.mediaPath);
+
+    return (
+      <div className={classes.previewContainer}>
+        <div className={classes.previewHeader}>
+          <div className={classes.previewAvatar}>
+            <PersonIcon style={{ fontSize: 18, color: "#fff" }} />
+          </div>
+          <div>
+            <Typography style={{ fontSize: 13, fontWeight: 600 }}>
+              {PREVIEW_SAMPLE_VARIABLES.nome}
+            </Typography>
+            <Typography style={{ fontSize: 10, opacity: 0.85 }}>
+              Pré-visualização da mensagem
+            </Typography>
+          </div>
+        </div>
+        <div className={classes.previewBody}>
+          {hasMedia && (
+            <div className={classes.previewMediaChip}>
+              <InsertDriveFileIcon style={{ fontSize: 16 }} />
+              <span>{mediaName}</span>
+            </div>
+          )}
+          {previewText ? (
+            <div className={classes.previewBubble}>
+              <Typography className={classes.previewText}>
+                {previewText}
+              </Typography>
+              <div className={classes.previewMeta}>
+                <Typography className={classes.previewTime}>
+                  {moment().format("HH:mm")}
+                </Typography>
+                <DoneAllIcon style={{ fontSize: 14, color: "#53bdeb" }} />
+              </div>
+            </div>
+          ) : (
+            !hasMedia && (
+              <Typography className={classes.previewEmpty}>
+                Digite a mensagem ao lado para ver como ela vai aparecer para
+                o contato.
+              </Typography>
+            )
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderMessageTabContent = (index, values) => {
+    const identifier = `message${index}`;
+    const confirmationIdentifier = `confirmationMessage${index}`;
+
+    return (
+      <Grid spacing={2} container>
+        <Grid xs={12} md={7} item>
+          {renderMessageField(identifier)}
+          {values.confirmation && (
+            <Box mt={2}>
+              {renderConfirmationMessageField(confirmationIdentifier)}
+            </Box>
+          )}
+        </Grid>
+        <Grid xs={12} md={5} item>
+          {renderMessagePreview(values[identifier])}
+        </Grid>
+      </Grid>
+    );
+  };
+
   const cancelCampaign = async () => {
     try {
       await api.post(`/campaigns/${campaign.id}/cancel`);
@@ -343,18 +596,33 @@ const CampaignModal = ({
         fullWidth
         maxWidth="md"
         scroll="paper"
+        classes={{ paper: classes.dialogPaper }}
       >
-        <DialogTitle id="form-dialog-title">
-          {campaignEditable ? (
-            <>
-              {campaignId
-                ? `${i18n.t("campaigns.dialog.update")}`
-                : `${i18n.t("campaigns.dialog.new")}`}
-            </>
-          ) : (
-            <>{`${i18n.t("campaigns.dialog.readonly")}`}</>
-          )}
-        </DialogTitle>
+        <div className={classes.dialogTitle} id="form-dialog-title">
+          <div className={classes.dialogTitleLeft}>
+            <div className={classes.dialogTitleIcon}>
+              <CampaignIcon style={{ color: "#fff", fontSize: "22px" }} />
+            </div>
+            <Typography style={{ fontSize: "18px", fontWeight: 700 }}>
+              {campaignEditable ? (
+                <>
+                  {campaignId
+                    ? `${i18n.t("campaigns.dialog.update")}`
+                    : `${i18n.t("campaigns.dialog.new")}`}
+                </>
+              ) : (
+                <>{`${i18n.t("campaigns.dialog.readonly")}`}</>
+              )}
+            </Typography>
+          </div>
+          <IconButton
+            size="small"
+            className={classes.closeButton}
+            onClick={handleClose}
+          >
+            <CloseIcon />
+          </IconButton>
+        </div>
         <div style={{ display: "none" }}>
           <input
             type="file"
@@ -377,6 +645,12 @@ const CampaignModal = ({
             <Form>
               <DialogContent dividers>
                 <Grid spacing={2} container>
+                  <Grid xs={12} item>
+                    <Typography className={classes.sectionTitle}>
+                      Configurações da Campanha
+                    </Typography>
+                    <Divider className={classes.sectionDivider} />
+                  </Grid>
                   <Grid xs={12} md={4} item>
                     <Field
                       as={TextField}
@@ -548,18 +822,18 @@ const CampaignModal = ({
                     />
                   </Grid>
                   <Grid xs={12} item>
+                    <Typography className={classes.sectionTitle} style={{ marginTop: "12px" }}>
+                      Mensagens da Campanha
+                    </Typography>
+                    <Divider className={classes.sectionDivider} />
                     <Tabs
+                      className={classes.tabs}
                       value={messageTab}
                       indicatorColor="primary"
                       textColor="primary"
                       onChange={(e, v) => setMessageTab(v)}
                       variant="fullWidth"
                       centered
-                      style={{
-                        background: "#f2f2f2",
-                        border: "1px solid #e6e6e6",
-                        borderRadius: 2,
-                      }}
                     >
                       <Tab label="Msg. 1" index={0} />
                       <Tab label="Msg. 2" index={1} />
@@ -568,106 +842,11 @@ const CampaignModal = ({
                       <Tab label="Msg. 5" index={4} />
                     </Tabs>
                     <Box style={{ paddingTop: 20, border: "none" }}>
-                      {messageTab === 0 && (
-                        <>
-                          {values.confirmation ? (
-                            <Grid spacing={2} container>
-                              <Grid xs={12} md={8} item>
-                                <>{renderMessageField("message1")}</>
-                              </Grid>
-                              <Grid xs={12} md={4} item>
-                                <>
-                                  {renderConfirmationMessageField(
-                                    "confirmationMessage1"
-                                  )}
-                                </>
-                              </Grid>
-                            </Grid>
-                          ) : (
-                            <>{renderMessageField("message1")}</>
-                          )}
-                        </>
-                      )}
-                      {messageTab === 1 && (
-                        <>
-                          {values.confirmation ? (
-                            <Grid spacing={2} container>
-                              <Grid xs={12} md={8} item>
-                                <>{renderMessageField("message2")}</>
-                              </Grid>
-                              <Grid xs={12} md={4} item>
-                                <>
-                                  {renderConfirmationMessageField(
-                                    "confirmationMessage2"
-                                  )}
-                                </>
-                              </Grid>
-                            </Grid>
-                          ) : (
-                            <>{renderMessageField("message2")}</>
-                          )}
-                        </>
-                      )}
-                      {messageTab === 2 && (
-                        <>
-                          {values.confirmation ? (
-                            <Grid spacing={2} container>
-                              <Grid xs={12} md={8} item>
-                                <>{renderMessageField("message3")}</>
-                              </Grid>
-                              <Grid xs={12} md={4} item>
-                                <>
-                                  {renderConfirmationMessageField(
-                                    "confirmationMessage3"
-                                  )}
-                                </>
-                              </Grid>
-                            </Grid>
-                          ) : (
-                            <>{renderMessageField("message3")}</>
-                          )}
-                        </>
-                      )}
-                      {messageTab === 3 && (
-                        <>
-                          {values.confirmation ? (
-                            <Grid spacing={2} container>
-                              <Grid xs={12} md={8} item>
-                                <>{renderMessageField("message4")}</>
-                              </Grid>
-                              <Grid xs={12} md={4} item>
-                                <>
-                                  {renderConfirmationMessageField(
-                                    "confirmationMessage4"
-                                  )}
-                                </>
-                              </Grid>
-                            </Grid>
-                          ) : (
-                            <>{renderMessageField("message4")}</>
-                          )}
-                        </>
-                      )}
-                      {messageTab === 4 && (
-                        <>
-                          {values.confirmation ? (
-                            <Grid spacing={2} container>
-                              <Grid xs={12} md={8} item>
-                                <>{renderMessageField("message5")}</>
-                              </Grid>
-                              <Grid xs={12} md={4} item>
-                                <>
-                                  {renderConfirmationMessageField(
-                                    "confirmationMessage5"
-                                  )}
-                                </>
-                              </Grid>
-                            </Grid>
-                          ) : (
-                            <>{renderMessageField("message5")}</>
-                          )}
-                        </>
-                      )}
+                      {messageTab === 0 && renderMessageTabContent(1, values)}
+                      {messageTab === 1 && renderMessageTabContent(2, values)}
+                      {messageTab === 2 && renderMessageTabContent(3, values)}
+                      {messageTab === 3 && renderMessageTabContent(4, values)}
+                      {messageTab === 4 && renderMessageTabContent(5, values)}
                     </Box>
                   </Grid>
                   {(campaign.mediaPath || attachment) && (
@@ -689,9 +868,10 @@ const CampaignModal = ({
                   )}
                 </Grid>
               </DialogContent>
-              <DialogActions>
+              <DialogActions style={{ padding: "16px 24px" }}>
                 {campaign.status === "CANCELADA" && (
                   <Button
+                    className={classes.outlinedButton}
                     color="primary"
                     onClick={() => restartCampaign()}
                     variant="outlined"
@@ -701,6 +881,7 @@ const CampaignModal = ({
                 )}
                 {campaign.status === "EM_ANDAMENTO" && (
                   <Button
+                    className={classes.outlinedButton}
                     color="primary"
                     onClick={() => cancelCampaign()}
                     variant="outlined"
@@ -710,6 +891,7 @@ const CampaignModal = ({
                 )}
                 {!attachment && !campaign.mediaPath && campaignEditable && (
                   <Button
+                    className={classes.outlinedButton}
                     color="primary"
                     onClick={() => attachmentFile.current.click()}
                     disabled={isSubmitting}
@@ -719,6 +901,7 @@ const CampaignModal = ({
                   </Button>
                 )}
                 <Button
+                  className={classes.outlinedButton}
                   onClick={handleClose}
                   color="primary"
                   disabled={isSubmitting}
@@ -729,10 +912,9 @@ const CampaignModal = ({
                 {(campaignEditable || campaign.status === "CANCELADA") && (
                   <Button
                     type="submit"
-                    color="primary"
                     disabled={isSubmitting}
                     variant="contained"
-                    className={classes.btnWrapper}
+                    className={`${classes.btnWrapper} ${classes.submitButton}`}
                   >
                     {campaignId
                       ? `${i18n.t("campaigns.dialog.buttons.edit")}`

@@ -90,7 +90,11 @@ const Visualizar = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadChecklist();
+    if (id && !isNaN(Number(id))) {
+      loadChecklist();
+    } else if (id) {
+      history.push("/checklists");
+    }
   }, [id]);
 
   const loadChecklist = async () => {

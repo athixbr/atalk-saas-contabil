@@ -26,7 +26,6 @@ import {
   Label as LabelIcon,
   BarChart as BarChartIcon,
 } from "@material-ui/icons";
-import MainContainer from "../../components/MainContainer";
 import MainHeader from "../../components/MainHeader";
 import Title from "../../components/Title";
 import StatusTab from "./StatusTab";
@@ -51,7 +50,7 @@ import PeriodicidadeClienteTab from "./PeriodicidadeClienteTab";
 import RegimeTributarioMunicipalTab from "./RegimeTributarioMunicipalTab";
 import ModalidadeFechamentoDPTab from "./ModalidadeFechamentoDPTab";
 import TagsTab from "./TagsTab";
-import Checklists from "../Checklists";
+import ChecklistsTab from "./ChecklistsTab";
 import TipoServicoTab from "./TipoServicoTab";
 import StatusClienteTab from "./StatusClienteTab";
 import PorteFederalTab from "./PorteFederalTab";
@@ -66,14 +65,28 @@ import VolumeBPOTab from "./VolumeBPOTab";
 import ModalFechBPOTab from "./ModalFechBPOTab";
 import TipoDocumentoTab from "./TipoDocumentoTab";
 import CargoSocioTab from "./CargoSocioTab";
+import EsferaTab from "./EsferaTab";
+import AtuacaoTab from "./AtuacaoTab";
+import ControleComDataTab from "./ControleComDataTab";
+import TipoContaTab from "./TipoContaTab";
 
 const useStyles = makeStyles((theme) => ({
+  mainContainer: {
+    display: "flex",
+    flexDirection: "column",
+    height: "100%",
+    padding: theme.spacing(3),
+    width: "100%",
+    boxSizing: "border-box",
+  },
   mainPaper: {
     flex: 1,
     padding: theme.spacing(2),
     height: 'calc(100vh - 120px)',
     display: 'flex',
     gap: theme.spacing(2),
+    width: "100%",
+    boxSizing: "border-box",
     ...theme.scrollbarStyles,
   },
   sidebar: {
@@ -265,6 +278,10 @@ const Parametros = () => {
       items: [
         { index: 35, label: "Tipo de Documento", isNew: true },
         { index: 36, label: "Cargo", isNew: true },
+        { index: 37, label: "Esfera", isNew: true },
+        { index: 38, label: "Atuação", isNew: true },
+        { index: 39, label: "Fase", isNew: true },
+        { index: 40, label: "Tipo de Conta", isNew: true },
       ],
     },
   ];
@@ -335,18 +352,22 @@ const Parametros = () => {
       case 28: return <RegimeTributarioMunicipalTab />;
       case 29: return <ModalidadeFechamentoDPTab />;
       case 30: return <TagsTab />;
-      case 31: return <Checklists />;
+      case 31: return <ChecklistsTab />;
       case 32: return <TipoServicoTab />;
       case 33: return <LocalizacaoClienteTab />;
       case 34: return <TagServicoTab />;
       case 35: return <TipoDocumentoTab />;
       case 36: return <CargoSocioTab />;
+      case 37: return <EsferaTab />;
+      case 38: return <AtuacaoTab />;
+      case 39: return <ControleComDataTab />;
+      case 40: return <TipoContaTab />;
       default: return null;
     }
   };
 
   return (
-    <MainContainer>
+    <div className={classes.mainContainer}>
       <MainHeader>
         <Title>Configurações do Sistema</Title>
       </MainHeader>
@@ -406,15 +427,6 @@ const Parametros = () => {
                           primary={
                             <Box display="flex" alignItems="center">
                               {item.label}
-                              {item.isNew && (
-                                <Chip
-                                  label="NOVO"
-                                  size="small"
-                                  color="secondary"
-                                  className={classes.newBadge}
-                                  style={{ height: 20, fontSize: '0.65rem' }}
-                                />
-                              )}
                             </Box>
                           }
                           primaryTypographyProps={{
@@ -453,7 +465,7 @@ const Parametros = () => {
           </TabPanel>
         </Box>
       </Box>
-    </MainContainer>
+    </div>
   );
 };
 

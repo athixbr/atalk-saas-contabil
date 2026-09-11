@@ -1,15 +1,14 @@
-import React, { useState, useEffect, useReducer, useContext } from "react";
+import React, { useState, useEffect, useContext } from "react";
 
-import { toast } from "react-toastify";
 import { useHistory } from "react-router-dom";
 
 import { makeStyles } from "@material-ui/core/styles";
 import Table from "@material-ui/core/Table";
 import TableBody from "@material-ui/core/TableBody";
 import TableCell from "@material-ui/core/TableCell";
+import TableContainer from "@material-ui/core/TableContainer";
 import TableHead from "@material-ui/core/TableHead";
 import TableRow from "@material-ui/core/TableRow";
-import Paper from "@material-ui/core/Paper";
 import Button from "@material-ui/core/Button";
 import Pagination from "@material-ui/lab/Pagination";
 import * as XLSX from 'xlsx';
@@ -17,79 +16,130 @@ import * as XLSX from 'xlsx';
 import api from "../../../services/api";
 import TableRowSkeleton from "../../../components/TableRowSkeleton";
 
-
 import { i18n } from "../../../translate/i18n";
-import MainHeader from "../../../components/MainHeader";
-import Title from "../../../components/Title";
-import MainContainer from "../../../components/MainContainer";
 import toastError from "../../../errors/toastError";
 import { AuthContext } from "../../../context/Auth/AuthContext";
 
-import { 
-    CircularProgress, 
-    FormControl, 
-    Grid, 
-    IconButton, 
-    InputLabel, 
-    MenuItem, 
-    Select, 
-    TextField, 
-    Tooltip, 
-    Typography 
+import {
+    CircularProgress,
+    FormControl,
+    Grid,
+    IconButton,
+    InputLabel,
+    MenuItem,
+    Select,
+    TextField,
+    Tooltip,
+    Typography
 } from "@material-ui/core";
+import { Card, CardContent, Chip, Divider } from "@mui/material";
 import { UsersFilter } from "../../../components/UsersFilter";
 import { WhatsappsFilter } from "../../../components/WhatsappsFilter";
 import { StatusFilter } from "../../../components/StatusFilter";
 import useDashboard from "../../../hooks/useDashboard";
 import { TagsFilter } from '../../../components/TagsFilter';
 import QueueSelect from "../../../components/QueueSelect";
+import ButtonWithSpinner from "../../../components/ButtonWithSpinner";
 import moment from "moment";
 
-import { blue, green } from "@material-ui/core/colors";
-import { Facebook, Forward, History, Instagram, SaveAlt, Visibility, WhatsApp } from "@material-ui/icons";
+import { Forward, Assessment, FilterList, TableChart, Clear, SaveAlt } from "@material-ui/icons";
 import Autocomplete, { createFilterOptions } from "@material-ui/lab/Autocomplete";
+
+const STATUS_COLORS = { open: '#00bcd4', pending: '#ff9800', closed: '#4caf50', group: '#9c27b0' };
+const STATUS_LABELS = { open: 'Em atendimento', pending: 'Aguardando', closed: 'Encerrado', group: 'Grupo' };
 
 const useStyles = makeStyles((theme) => ({
   mainContainer: {
-    background: theme.palette.fancyBackground,
-
+    display: "flex",
+    flexDirection: "column",
+    height: "100%",
+    padding: theme.spacing(3),
+    width: "100%",
+    boxSizing: "border-box",
+    overflowY: "auto",
+    overflowX: "hidden",
+    ...theme.scrollbarStyles,
   },
-  formControl: {
-    display: 'flex',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+  pageHeader: {
+    background: "linear-gradient(135deg, #1A4783 0%, #2d7dd2 100%)",
+    borderRadius: "20px",
+    padding: "24px 28px",
+    color: "#fff",
+    marginBottom: theme.spacing(1),
+    display: "flex",
+    alignItems: "center",
+    gap: "16px",
+    boxShadow: "0 4px 24px rgba(26,71,131,0.25)",
   },
-  mainPaper: {
-    flex: 1,
-    marginTop: 40,
-    borderRadius: 20,
-    border: '0px !important',
-    marginBottom: 40,
-    overflow: 'hidden'
+  pageHeaderIcon: {
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderRadius: "14px",
+    padding: "12px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  mainPaperTable: {
-    flex: 1,
-    overflow: 'auto',
-    height: '68vh',
+  sectionTitle: {
+    fontWeight: 700,
+    color: "#1A4783",
+    fontSize: "1.1rem",
+    marginBottom: "16px",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  },
+  countChip: {
+    marginLeft: "auto",
+    fontWeight: 700,
+  },
+  card: {
+    borderRadius: "20px",
+    boxShadow: "0 2px 16px rgba(0,0,0,0.07)",
+    background: "#fff",
+    border: "1px solid #eef1f7",
+  },
+  divider: {
+    margin: "8px 0 20px 0",
+    backgroundColor: "#eef1f7",
+  },
+  fullWidth: {
+    width: "100%",
+  },
+  actionsRow: {
+    display: "flex",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    gap: "12px",
+    marginTop: theme.spacing(2),
+  },
+  filterButton: {
+    background: "linear-gradient(135deg, #1A4783 0%, #2d7dd2 100%)",
+    color: "white",
+    borderRadius: "10px",
+    padding: "8px 24px",
+    fontWeight: 600,
+    boxShadow: "0 4px 12px rgba(26,71,131,0.3)",
+  },
+  tableHeadCell: {
+    fontWeight: 700,
+    color: "#1A4783",
+    whiteSpace: "nowrap",
+  },
+  tableWrapper: {
+    maxHeight: "58vh",
     ...theme.scrollbarStylesSoftBig,
   },
-  mainPaperFilter: {
-    flex: 1,
-    // overflow: 'auto', // Habilite se houver necessidade de rolagem
-    ...theme.scrollbarStylesSoftBig,
+  paginationFooter: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: theme.spacing(2),
+    marginTop: theme.spacing(2),
   },
-  mainHeaderBlock: {
-    [theme.breakpoints.down('md')]: {
-      display: 'flex',
-      flexWrap: 'wrap'
-    },
-  },
-  filterItem: {
-    width: 200,
-    [theme.breakpoints.down('md')]: {
-      width: '45%'
-    },
+  emptyState: {
+    padding: theme.spacing(6),
+    textAlign: "center",
   },
 }));
 
@@ -101,8 +151,9 @@ const GridReport = () => {
   const { user } = useContext(AuthContext);
 
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [pageNumber, setPageNumber] = useState(1);
-  const [pageSize, setPageSize] = useState(10); // Defina o tamanho da página
+  const [pageSize, setPageSize] = useState(10);
 
   const [searchParam, setSearchParam] = useState("");
   const [selectedContactId, setSelectedContactId] = useState(null);
@@ -117,10 +168,9 @@ const GridReport = () => {
   const [dateTo, setDateTo] = useState(moment().format("YYYY-MM-DD"));
   const [totalTickets, setTotalTickets] = useState(0);
   const [tickets, setTickets] = useState([]);
+  const [hasSearched, setHasSearched] = useState(false);
 
-  const [openTicketMessageDialog, setOpenTicketMessageDialog] = useState(false);
-  const [ticketOpen, setTicketOpen] = useState(null);
-  const [hasMore, setHasMore] = useState(false);
+  const [resetKey, setResetKey] = useState(0);
 
   useEffect(() => {
     setLoading(true);
@@ -140,7 +190,7 @@ const GridReport = () => {
       fetchContacts();
     }, 500);
     return () => clearTimeout(delayDebounceFn);
-  }, []);
+  }, [searchParam]);
 
   const handleSelectedTags = (selecteds) => {
     const tags = selecteds.map((t) => t.id);
@@ -148,9 +198,7 @@ const GridReport = () => {
   };
 
   const exportarGridParaExcel = async () => {
-    setLoading(true); // Define o estado de loading como true durante o carregamento
-
-
+    setExporting(true);
 
     try {
       const data = await getReport({
@@ -161,28 +209,13 @@ const GridReport = () => {
         users: JSON.stringify(userIds),
         queueIds: JSON.stringify(queueIds),
         status: JSON.stringify(selectedStatus),
-        // tags: tagIds,
         dateFrom,
         dateTo,
-        page: 1, // Passa o número da página para a API
-        pageSize: 9999999, // Passa o tamanho da página para a API
+        page: 1,
+        pageSize: 9999999,
       });
 
       const ticketsData = data.tickets.map(ticket => {
-        // Convertendo o campo createdAt para um objeto Date
-        const createdAt = new Date(ticket.createdAt);
-        const closedAt = new Date(ticket.closedAt);
-
-        const data = ticket.createdAt.slice(0, -5);
-        const hora = ticket.createdAt.slice(11, -5);
-
-
-        const dataFechamento = closedAt.toLocaleDateString();
-        const horaFechamento = closedAt.toLocaleTimeString();
-        // Obtendo a data e a hora separadamente
-        const dataCriacao = createdAt.toLocaleDateString(); // Obtém a data no formato 'dd/mm/aaaa'
-        const horaCriacao = createdAt.toLocaleTimeString(); // Obtém a hora no formato 'hh:mm:ss'
-
         return {
           id: ticket.id,
           Conexão: ticket.whatsappName,
@@ -192,9 +225,7 @@ const GridReport = () => {
           Status: ticket.status,
           ÚltimaMensagem: ticket.lastMessage,
           DataHoraAbertura: ticket.createdAt,
-          // HoraAbertura: horaCriacao,
           DataHoraFechamento: ticket.closedAt === null ? "" : ticket.closedAt,
-          // HoraFechamento: ticket.closedAt === null ? "" : horaFechamento,
           TempoDeAtendimento: ticket.supportTime,
           nps: ticket.NPS,
         }
@@ -204,19 +235,16 @@ const GridReport = () => {
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'RelatorioDeAtendimentos');
       XLSX.writeFile(wb, 'relatorio-de-atendimentos.xlsx');
-
-      setPageNumber(pageNumber); // Atualiza o estado da página atual
     } catch (error) {
       toastError(error);
     } finally {
-      setLoading(false); // Define o estado de loading como false após o carregamento
+      setExporting(false);
     }
-
   };
 
 
-  const handleFilter = async (pageNumber) => {
-    setLoading(true); // Define o estado de loading como true durante o carregamento
+  const handleFilter = async (page) => {
+    setLoading(true);
 
     try {
       const data = await getReport({
@@ -227,27 +255,35 @@ const GridReport = () => {
         users: JSON.stringify(userIds),
         queueIds: JSON.stringify(queueIds),
         status: JSON.stringify(selectedStatus),
-        // tags: tagIds,
         dateFrom,
         dateTo,
-        page: pageNumber, // Passa o número da página para a API
-        pageSize: pageSize, // Passa o tamanho da página para a API
+        page,
+        pageSize,
       });
 
       setTotalTickets(data.totalTickets.total);
-
-      // Verifica se há mais resultados para definir hasMore
-      setHasMore(data.tickets.length === pageSize);
-
-      setTickets(data.tickets); // Se for a primeira página, substitua os tickets
-
-      setPageNumber(pageNumber); // Atualiza o estado da página atual
+      setTickets(data.tickets);
+      setPageNumber(page);
+      setHasSearched(true);
     } catch (error) {
       toastError(error);
     } finally {
-      setLoading(false); // Define o estado de loading como false após o carregamento
+      setLoading(false);
     }
   }
+
+  const handleClearFilters = () => {
+    setSearchParam("");
+    setSelectedContactId(null);
+    setSelectedWhatsapp([]);
+    setSelectedStatus([]);
+    setTagIds([]);
+    setQueueIds([]);
+    setUserIds([]);
+    setDateFrom(moment("1", "D").format("YYYY-MM-DD"));
+    setDateTo(moment().format("YYYY-MM-DD"));
+    setResetKey((k) => k + 1);
+  };
 
   const handleSelectedUsers = (selecteds) => {
     const users = selecteds.map((t) => t.id);
@@ -278,6 +314,10 @@ const GridReport = () => {
   };
 
   const handleSelectOption = (e, newValue) => {
+    if (!newValue) {
+      setSelectedContactId(null);
+      return;
+    }
     setSelectedContactId(newValue.id);
     setSearchParam("");
   };
@@ -302,255 +342,285 @@ const GridReport = () => {
     }
     return filtered;
   };
-  const renderContactAutocomplete = () => {
-    return (
-      <Grid xs={12} item>
-        <Autocomplete
-          fullWidth
-          options={options}
-          loading={loading}
-          clearOnBlur
-          autoHighlight
-          freeSolo
-          size="small"
-          clearOnEscape
-          getOptionLabel={renderOptionLabel}
-          renderOption={renderOption}
-          filterOptions={createAddContactOption}
-          onChange={(e, newValue) => handleSelectOption(e, newValue)}
-          renderInput={params => (
-            <TextField
-              {...params}
-              label={i18n.t("newTicketModal.fieldLabel")}
-              variant="outlined"
-              autoFocus
-              size="small"
-              onChange={e => setSearchParam(e.target.value)}
-              // onKeyPress={(e, newValue) => handleSelectOption(e, newValue)}
-              InputProps={{
-                ...params.InputProps,
-                endAdornment: (
-                  <React.Fragment>
-                    {loading ? (
-                      <CircularProgress color="inherit" size={20} />
-                    ) : null}
-                    {params.InputProps.endAdornment}
-                  </React.Fragment>
-                ),
-              }}
-            />
-          )}
-        />
-      </Grid>
-    )
-  }
 
   return (
-    <MainContainer className={classes.mainContainer}>
-      <Title>{i18n.t("reportsGrid.title")}</Title>
+    <div className={classes.mainContainer}>
+      <Grid container spacing={3}>
 
-<MainHeader className={classes.mainHeaderFilter} style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px', height: '25vh' }}>
-  <Paper className={classes.mainPaperFilter} style={{ padding: '10px', width: '100%' }}>
-    <Grid container spacing={2}>
-      
-      {/* Primeira linha de filtros */}
-      <Grid item xs={12} sm={6} md={3}>
-        {renderContactAutocomplete()}
-      </Grid>
-      <Grid item xs={12} sm={6} md={3}>
-        <WhatsappsFilter onFiltered={handleSelectedWhatsapps} />
-      </Grid>
-      <Grid item xs={12} sm={6} md={3}>
-        <StatusFilter onFiltered={handleSelectedStatus} />
-      </Grid>
-      <Grid item xs={12} sm={6} md={3}>
-        <UsersFilter onFiltered={handleSelectedUsers} />
-      </Grid>
-      
-      {/* Segunda linha de filtros */}
-      <Grid item xs={12} sm={6} md={3}>
-        <TagsFilter onFiltered={handleSelectedTags} />
-      </Grid>
-      <Grid item xs={12} sm={6} md={3}>
-        <QueueSelect
-          selectedQueueIds={queueIds}
-          onChange={values => setQueueIds(values)}
-        />
-      </Grid>
-
-      {/* Linha para seleção de datas */}
-      <Grid item xs={12} sm={6} md={3}>
-        <TextField
-          label="Data Inicial"
-          type="date"
-          value={dateFrom}
-          variant="outlined"
-          fullWidth
-          size="small"
-          onChange={(e) => setDateFrom(e.target.value)}
-          InputLabelProps={{
-            shrink: true,
-          }}
-        />
-      </Grid>
-      <Grid item xs={12} sm={6} md={3}>
-        <TextField
-          label="Data Final"
-          type="date"
-          value={dateTo}
-          variant="outlined"
-          fullWidth
-          size="small"
-          onChange={(e) => setDateTo(e.target.value)}
-          InputLabelProps={{
-            shrink: true,
-          }}
-        />
-      </Grid>
-
-      {/* Linha para botões, centralizados abaixo de todos os filtros */}
-      <Grid item xs={12} style={{ display: 'flex', justifyContent: 'right', gap: '12px', marginTop: '5px' }}>
-        <IconButton onClick={exportarGridParaExcel} aria-label="Exportar para Excel">
-          <SaveAlt />
-        </IconButton>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={() => handleFilter(pageNumber)}
-          size="small"
-        >
-          {i18n.t("reportsGrid.buttons.filter")}
-        </Button>
-      </Grid>
-
-    </Grid>
-  </Paper>
-</MainHeader>
-
-
-
-
-
-
-      <Paper
-        className={classes.mainPaperTable}
-        variant="outlined"
-      >
-        <Table size="small" id="grid-attendants">
-          <TableHead>
-            <TableRow>
-              {/* <TableCell padding="checkbox" /> */}
-              <TableCell align="center">{i18n.t("reportsGrid.table.id")}</TableCell>
-              <TableCell align="left">{i18n.t("reportsGrid.table.whatsapp")}</TableCell>
-              <TableCell align="left">{i18n.t("reportsGrid.table.contact")}</TableCell>
-              <TableCell align="left">{i18n.t("reportsGrid.table.user")}</TableCell>
-              <TableCell align="left">{i18n.t("reportsGrid.table.queue")}</TableCell>
-              <TableCell align="center">{i18n.t("reportsGrid.table.status")}</TableCell>
-              <TableCell align="left">{i18n.t("reportsGrid.table.lastMessage")}</TableCell>
-              <TableCell align="center">{i18n.t("reportsGrid.table.dateOpen")}</TableCell>
-              <TableCell align="center">{i18n.t("reportsGrid.table.dateClose")}</TableCell>
-              <TableCell align="center">{i18n.t("reportsGrid.table.supportTime")}</TableCell>
-              <TableCell align="center">{i18n.t("reportsGrid.table.NPS")}</TableCell>
-              <TableCell align="center">{i18n.t("reportsGrid.table.actions")}</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            <>
-              {tickets.map((ticket) => (
-                <TableRow key={ticket.id}>
-                  <TableCell align="center">{ticket.id}</TableCell>
-                  <TableCell align="left">{ticket?.whatsappName}</TableCell>
-                  <TableCell align="left">{ticket?.contactName}</TableCell>
-                  <TableCell align="left">{ticket?.userName}</TableCell>
-                  <TableCell align="left">{ticket?.queueName}</TableCell>
-                  <TableCell align="center">{ticket?.status}</TableCell>
-                  <TableCell align="left">{ticket?.lastMessage}</TableCell>
-                  <TableCell align="center">{ticket?.createdAt}</TableCell>
-                  <TableCell align="center">{ticket?.closedAt}</TableCell>
-                  <TableCell align="center">{ticket?.supportTime}</TableCell>
-                  <TableCell align="center">{ticket?.NPS}</TableCell>
-                  <TableCell align="center">
-                    <Typography
-                      noWrap
-                      component="span"
-                      variant="body2"
-                      color="textPrimary"
-                    >
-                      <Tooltip title="Acessar Ticket">
-                        <Forward
-                          onClick={() => { history.push(`/tickets/${ticket.uuid}`) }}
-                          fontSize="small"
-                          style={{
-                            color: green[700],
-                            cursor: "pointer",
-                            marginLeft: 10,
-                            verticalAlign: "middle"
-                          }}
-                        />
-                      </Tooltip>
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {loading && <TableRowSkeleton avatar columns={3} />}
-            </>
-          </TableBody>
-        </Table>
-
-      </Paper>
-
-      <div>
-        <Grid container>
-          <Grid item xs={12} sm={10} md={10}>
-
-            <Pagination
-              count={Math.ceil(totalTickets / pageSize)} // Calcula o nmero total de páginas com base no nmero total de tickets e no tamanho da página
-              page={pageNumber} // Define a página atual
-              onChange={(event, value) => handleFilter(value)} // Função de callback para mudanças de página
-            />
-          </Grid>
-          <Grid item xs={12} sm={2} md={2}>
-
-            <FormControl
-              margin="dense"
-              variant="outlined"
-              fullWidth
-            >
-              <InputLabel>
-                {i18n.t("tickets.search.ticketsPerPage")}
-              </InputLabel>
-              <Select
-                labelId="dialog-select-prompt-label"
-                id="dialog-select-prompt"
-                name="pageSize"
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(e.target.value)
-                }}
-                label={i18n.t("tickets.search.ticketsPerPage")}
-                fullWidth
-                MenuProps={{
-                  anchorOrigin: {
-                    vertical: "center",
-                    horizontal: "left",
-                  },
-                  transformOrigin: {
-                    vertical: "center",
-                    horizontal: "left",
-                  },
-                  getContentAnchorEl: null,
-                }}
-              >
-                <MenuItem value={5} >{"5"}</MenuItem>
-                <MenuItem value={10} >{"10"}</MenuItem>
-                <MenuItem value={20} >{"20"}</MenuItem>
-                <MenuItem value={50} >{"50"}</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
+        {/* Cabeçalho */}
+        <Grid item xs={12}>
+          <div className={classes.pageHeader}>
+            <div className={classes.pageHeaderIcon}>
+              <Assessment style={{ color: "#fff", fontSize: "32px" }} />
+            </div>
+            <div>
+              <Typography style={{ fontSize: "22px", fontWeight: 700, lineHeight: 1.2 }}>
+                {i18n.t("reportsGrid.title")}
+              </Typography>
+              <Typography style={{ fontSize: "13px", opacity: 0.82, marginTop: "2px" }}>
+                Consulte, filtre e exporte o histórico de atendimentos
+              </Typography>
+            </div>
+          </div>
         </Grid>
-      </div>
-    </MainContainer >
+
+        {/* Filtros */}
+        <Grid item xs={12}>
+          <Card className={classes.card}>
+            <CardContent>
+              <Typography className={classes.sectionTitle}>
+                <FilterList style={{ fontSize: "20px", color: "#1A4783" }} />
+                Filtros de Busca
+              </Typography>
+              <Divider className={classes.divider} />
+
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Autocomplete
+                    fullWidth
+                    options={options}
+                    loading={loading}
+                    clearOnBlur
+                    autoHighlight
+                    freeSolo
+                    size="small"
+                    clearOnEscape
+                    getOptionLabel={renderOptionLabel}
+                    renderOption={renderOption}
+                    filterOptions={createAddContactOption}
+                    onChange={(e, newValue) => handleSelectOption(e, newValue)}
+                    renderInput={params => (
+                      <TextField
+                        {...params}
+                        label={i18n.t("newTicketModal.fieldLabel")}
+                        variant="outlined"
+                        size="small"
+                        onChange={e => setSearchParam(e.target.value)}
+                        InputProps={{
+                          ...params.InputProps,
+                          endAdornment: (
+                            <React.Fragment>
+                              {loading ? (
+                                <CircularProgress color="inherit" size={20} />
+                              ) : null}
+                              {params.InputProps.endAdornment}
+                            </React.Fragment>
+                          ),
+                        }}
+                      />
+                    )}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <TextField
+                    label="Data Inicial"
+                    type="date"
+                    value={dateFrom}
+                    variant="outlined"
+                    fullWidth
+                    size="small"
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <TextField
+                    label="Data Final"
+                    type="date"
+                    value={dateTo}
+                    variant="outlined"
+                    fullWidth
+                    size="small"
+                    onChange={(e) => setDateTo(e.target.value)}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <StatusFilter key={`status-${resetKey}`} onFiltered={handleSelectedStatus} />
+                </Grid>
+
+                <Grid item xs={12} sm={6} md={3}>
+                  <WhatsappsFilter key={`wa-${resetKey}`} onFiltered={handleSelectedWhatsapps} />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <UsersFilter key={`user-${resetKey}`} onFiltered={handleSelectedUsers} />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <QueueSelect
+                    key={`queue-${resetKey}`}
+                    selectedQueueIds={queueIds}
+                    onChange={values => setQueueIds(values)}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <TagsFilter key={`tags-${resetKey}`} onFiltered={handleSelectedTags} />
+                </Grid>
+              </Grid>
+
+              <div className={classes.actionsRow}>
+                <Button
+                  startIcon={<Clear />}
+                  onClick={handleClearFilters}
+                >
+                  Limpar Filtros
+                </Button>
+                <ButtonWithSpinner
+                  variant="outlined"
+                  color="primary"
+                  startIcon={<SaveAlt />}
+                  loading={exporting}
+                  onClick={exportarGridParaExcel}
+                >
+                  Exportar Excel
+                </ButtonWithSpinner>
+                <ButtonWithSpinner
+                  loading={loading}
+                  onClick={() => handleFilter(1)}
+                  className={classes.filterButton}
+                >
+                  {i18n.t("reportsGrid.buttons.filter")}
+                </ButtonWithSpinner>
+              </div>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Resultados */}
+        <Grid item xs={12}>
+          <Card className={classes.card}>
+            <CardContent>
+              <Typography className={classes.sectionTitle}>
+                <TableChart style={{ fontSize: "20px", color: "#1A4783" }} />
+                Resultados
+                {hasSearched && (
+                  <Chip
+                    size="small"
+                    label={`${totalTickets} atendimento${totalTickets === 1 ? "" : "s"}`}
+                    className={classes.countChip}
+                    sx={{ backgroundColor: "#eef1f7", color: "#1A4783", fontWeight: 700 }}
+                  />
+                )}
+              </Typography>
+              <Divider className={classes.divider} />
+
+              {!hasSearched ? (
+                <div className={classes.emptyState}>
+                  <Typography color="textSecondary">
+                    Selecione os filtros desejados e clique em "{i18n.t("reportsGrid.buttons.filter")}" para visualizar os atendimentos.
+                  </Typography>
+                </div>
+              ) : (
+                <>
+                  <TableContainer className={classes.tableWrapper}>
+                    <Table size="small" id="grid-attendants" stickyHeader>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell align="center" className={classes.tableHeadCell}>{i18n.t("reportsGrid.table.id")}</TableCell>
+                          <TableCell align="left" className={classes.tableHeadCell}>{i18n.t("reportsGrid.table.whatsapp")}</TableCell>
+                          <TableCell align="left" className={classes.tableHeadCell}>{i18n.t("reportsGrid.table.contact")}</TableCell>
+                          <TableCell align="left" className={classes.tableHeadCell}>{i18n.t("reportsGrid.table.user")}</TableCell>
+                          <TableCell align="left" className={classes.tableHeadCell}>{i18n.t("reportsGrid.table.queue")}</TableCell>
+                          <TableCell align="center" className={classes.tableHeadCell}>{i18n.t("reportsGrid.table.status")}</TableCell>
+                          <TableCell align="left" className={classes.tableHeadCell}>{i18n.t("reportsGrid.table.lastMessage")}</TableCell>
+                          <TableCell align="center" className={classes.tableHeadCell}>{i18n.t("reportsGrid.table.dateOpen")}</TableCell>
+                          <TableCell align="center" className={classes.tableHeadCell}>{i18n.t("reportsGrid.table.dateClose")}</TableCell>
+                          <TableCell align="center" className={classes.tableHeadCell}>{i18n.t("reportsGrid.table.supportTime")}</TableCell>
+                          <TableCell align="center" className={classes.tableHeadCell}>{i18n.t("reportsGrid.table.NPS")}</TableCell>
+                          <TableCell align="center" className={classes.tableHeadCell}>{i18n.t("reportsGrid.table.actions")}</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {tickets.length === 0 && !loading && (
+                          <TableRow>
+                            <TableCell colSpan={12} align="center" className={classes.emptyState}>
+                              <Typography color="textSecondary">
+                                Nenhum atendimento encontrado para os filtros informados.
+                              </Typography>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                        {tickets.map((ticket) => (
+                          <TableRow key={ticket.id} hover>
+                            <TableCell align="center">{ticket.id}</TableCell>
+                            <TableCell align="left">{ticket?.whatsappName}</TableCell>
+                            <TableCell align="left">{ticket?.contactName}</TableCell>
+                            <TableCell align="left">{ticket?.userName || "—"}</TableCell>
+                            <TableCell align="left">{ticket?.queueName || "—"}</TableCell>
+                            <TableCell align="center">
+                              <Chip
+                                size="small"
+                                label={STATUS_LABELS[ticket?.status] || ticket?.status}
+                                sx={{
+                                  backgroundColor: STATUS_COLORS[ticket?.status] || "#607d8b",
+                                  color: "#fff",
+                                  fontWeight: 600,
+                                  fontSize: 11,
+                                }}
+                              />
+                            </TableCell>
+                            <TableCell align="left">{ticket?.lastMessage}</TableCell>
+                            <TableCell align="center">{ticket?.createdAt}</TableCell>
+                            <TableCell align="center">{ticket?.closedAt}</TableCell>
+                            <TableCell align="center">{ticket?.supportTime}</TableCell>
+                            <TableCell align="center">{ticket?.NPS}</TableCell>
+                            <TableCell align="center">
+                              <Tooltip title="Acessar Ticket">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => { history.push(`/tickets/${ticket.uuid}`) }}
+                                >
+                                  <Forward fontSize="small" style={{ color: "#1A4783" }} />
+                                </IconButton>
+                              </Tooltip>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {loading && <TableRowSkeleton avatar columns={3} />}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+
+                  <div className={classes.paginationFooter}>
+                    <Pagination
+                      count={Math.ceil(totalTickets / pageSize) || 1}
+                      page={pageNumber}
+                      onChange={(event, value) => handleFilter(value)}
+                    />
+
+                    <FormControl
+                      margin="dense"
+                      variant="outlined"
+                      size="small"
+                      style={{ minWidth: 160 }}
+                    >
+                      <InputLabel>
+                        {i18n.t("tickets.search.ticketsPerPage")}
+                      </InputLabel>
+                      <Select
+                        labelId="dialog-select-prompt-label"
+                        id="dialog-select-prompt"
+                        name="pageSize"
+                        value={pageSize}
+                        onChange={(e) => {
+                          setPageSize(e.target.value);
+                        }}
+                        label={i18n.t("tickets.search.ticketsPerPage")}
+                      >
+                        <MenuItem value={5}>{"5"}</MenuItem>
+                        <MenuItem value={10}>{"10"}</MenuItem>
+                        <MenuItem value={20}>{"20"}</MenuItem>
+                        <MenuItem value={50}>{"50"}</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+
+      </Grid>
+    </div>
   );
 };
 

@@ -20,6 +20,8 @@ import Socio from "./Socio";
 import TarefaRecorrenteCliente from "./TarefaRecorrenteCliente";
 import TarefaRecorrenteSocio from "./TarefaRecorrenteSocio";
 import TarefaRecorrenteUsuario from "./TarefaRecorrenteUsuario";
+import EmailTemplate from "./EmailTemplate";
+import WhatsappTemplate from "./WhatsappTemplate";
 
 @Table({ tableName: "TarefasRecorrentes" })
 class TarefaRecorrente extends Model<TarefaRecorrente> {
@@ -40,6 +42,9 @@ class TarefaRecorrente extends Model<TarefaRecorrente> {
 
   @Column
   nomeTarefa: string;
+
+  @Column(DataType.STRING)
+  tipoTarefa: string;
 
   @ForeignKey(() => Departamento)
   @Column
@@ -67,6 +72,9 @@ class TarefaRecorrente extends Model<TarefaRecorrente> {
   diasInicio: number;
 
   @Column
+  diasConclusao: number;
+
+  @Column
   tipoDiasAntes: string;
 
   @Column
@@ -77,6 +85,9 @@ class TarefaRecorrente extends Model<TarefaRecorrente> {
 
   @Column
   competencia: string;
+
+  @Column
+  competenciaTipo: string;
 
   @Column
   exigirRobo: boolean;
@@ -96,7 +107,7 @@ class TarefaRecorrente extends Model<TarefaRecorrente> {
   @Column
   prazoEntregaHoras: number;
 
-  @Column(DataType.ENUM("Municipal", "Estadual", "Federal"))
+  @Column(DataType.STRING)
   esfera: string;
 
   @Column
@@ -144,6 +155,9 @@ class TarefaRecorrente extends Model<TarefaRecorrente> {
   @Column
   semVencimento: boolean;
 
+  @Column(DataType.JSON)
+  faseConfig: object;
+
   // Checklist
   @Column
   checklistId: number;
@@ -151,6 +165,20 @@ class TarefaRecorrente extends Model<TarefaRecorrente> {
   // Notificações
   @Column(DataType.JSON)
   canaisNotificacao: string[];
+
+  @ForeignKey(() => EmailTemplate)
+  @Column
+  emailTemplateId: number;
+
+  @BelongsTo(() => EmailTemplate)
+  emailTemplate: any;
+
+  @ForeignKey(() => WhatsappTemplate)
+  @Column
+  whatsappTemplateId: number;
+
+  @BelongsTo(() => WhatsappTemplate)
+  whatsappTemplate: any;
 
   // Financeiro
   @Column(DataType.DECIMAL(10, 2))

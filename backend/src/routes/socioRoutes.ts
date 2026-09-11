@@ -6,6 +6,7 @@ const socioRoutes = Router();
 
 // Rotas de CRUD de Sócios
 socioRoutes.get("/socios", isAuth, SocioController.index);
+socioRoutes.get("/socios/proximo-codigo-sistema", isAuth, SocioController.nextCodigoSistema);
 socioRoutes.get("/socios/:socioId", isAuth, SocioController.show);
 socioRoutes.post("/socios", isAuth, SocioController.store);
 socioRoutes.put("/socios/:socioId", isAuth, SocioController.update);

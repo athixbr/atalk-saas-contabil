@@ -58,13 +58,18 @@ import Certidao from "../models/Certidao";
 import CertificadoDigital from "../models/CertificadoDigital";
 import Checklist from "../models/Checklist";
 import ChecklistItem from "../models/ChecklistItem";
+import Cnae from "../models/Cnae";
 import Cliente from "../models/Cliente";
 import ClienteCNAE from "../models/ClienteCNAE";
 import ClienteCertidao from "../models/ClienteCertidao";
 import ClienteContato from "../models/ClienteContato";
+import ContatoDepartamento from "../models/ContatoDepartamento";
+import ContatoAppAcesso from "../models/ContatoAppAcesso";
 import ClienteRedeSocial from "../models/ClienteRedeSocial";
 import ClienteSocio from "../models/ClienteSocio";
 import ClienteViewPreference from "../models/ClienteViewPreference";
+import UserViewPreference from "../models/UserViewPreference";
+import ClienteVigencia from "../models/ClienteVigencia";
 import ClusterCliente from "../models/ClusterCliente";
 import ControleCliente from "../models/ControleCliente";
 import ControleClienteHistorico from "../models/ControleClienteHistorico";
@@ -84,6 +89,7 @@ import CrmTaxRegime from "../models/CrmTaxRegime";
 import DemaisIdentificadores from "../models/DemaisIdentificadores";
 import Departamento from "../models/Departamento";
 import DepartamentoUsuario from "../models/DepartamentoUsuario";
+import DocumentoClienteAcesso from "../models/DocumentoClienteAcesso";
 import DistribuicaoLucros from "../models/DistribuicaoLucros";
 import EnvioCorrespondencia from "../models/EnvioCorrespondencia";
 import EscritorioGestor from "../models/EscritorioGestor";
@@ -107,6 +113,8 @@ import KnowledgeBaseTag from "../models/KnowledgeBaseTag";
 import KnowledgeBaseVideo from "../models/KnowledgeBaseVideo";
 import LocalizacaoCliente from "../models/LocalizacaoCliente";
 import LogCertidao from "../models/LogCertidao";
+import NfeXml from "../models/NfeXml";
+import NfeXmlItem from "../models/NfeXmlItem";
 import ModalFechBPO from "../models/ModalFechBPO";
 import ModalidadeFechamentoContabil from "../models/ModalidadeFechamentoContabil";
 import ModalidadeFechamentoDP from "../models/ModalidadeFechamentoDP";
@@ -127,12 +135,14 @@ import RegimeTributarioMunicipal from "../models/RegimeTributarioMunicipal";
 import ResponsavelDepartamento from "../models/ResponsavelDepartamento";
 import SedeCliente from "../models/SedeCliente";
 import Segmento from "../models/Segmento";
+import Atuacao from "../models/Atuacao";
 import ServicosExtraordinarios from "../models/ServicosExtraordinarios";
 import Socio from "../models/Socio";
 import Status from "../models/Status";
 import StatusCliente from "../models/StatusCliente";
 import StatusComplementar from "../models/StatusComplementar";
 import StatusControle from "../models/StatusControle";
+import ControleComData from "../models/ControleComData";
 import TagServico from "../models/TagServico";
 import Tags from "../models/Tags";
 import TagsParametros from "../models/TagsParametros";
@@ -151,6 +161,7 @@ import TarefaRecorrente from "../models/TarefaRecorrente";
 import TarefaRecorrenteCliente from "../models/TarefaRecorrenteCliente";
 import TarefaRecorrenteSocio from "../models/TarefaRecorrenteSocio";
 import TarefaRecorrenteUsuario from "../models/TarefaRecorrenteUsuario";
+import TarefaRecorrenteViewPreference from "../models/TarefaRecorrenteViewPreference";
 import Task from "../models/Task";
 import TaskFile from "../models/TaskFile";
 import TaskHistory from "../models/TaskHistory";
@@ -160,7 +171,9 @@ import TicketMetrics from "../models/TicketMetrics";
 import TicketUserMetrics from "../models/TicketUserMetrics";
 import TierCliente from "../models/TierCliente";
 import TipoCliente from "../models/TipoCliente";
+import TipoConta from "../models/TipoConta";
 import TipoDocumento from "../models/TipoDocumento";
+import Esfera from "../models/Esfera";
 import TipoServico from "../models/TipoServico";
 import UserClientesPreference from "../models/UserClientesPreference";
 import UserClientesSavedFilter from "../models/UserClientesSavedFilter";
@@ -169,6 +182,12 @@ import VolumeContabil from "../models/VolumeContabil";
 import VolumeDP from "../models/VolumeDP";
 import VolumeFiscal from "../models/VolumeFiscal";
 import WhatsappGroup from "../models/WhatsappGroup";
+import WhatsappStory from "../models/WhatsappStory";
+import EmailConfig from "../models/EmailConfig";
+import EmailTemplate from "../models/EmailTemplate";
+import EmailLog from "../models/EmailLog";
+import WhatsappTemplate from "../models/WhatsappTemplate";
+import WhatsappLog from "../models/WhatsappLog";
 import dbConfig from "../config/database";
 
 const sequelize = new Sequelize(dbConfig);
@@ -232,13 +251,18 @@ const models = [
   CertificadoDigital,
   Checklist,
   ChecklistItem,
+  Cnae,
+  ClienteVigencia,
   Cliente,
   ClienteCNAE,
   ClienteCertidao,
   ClienteContato,
+  ContatoDepartamento,
+  ContatoAppAcesso,
   ClienteRedeSocial,
   ClienteSocio,
   ClienteViewPreference,
+  UserViewPreference,
   ClusterCliente,
   ControleCliente,
   ControleClienteHistorico,
@@ -258,6 +282,7 @@ const models = [
   DemaisIdentificadores,
   Departamento,
   DepartamentoUsuario,
+  DocumentoClienteAcesso,
   DistribuicaoLucros,
   EnvioCorrespondencia,
   EscritorioGestor,
@@ -281,6 +306,8 @@ const models = [
   KnowledgeBaseVideo,
   LocalizacaoCliente,
   LogCertidao,
+  NfeXml,
+  NfeXmlItem,
   ModalFechBPO,
   ModalidadeFechamentoContabil,
   ModalidadeFechamentoDP,
@@ -301,12 +328,14 @@ const models = [
   ResponsavelDepartamento,
   SedeCliente,
   Segmento,
+  Atuacao,
   ServicosExtraordinarios,
   Socio,
   Status,
   StatusCliente,
   StatusComplementar,
   StatusControle,
+  ControleComData,
   TagServico,
   Tags,
   TagsParametros,
@@ -325,6 +354,7 @@ const models = [
   TarefaRecorrenteCliente,
   TarefaRecorrenteSocio,
   TarefaRecorrenteUsuario,
+  TarefaRecorrenteViewPreference,
   Task,
   TaskFile,
   TaskHistory,
@@ -334,8 +364,10 @@ const models = [
   TicketUserMetrics,
   TierCliente,
   TipoCliente,
+  TipoConta,
   TipoDocumento,
   TipoServico,
+  Esfera,
   UserClientesPreference,
   UserClientesSavedFilter,
   VolumeBPO,
@@ -343,6 +375,12 @@ const models = [
   VolumeDP,
   VolumeFiscal,
   WhatsappGroup,
+  WhatsappStory,
+  EmailConfig,
+  EmailTemplate,
+  EmailLog,
+  WhatsappTemplate,
+  WhatsappLog,
 ];
 
 sequelize.addModels(models);

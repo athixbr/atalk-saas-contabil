@@ -512,6 +512,77 @@ export const excluirLote = async (req: Request, res: Response): Promise<Response
   }
 };
 
+export const pausarLote = async (req: Request, res: Response): Promise<Response> => {
+  try {
+    const { companyId, id: userId } = req.user;
+    const { tarefaRecorrenteId, ano, meses, clienteIds, status, novoStatus } = req.body;
+
+    if (!tarefaRecorrenteId) {
+      return res.status(400).json({ error: "ID da tarefa recorrente é obrigatório" });
+    }
+
+    if (novoStatus !== "pausada" && novoStatus !== "pendente") {
+      return res.status(400).json({ error: "novoStatus deve ser 'pausada' ou 'pendente'" });
+    }
+
+    const where: any = {
+      companyId,
+      tarefaRecorrenteId
+    };
+
+    // Filtros opcionais (mesmo padrão de excluirLote)
+    if (ano) {
+      where.competencia = {
+        [Op.like]: `%/${ano}`
+      };
+    }
+
+    if (meses && meses.length > 0) {
+      const competencias = meses.map((m: number) => `${String(m).padStart(2, '0')}/${ano || new Date().getFullYear()}`);
+      where.competencia = {
+        [Op.in]: competencias
+      };
+    }
+
+    if (clienteIds && clienteIds.length > 0) {
+      where.clienteId = {
+        [Op.in]: clienteIds
+      };
+    }
+
+    if (status) {
+      where.status = status;
+    }
+
+    // Buscar tarefas a serem alteradas
+    const tarefas = await TarefaGerada.findAll({ where });
+
+    // Registrar no histórico
+    for (const tarefa of tarefas) {
+      await TarefaGeradaHistorico.create({
+        companyId,
+        tarefaGeradaId: tarefa.id,
+        userId,
+        acao: novoStatus === "pausada" ? "pausada_em_lote" : "despausada_em_lote",
+        observacao: novoStatus === "pausada"
+          ? "Tarefa pausada em lote pelo usuário"
+          : "Tarefa despausada em lote pelo usuário"
+      });
+    }
+
+    // Atualizar status
+    const [quantidade] = await TarefaGerada.update({ status: novoStatus }, { where });
+
+    return res.status(200).json({
+      message: novoStatus === "pausada" ? "Lote pausado com sucesso" : "Lote despausado com sucesso",
+      tarefasAlteradas: quantidade
+    });
+  } catch (error) {
+    console.error("Erro ao pausar lote:", error);
+    return res.status(500).json({ error: "Erro ao pausar lote de tarefas" });
+  }
+};
+
 // Listar tarefas recorrentes com informações de tarefas geradas
 export const listarRecorrentesComGeradas = async (req: Request, res: Response): Promise<Response> => {
   try {

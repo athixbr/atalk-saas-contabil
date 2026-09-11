@@ -34,6 +34,12 @@ parametrosRoutes.post("/parametros/segmento", isAuth, ParametrosController.creat
 parametrosRoutes.put("/parametros/segmento/:id", isAuth, ParametrosController.updateSegmento);
 parametrosRoutes.delete("/parametros/segmento/:id", isAuth, ParametrosController.deleteSegmento);
 
+// ========== ROTAS DE ATUAÇÃO ==========
+parametrosRoutes.get("/parametros/atuacao", isAuth, ParametrosController.listAtuacao);
+parametrosRoutes.post("/parametros/atuacao", isAuth, ParametrosController.createAtuacao);
+parametrosRoutes.put("/parametros/atuacao/:id", isAuth, ParametrosController.updateAtuacao);
+parametrosRoutes.delete("/parametros/atuacao/:id", isAuth, ParametrosController.deleteAtuacao);
+
 // ========== ROTAS DE SEDE CLIENTE ==========
 parametrosRoutes.get("/parametros/sedecliente", isAuth, ParametrosController.listSedeCliente);
 parametrosRoutes.post("/parametros/sedecliente", isAuth, ParametrosController.createSedeCliente);
@@ -250,5 +256,23 @@ parametrosRoutes.get("/parametros/statuscontrole", isAuth, ParametrosController.
 parametrosRoutes.post("/parametros/statuscontrole", isAuth, ParametrosController.createStatusControle);
 parametrosRoutes.put("/parametros/statuscontrole/:id", isAuth, ParametrosController.updateStatusControle);
 parametrosRoutes.delete("/parametros/statuscontrole/:id", isAuth, ParametrosController.deleteStatusControle);
+
+// ========== ROTAS DE CONTROLE COM DATA ==========
+parametrosRoutes.get("/parametros/controlecomdata", isAuth, ParametrosController.listControleComData);
+parametrosRoutes.post("/parametros/controlecomdata", isAuth, ParametrosController.createControleComData);
+parametrosRoutes.put("/parametros/controlecomdata/:id", isAuth, ParametrosController.updateControleComData);
+parametrosRoutes.delete("/parametros/controlecomdata/:id", isAuth, ParametrosController.deleteControleComData);
+
+// ========== ROTAS DE ESFERA ==========
+parametrosRoutes.get("/parametros/esfera", isAuth, ParametrosController.listEsfera);
+parametrosRoutes.post("/parametros/esfera", isAuth, ParametrosController.createEsfera);
+parametrosRoutes.put("/parametros/esfera/:id", isAuth, ParametrosController.updateEsfera);
+parametrosRoutes.delete("/parametros/esfera/:id", isAuth, ParametrosController.deleteEsfera);
+
+// ========== ROTAS DE TIPO DE CONTA ==========
+parametrosRoutes.get("/parametros/tipoconta", isAuth, ParametrosController.listTipoConta);
+parametrosRoutes.post("/parametros/tipoconta", isAuth, ParametrosController.createTipoConta);
+parametrosRoutes.put("/parametros/tipoconta/:id", isAuth, ParametrosController.updateTipoConta);
+parametrosRoutes.delete("/parametros/tipoconta/:id", isAuth, ParametrosController.deleteTipoConta);
 
 export default parametrosRoutes;

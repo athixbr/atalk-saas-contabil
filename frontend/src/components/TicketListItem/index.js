@@ -15,17 +15,20 @@ import Avatar from "@material-ui/core/Avatar";
 import Divider from "@material-ui/core/Divider";
 import Badge from "@material-ui/core/Badge";
 import IconButton from "@material-ui/core/IconButton";
+import Chip from "@material-ui/core/Chip";
 import { i18n } from "../../translate/i18n";
 import VisibilityIcon from "@material-ui/icons/Visibility";
 import CheckIcon from "@material-ui/icons/CheckCircle";
 import ReplayIcon from "@material-ui/icons/Replay";
 import ClearOutlinedIcon from "@material-ui/icons/ClearOutlined";
+import Checkbox from "@material-ui/core/Checkbox";
 import api from "../../services/api";
 
 import MarkdownWrapper from "../MarkdownWrapper";
 import { Tooltip } from "@material-ui/core";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import toastError from "../../errors/toastError";
+import formatMentions from "../../utils/formatMentions";
 
 import facebookIcon from "../../assets/facebook.png";
 import insatagramIcon from "../../assets/instagram.png";
@@ -176,6 +179,24 @@ const useStyles = makeStyles((theme) => ({
         zIndex: 500,
     },
 
+    statusChip: {
+        height: 16,
+        fontSize: "0.6em",
+        marginLeft: 4,
+        borderRadius: 4,
+    },
+
+    matchSnippet: {
+        display: "block",
+        fontSize: "0.75em",
+        color: "#888",
+        fontStyle: "italic",
+        marginTop: 2,
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap",
+    },
+
     badge: {
         backgroundColor: "#44b700",
         color: "#44b700",
@@ -230,7 +251,7 @@ const getAvatarChannel = (channel) => {
     }
 };
 
-const TicketListItem = ({ ticket }) => {
+const TicketListItem = ({ ticket, mergeMode = false, isSelectedForMerge = false, onToggleSelectForMerge }) => {
     const classes = useStyles();
     const history = useHistory();
     const [loading, setLoading] = useState(false);
@@ -356,20 +377,67 @@ const TicketListItem = ({ ticket }) => {
         return firstName;
     };
 
+    const statusLabels = {
+        open: { label: "Aberto", color: "#43a047" },
+        pending: { label: "Pendente", color: "#fb8c00" },
+        closed: { label: "Fechado", color: "#757575" },
+    };
+
+    const getStatusChip = (status) => {
+        const info = statusLabels[status];
+        if (!info) return null;
+        return (
+            <Chip
+                label={info.label}
+                className={classes.statusChip}
+                style={{ backgroundColor: info.color, color: "#fff" }}
+            />
+        );
+    };
+
+    const getMatchSnippet = () => {
+        if (!ticket.messages || ticket.messages.length === 0) return null;
+        const body = ticket.messages[0]?.body;
+        if (!body) return null;
+        const truncated = body.length > 80 ? body.substring(0, 80) + "…" : body;
+        return (
+            <span className={classes.matchSnippet}>
+                🔍 {truncated}
+            </span>
+        );
+    };
+
     return (
         <React.Fragment key={ticket.id}>
             <ListItem
                 dense
                 button
                 onClick={(e) => {
+                    if (mergeMode) {
+                        onToggleSelectForMerge && onToggleSelectForMerge(ticket);
+                        return;
+                    }
                     if (ticket.status === "pending") return;
                     handleSelectTicket(ticket);
                 }}
-                selected={ticketId && +ticketId === ticket.id}
+                selected={!mergeMode && ticketId && +ticketId === ticket.id}
+                style={isSelectedForMerge ? { backgroundColor: "#e3f2fd", borderLeft: "3px solid #1976d2" } : {}}
                 className={clsx(classes.ticket, {
                     [classes.pendingTicket]: ticket.status === "pending",
                 })}
             >
+                {mergeMode && (
+                    <Checkbox
+                        checked={isSelectedForMerge}
+                        color="primary"
+                        size="small"
+                        style={{ padding: 4, marginRight: 4 }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onToggleSelectForMerge && onToggleSelectForMerge(ticket);
+                        }}
+                    />
+                )}
                 <Tooltip
                     arrow
                     placement="right"
@@ -413,6 +481,7 @@ const TicketListItem = ({ ticket }) => {
                                 color="textPrimary"
                             >
                                 {ticket.contact.name}
+                                {ticket.status && getStatusChip(ticket.status)}
                             </Typography>
 
                             {ticket.lastMessage && (
@@ -455,36 +524,39 @@ const TicketListItem = ({ ticket }) => {
                         </span>
                     }
                     secondary={
-                        <span className={classes.contactNameWrapper}>
-                            {ticket.status === "closed"
-                                ? ticket?.userRating
-                                    ? getRatingIcon(ticket?.userRating?.rate)
-                                    : null
-                                : null}
-                            <Typography
-                                className={classes.contactLastMessage}
-                                noWrap
-                                component="span"
-                                variant="body2"
-                                color="textSecondary"
-                            >
-                                {ticket.lastMessage ? (
-                                    <MarkdownWrapper>
-                                        {ticket.lastMessage}
-                                    </MarkdownWrapper>
-                                ) : (
-                                    <br />
-                                )}
-                            </Typography>
+                        <span className={classes.contactNameWrapper} style={{ flexDirection: "column", alignItems: "flex-start" }}>
+                            <span style={{ display: "flex", width: "100%", alignItems: "center" }}>
+                                {ticket.status === "closed"
+                                    ? ticket?.userRating
+                                        ? getRatingIcon(ticket?.userRating?.rate)
+                                        : null
+                                    : null}
+                                <Typography
+                                    className={classes.contactLastMessage}
+                                    noWrap
+                                    component="span"
+                                    variant="body2"
+                                    color="textSecondary"
+                                >
+                                    {ticket.lastMessage ? (
+                                        <MarkdownWrapper>
+                                            {formatMentions(ticket.lastMessage)}
+                                        </MarkdownWrapper>
+                                    ) : (
+                                        <br />
+                                    )}
+                                </Typography>
 
-                            <Badge
-                                overlap="rectangular"
-                                className={classes.newMessagesCount}
-                                badgeContent={ticket.unreadMessages}
-                                classes={{
-                                    badge: classes.badgeStyle,
-                                }}
-                            />
+                                <Badge
+                                    overlap="rectangular"
+                                    className={classes.newMessagesCount}
+                                    badgeContent={ticket.unreadMessages}
+                                    classes={{
+                                        badge: classes.badgeStyle,
+                                    }}
+                                />
+                            </span>
+                            {getMatchSnippet()}
                         </span>
                     }
                 />

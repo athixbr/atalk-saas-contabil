@@ -195,7 +195,9 @@ const TicketsListCustom = (props) => {
         whatsappIds,
         forceSearch,
         statusFilter,
-        userFilter
+        userFilter,
+        selectedForMerge,
+        onMergeSelect
     } = props;
 
     const classes = useStyles();
@@ -379,6 +381,8 @@ const TicketsListCustom = (props) => {
                                     ticket={ticket}
                                     key={ticket.id}
                                     searchParam={searchParam}
+                                    isSelectedForMerge={selectedForMerge?.some(t => t.id === ticket.id)}
+                                    onMergeSelect={onMergeSelect}
                                 // handleChangeTab={handleChangeTab}
                                 />
                             ))}

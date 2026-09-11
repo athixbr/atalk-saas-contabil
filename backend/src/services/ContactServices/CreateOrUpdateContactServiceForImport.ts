@@ -1,5 +1,6 @@
 import { getIO } from "../../libs/socket";
 import Contact from "../../models/Contact";
+import { logger } from "../../utils/logger";
 
 interface ExtraInfo {
   name: string;
@@ -34,10 +35,14 @@ const CreateOrUpdateContactServiceForImport = async ({
   contact = await Contact.findOne({ where: { number , companyId } });
 
   if (contact) {
-    if (contact.companyId === null)
-      contact.update({ name ,profilePicUrl, companyId })
-    else
-      contact.update({ name , profilePicUrl });
+    try {
+      if (contact.companyId === null)
+        await contact.update({ name, profilePicUrl, companyId });
+      else
+        await contact.update({ name, profilePicUrl });
+    } catch (err) {
+      logger.warn({ err }, `[CreateOrUpdateContactServiceForImport] erro ao atualizar contato ${contact.id}`);
+    }
 
       io.emit(`company-${companyId}-contact`, {
       action: "update",

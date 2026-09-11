@@ -85,6 +85,11 @@ class Whatsapp extends Model<Whatsapp> {
   @Default(false)
   @AllowNull
   @Column
+  isDefaultNotification: boolean;
+
+  @Default(false)
+  @AllowNull
+  @Column
   allowGroup: boolean;
 
   @CreatedAt

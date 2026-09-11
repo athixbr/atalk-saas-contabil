@@ -19,7 +19,10 @@ import MenuItem from "@material-ui/core/MenuItem";
 import FormControl from "@material-ui/core/FormControl";
 import FormControlLabel from "@material-ui/core/FormControlLabel";
 import Checkbox from "@material-ui/core/Checkbox";
+import Radio from "@material-ui/core/Radio";
+import RadioGroup from "@material-ui/core/RadioGroup";
 import Typography from "@material-ui/core/Typography";
+import Chip from "@material-ui/core/Chip";
 import whatsappIcon from '../../assets/nopicture.png'
 import { i18n } from "../../translate/i18n";
 
@@ -105,7 +108,30 @@ const useStyles = makeStyles(theme => ({
 		color: 'red',
 		fontSize: '0.8rem',
 		fontWeight: 'bold',
-	}
+	},
+	deptRow: {
+		display: 'flex',
+		alignItems: 'center',
+		padding: '6px 8px',
+		borderRadius: 6,
+		marginBottom: 4,
+		border: '1px solid',
+		borderColor: theme.palette.divider,
+		gap: 8,
+	},
+	deptRowSelected: {
+		borderColor: theme.palette.primary.main,
+		backgroundColor: theme.palette.action.selected,
+	},
+	deptName: {
+		flex: 1,
+		fontWeight: 500,
+	},
+	roleRadios: {
+		display: 'flex',
+		flexDirection: 'row',
+		gap: 0,
+	},
 }));
 
 const UserSchema = Yup.object().shape({
@@ -133,6 +159,7 @@ const UserModal = ({ open, onClose, userId }) => {
 		defaultTheme: "light",
 		defaultMenu: "open",
 		wpp: "",
+		isActive: true,
 	};
 
 	const { user: loggedInUser } = useContext(AuthContext);
@@ -425,6 +452,28 @@ const UserModal = ({ open, onClose, userId }) => {
 									/>
 
 								</div>
+								<div className={classes.multFieldLine}>
+									<FormControl
+										variant="outlined"
+										className={classes.formControl}
+										margin="dense"
+										fullWidth
+									>
+										<InputLabel id="user-active-selection-label">
+											Status do usuário
+										</InputLabel>
+										<Field
+											as={Select}
+											label="Status do usuário"
+											name="isActive"
+											labelId="user-active-selection-label"
+											id="user-active-selection"
+										>
+											<MenuItem value={true}>Ativo</MenuItem>
+											<MenuItem value={false}>Inativo</MenuItem>
+										</Field>
+									</FormControl>
+								</div>
 								<Can
 									role={loggedInUser.profile}
 									perform="user-modal:editQueues"
@@ -658,38 +707,64 @@ const UserModal = ({ open, onClose, userId }) => {
 									perform="user-modal:editProfile"
 									yes={() => (
 										<div style={{ marginTop: 16 }}>
-											<Typography variant="subtitle1" style={{ marginBottom: 8 }}>
+											<Typography variant="subtitle2" color="textSecondary" style={{ marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1, fontSize: 11 }}>
 												Departamentos
 											</Typography>
 											{departamentos && departamentos.length > 0 ? (
 												departamentos.map(dept => {
-													const isSelected = selectedDepartamentos.find(d => d.departamentoId === dept.id);
-													const isCoordenador = isSelected?.isCoordenador || false;
-													
+													const selected = selectedDepartamentos.find(d => d.departamentoId === dept.id);
+													const isSelected = !!selected;
+													const role = selected?.isCoordenador ? 'coordenador' : 'membro';
+
 													return (
-														<div key={dept.id} style={{ marginBottom: 8 }}>
-															<FormControlLabel
-																control={
-																	<Checkbox
-																		checked={!!isSelected}
-																		onChange={() => handleToggleDepartamento(dept.id)}
-																		color="primary"
-																	/>
-																}
-																label={dept.nome}
+														<div
+															key={dept.id}
+															className={`${classes.deptRow} ${isSelected ? classes.deptRowSelected : ''}`}
+														>
+															<Checkbox
+																checked={isSelected}
+																onChange={() => handleToggleDepartamento(dept.id)}
+																color="primary"
+																size="small"
+																style={{ padding: 4 }}
 															/>
+															<Typography variant="body2" className={classes.deptName}>
+																{dept.nome}
+															</Typography>
 															{isSelected && (
-																<FormControlLabel
-																	style={{ marginLeft: 32 }}
-																	control={
-																		<Checkbox
-																			checked={isCoordenador}
-																			onChange={() => handleToggleCoordenador(dept.id)}
-																			color="secondary"
-																		/>
-																	}
-																	label="Coordenador 👑"
-																/>
+																<RadioGroup
+																	row
+																	value={role}
+																	onChange={(e) => {
+																		const isCoordenador = e.target.value === 'coordenador';
+																		setSelectedDepartamentos(prev =>
+																			prev.map(d =>
+																				d.departamentoId === dept.id
+																					? { ...d, isCoordenador }
+																					: d
+																			)
+																		);
+																	}}
+																	className={classes.roleRadios}
+																>
+																	<FormControlLabel
+																		value="membro"
+																		control={<Radio size="small" color="primary" />}
+																		label={<Typography variant="caption">Membro</Typography>}
+																		style={{ marginRight: 4 }}
+																	/>
+																	<FormControlLabel
+																		value="coordenador"
+																		control={<Radio size="small" color="secondary" />}
+																		label={<Typography variant="caption" color={role === 'coordenador' ? 'secondary' : 'inherit'}>Coordenador</Typography>}
+																		style={{ marginRight: 0 }}
+																	/>
+																</RadioGroup>
+															)}
+															{!isSelected && (
+																<Typography variant="caption" color="textSecondary" style={{ paddingRight: 8 }}>
+																	Não vinculado
+																</Typography>
 															)}
 														</div>
 													);

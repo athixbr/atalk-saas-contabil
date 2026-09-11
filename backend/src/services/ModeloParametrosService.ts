@@ -18,6 +18,10 @@ interface ModeloParametrosData {
   tagsId?: number | null;
   adiantamentoFolhaId?: number | null;
   distribuicaoLucrosId?: number | null;
+  grupoClienteId?: number | null;
+  segmentoId?: number | null;
+  atuacaoId?: number | null;
+  atuacaoIds?: number[] | null;
   // Enquadramento Tributário
   porteFederalId?: number | null;
   porteEstadualId?: number | null;
@@ -63,6 +67,7 @@ export const criarModelo = async (modeloData: ModeloParametrosData) => {
     'tipoClienteId', 'tierClienteId', 'clusterClienteId',
     'categoriaClienteId', 'sedeClienteId', 'localizacaoClienteId',
     'tagsId', 'adiantamentoFolhaId', 'distribuicaoLucrosId',
+    'grupoClienteId', 'segmentoId', 'atuacaoId', 'atuacaoIds',
     // Enquadramento Tributário
     'porteFederalId', 'porteEstadualId', 'porteMunicipalId',
     'regimeTributarioFederalId', 'regimeTributarioEstadualId', 'regimeTributarioMunicipalId',
@@ -101,6 +106,7 @@ export const atualizarModelo = async (id: number, modeloData: ModeloParametrosDa
     'tipoClienteId', 'tierClienteId', 'clusterClienteId',
     'categoriaClienteId', 'sedeClienteId', 'localizacaoClienteId',
     'tagsId', 'adiantamentoFolhaId', 'distribuicaoLucrosId',
+    'grupoClienteId', 'segmentoId', 'atuacaoId', 'atuacaoIds',
     // Enquadramento Tributário
     'porteFederalId', 'porteEstadualId', 'porteMunicipalId',
     'regimeTributarioFederalId', 'regimeTributarioEstadualId', 'regimeTributarioMunicipalId',

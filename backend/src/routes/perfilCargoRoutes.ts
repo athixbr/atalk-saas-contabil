@@ -2,6 +2,7 @@ import { Router } from "express";
 import multer from "multer";
 import isAuth from "../middleware/isAuth";
 import uploadConfig from "../config/upload";
+import uploadFilesToStorage from "../middleware/uploadToStorage";
 import * as PerfilCargoController from "../controllers/PerfilCargoController";
 import * as HoleriteController from "../controllers/HoleriteController";
 
@@ -38,6 +39,7 @@ perfilCargoRoutes.post(
   "/holerites/:userId",
   isAuth,
   upload.single("file"),
+  uploadFilesToStorage,
   HoleriteController.store
 );
 

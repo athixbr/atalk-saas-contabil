@@ -81,6 +81,46 @@ export const update = async (req: Request, res: Response): Promise<Response> => 
   }
 };
 
+export const bulkStore = async (req: Request, res: Response): Promise<Response> => {
+  const { clienteId } = req.params;
+  const { cnaes } = req.body;
+
+  if (!Array.isArray(cnaes) || cnaes.length === 0) {
+    return res.status(400).json({ error: "Nenhum CNAE informado" });
+  }
+
+  try {
+    const existentes = await ClienteCNAE.findAll({ where: { clienteId } });
+    const codigosExistentes = new Set(existentes.map(c => c.cnae));
+
+    const jaTemPrincipal = existentes.some(c => c.principal);
+    let principalDefinido = jaTemPrincipal;
+
+    const novos = [];
+    for (const item of cnaes) {
+      if (!item.cnae || codigosExistentes.has(item.cnae)) continue;
+
+      const principal = !principalDefinido && !!item.principal;
+      if (principal) principalDefinido = true;
+
+      novos.push({
+        clienteId: Number(clienteId),
+        cnae: item.cnae,
+        descricao: item.descricao || "",
+        principal,
+      });
+      codigosExistentes.add(item.cnae);
+    }
+
+    const criados = novos.length > 0 ? await ClienteCNAE.bulkCreate(novos) : [];
+
+    return res.status(201).json(criados);
+  } catch (err) {
+    console.error("Erro ao importar CNAEs em lote:", err);
+    return res.status(500).json({ error: "Erro ao importar CNAEs" });
+  }
+};
+
 export const remove = async (req: Request, res: Response): Promise<Response> => {
   const { clienteId, cnaeId } = req.params;
 

@@ -33,21 +33,31 @@ import {
   CheckCircle as CheckCircleIcon,
   Refresh as RefreshIcon
 } from '@material-ui/icons';
-import { ChevronLeft } from '@material-ui/icons';
+import ChevronLeft from "@material-ui/icons/ChevronLeft";
 import { useHistory } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api from '../../../services/api';
-import MainContainer from '../../../components/MainContainer';
 import MainHeader from '../../../components/MainHeader';
 import MainHeaderButtonsWrapper from '../../../components/MainHeaderButtonsWrapper';
 import Title from '../../../components/Title';
 import TableRowSkeleton from '../../../components/TableRowSkeleton';
 
 const useStyles = makeStyles((theme) => ({
+  mainContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100%',
+    padding: theme.spacing(3),
+    width: '100%',
+    boxSizing: 'border-box',
+  },
   mainPaper: {
     flex: 1,
     padding: theme.spacing(2),
-    overflowY: 'scroll',
+    overflowY: 'auto',
+    overflowX: 'hidden',
+    width: '100%',
+    boxSizing: 'border-box',
     ...theme.scrollbarStyles,
   },
   toolbarIcon: {
@@ -117,6 +127,10 @@ const useStyles = makeStyles((theme) => ({
     padding: theme.spacing(1.5, 2),
     flex: 1,
     minWidth: 140,
+  },
+  tableWrapper: {
+    width: '100%',
+    overflowX: 'auto',
   },
   liveIndicator: {
     display: 'inline-block',
@@ -424,7 +438,7 @@ const TicketTimeReports = () => {
   }, [tickets]);
 
   return (
-    <MainContainer>
+    <div className={classes.mainContainer}>
       <Box style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
         <IconButton onClick={() => history.goBack()} size="small">
           <ChevronLeft />
@@ -460,7 +474,7 @@ const TicketTimeReports = () => {
         </MainHeaderButtonsWrapper>
       </MainHeader>
 
-      <Paper className={classes.mainPaper}>
+      <Paper className={classes.mainPaper} variant="outlined">
         {/* Filtros */}
         <div className={classes.filterSection}>
           <TextField
@@ -606,47 +620,49 @@ const TicketTimeReports = () => {
               </Typography>
             </Box>
 
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell />
-                  <TableCell>Ticket</TableCell>
-                  <TableCell>Contato</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>
-                    <Tooltip title="Tempo desde abertura até primeira visualização">
-                      <span>Espera Inicial</span>
-                    </Tooltip>
-                  </TableCell>
-                  <TableCell>
-                    <Tooltip title="Tempo até primeira mensagem do atendente">
-                      <span>1ª Resposta</span>
-                    </Tooltip>
-                  </TableCell>
-                  <TableCell>
-                    <Tooltip title="Tempo total desde abertura até fechamento">
-                      <span>Tempo Total</span>
-                    </Tooltip>
-                  </TableCell>
-                  <TableCell>
-                    <Tooltip title="Tempo sem interação do atendente">
-                      <span>Ocioso</span>
-                    </Tooltip>
-                  </TableCell>
-                  <TableCell>Transferências</TableCell>
-                  <TableCell>Atendentes</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {tickets.map((ticket) => (
-                  <TicketRow key={ticket.ticketId} ticket={ticket} />
-                ))}
-              </TableBody>
-            </Table>
+            <div className={classes.tableWrapper}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell />
+                    <TableCell>Ticket</TableCell>
+                    <TableCell>Contato</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>
+                      <Tooltip title="Tempo desde abertura até primeira visualização">
+                        <span>Espera Inicial</span>
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell>
+                      <Tooltip title="Tempo até primeira mensagem do atendente">
+                        <span>1ª Resposta</span>
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell>
+                      <Tooltip title="Tempo total desde abertura até fechamento">
+                        <span>Tempo Total</span>
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell>
+                      <Tooltip title="Tempo sem interação do atendente">
+                        <span>Ocioso</span>
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell>Transferências</TableCell>
+                    <TableCell>Atendentes</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {tickets.map((ticket) => (
+                    <TicketRow key={ticket.ticketId} ticket={ticket} />
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </>
         )}
       </Paper>
-    </MainContainer>
+    </div>
   );
 };
 

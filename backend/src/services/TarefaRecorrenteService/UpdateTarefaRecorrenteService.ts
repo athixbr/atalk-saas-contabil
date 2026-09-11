@@ -8,20 +8,30 @@ import Departamento from "../../models/Departamento";
 import DepartamentoUsuario from "../../models/DepartamentoUsuario";
 import User from "../../models/User";
 import AppError from "../../errors/AppError";
+import {
+  validateEntregasMensais,
+  validateDiasField,
+  validateCompetenciaValor,
+  validatePrazosFixos,
+  normalizePrazosFixos
+} from "./validateTarefaRecorrenteFields";
 
 interface TarefaRecorrenteData {
   codigo?: string;
   classificacao?: string;
   mininome?: string;
   nomeTarefa?: string;
+  tipoTarefa?: string;
   departamentoId?: number;
   entregasMensais?: object;
   diasAntecipacao?: number;
   diasInicio?: number;
+  diasConclusao?: number;
   tipoDiasAntes?: string;
   prazosFixos?: string;
   sabadoUtil?: boolean;
   competencia?: string;
+  competenciaTipo?: string;
   exigirRobo?: boolean;
   passivelMulta?: boolean;
   alertaGuia?: boolean;
@@ -44,10 +54,11 @@ interface TarefaRecorrenteData {
   retencaoMeses?: number;
   prazoMinimoRealizacao?: number;
   semVencimento?: boolean;
+  faseConfig?: object;
   checklistId?: number;
   canaisNotificacao?: string[];
   valor?: number;
-  clientesIds?: number[];
+  clientesIds?: Array<number | { id?: number; clienteId?: number; vencimento?: string; controleComDataId?: number }>;
   sociosIds?: number[];
   usuariosIds?: number[];
   usuarioResponsavelId?: number;
@@ -76,6 +87,25 @@ const UpdateTarefaRecorrenteService = async ({
 
   const { clientesIds, sociosIds, usuariosIds, usuarioResponsavelId, ...updateData } = data;
 
+  // Código agora é exibido a partir do ID auto-incremental e não é alterado pelo formulário.
+  delete updateData.codigo;
+
+  // Classificação: quando informada, formato 00.00.00
+  if (updateData.classificacao !== undefined && !/^\d{2}\.\d{2}\.\d{2}$/.test(updateData.classificacao)) {
+    throw new AppError("ERR_CLASSIFICACAO_INVALIDA: Classificação deve estar no formato 00.00.00", 400);
+  }
+
+  // Entregas Mensais: cada mês deve ter um dia válido no calendário, "ultimo", "nao_tem" ou vazio
+  validateEntregasMensais(updateData.entregasMensais);
+
+  // Prazos e Configurações: campos numéricos limitados a 4 dígitos
+  validateDiasField(updateData.diasAntecipacao, "diasAntecipacao");
+  validateDiasField(updateData.diasInicio, "diasInicio");
+  validateDiasField(updateData.diasConclusao, "diasConclusao");
+  validateCompetenciaValor(updateData.competencia);
+  updateData.prazosFixos = normalizePrazosFixos(updateData.prazosFixos) as string;
+  validatePrazosFixos(updateData.prazosFixos);
+
   // Se não informou usuário responsável mas informou departamento, buscar coordenador
   let finalUsuarioResponsavelId = usuarioResponsavelId;
   if (finalUsuarioResponsavelId === undefined && updateData.departamentoId) {
@@ -93,13 +123,25 @@ const UpdateTarefaRecorrenteService = async ({
 
   // Campos booleanos que podem vir como strings "sim"/"nao"
   const booleanFields = [
-    'sabadoUtil', 'exigirRobo', 'passivelMulta', 'alertaGuia', 
-    'checklistObrigatorio', 'notificarCliente', 'servicoLiberado', 
-    'baixarAutomatico', 'ativa'
+    'sabadoUtil', 'exigirRobo', 'passivelMulta', 'alertaGuia',
+    'checklistObrigatorio', 'notificarCliente', 'servicoLiberado',
+    'baixarAutomatico'
   ];
 
   // Limpar campos vazios, converter booleanos e tratar ENUMs
   const cleanData = Object.entries(updateData).reduce((acc, [key, value]) => {
+    // "ativa" nunca deve virar null: se vier vazio, a chave é omitida
+    // (mantém o valor atual em vez de apagar o status), nunca grava NULL
+    // explícito, senão a tarefa fica de fora da geração automática
+    // (GenerateTarefasRecorrentesService filtra where: { ativa: true }).
+    if (key === 'ativa') {
+      if (value === "nao" || value === false) {
+        acc[key] = false;
+      } else if (value === "sim" || value === true) {
+        acc[key] = true;
+      }
+      return acc;
+    }
     // Converter strings "sim"/"nao" para boolean
     if (booleanFields.includes(key)) {
       if (value === "sim" || value === true) {
@@ -114,6 +156,9 @@ const UpdateTarefaRecorrenteService = async ({
     else if (value === "" && (key === "esfera")) {
       acc[key] = null;
     } 
+    else if (key === "tipoTarefa") {
+      acc[key] = value || "recorrente";
+    }
     // Se for string vazia em outros campos opcionais, não incluir
     else if (value !== "" && value !== undefined) {
       acc[key] = value;
@@ -135,10 +180,12 @@ const UpdateTarefaRecorrenteService = async ({
     });
 
     if (clientesIds.length > 0) {
-      const clientesVinculos = clientesIds.map(clienteId => ({
+      const clientesVinculos = clientesIds.map((cliente: any) => ({
         tarefaRecorrenteId: Number(id),
-        clienteId
-      }));
+        clienteId: typeof cliente === "object" ? cliente.clienteId || cliente.id : cliente,
+        vencimento: typeof cliente === "object" ? cliente.vencimento || null : null,
+        controleComDataId: typeof cliente === "object" ? cliente.controleComDataId || null : null
+      })).filter(vinculo => vinculo.clienteId);
       await TarefaRecorrenteCliente.bulkCreate(clientesVinculos);
     }
   }
@@ -183,6 +230,7 @@ const UpdateTarefaRecorrenteService = async ({
       { model: User, as: "usuarios" }
     ]
   });
+  tarefaRecorrente.setDataValue("codigo", String(tarefaRecorrente.id));
 
   return tarefaRecorrente;
 };

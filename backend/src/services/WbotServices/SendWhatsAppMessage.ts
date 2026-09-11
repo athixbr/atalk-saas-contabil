@@ -28,8 +28,10 @@ const SendWhatsAppMessage = async ({
   vCard,
   isForwarded = false
 }: Request): Promise<WAMessage> => {
+  const t0 = Date.now();
   let options = {};
   const wbot = await GetTicketWbot(ticket);
+  console.log(`[SEND_TIMING] GetTicketWbot: ${Date.now() - t0}ms`);
   const contactNumber = await Contact.findByPk(ticket.contactId)
   
   let number: string;
@@ -112,6 +114,8 @@ const SendWhatsAppMessage = async ({
   
   try {
     await delay(msdelay)
+    const t1 = Date.now();
+    console.log(`[SEND_TIMING] calling wbot.sendMessage to ${number}`);
     const sentMessage = await wbot.sendMessage(
       number,
       {
@@ -122,6 +126,7 @@ const SendWhatsAppMessage = async ({
         ...options
       }
     );
+    console.log(`[SEND_TIMING] wbot.sendMessage done: ${Date.now() - t1}ms (total: ${Date.now() - t0}ms)`);
     await ticket.update({ lastMessage: formatBody(body, ticket), imported:null });
     return sentMessage;
   } catch (err) {

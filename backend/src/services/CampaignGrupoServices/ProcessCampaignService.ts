@@ -6,6 +6,7 @@ import AppError from "../../errors/AppError";
 import fs from "fs";
 import path from "path";
 import { getMessageOptions } from "../WbotServices/SendWhatsAppMedia";
+import { ensureLocalFile } from "../../helpers/uploadToSpaces";
 
 interface Request {
   campaignId: number;
@@ -98,6 +99,19 @@ const ProcessCampaignService = async ({
   let sentCount = 0;
   let failedCount = 0;
 
+  // Garante o arquivo de mídia localmente uma única vez (baixa do storage se necessário)
+  let resolvedMediaPath: string | null = null;
+  let mediaIsTemp = false;
+  if (campaign.mediaPath) {
+    const localPath = path.resolve("public", campaign.mediaPath);
+    try {
+      resolvedMediaPath = await ensureLocalFile(localPath, campaign.mediaPath);
+      mediaIsTemp = resolvedMediaPath !== localPath;
+    } catch (error) {
+      console.error(`[CAMPAIGN-GRUPO] Falha ao obter mídia da campanha ${campaignId}:`, error);
+    }
+  }
+
   // Processar cada grupo
   for (const group of campaign.groups) {
     try {
@@ -107,21 +121,13 @@ const ProcessCampaignService = async ({
       // Preparar mensagem
       let optionsMsg: any = {};
 
-      if (campaign.mediaPath) {
-        const mediaPath = path.resolve("public", campaign.mediaPath);
-        if (fs.existsSync(mediaPath)) {
-          optionsMsg = await getMessageOptions(
-            campaign.mediaPath,
-            mediaPath,
-            String(companyId),
-            campaign.message
-          );
-        } else {
-          // Se não encontrou arquivo, envia só texto
-          optionsMsg = {
-            text: campaign.message
-          };
-        }
+      if (resolvedMediaPath) {
+        optionsMsg = await getMessageOptions(
+          campaign.mediaPath,
+          resolvedMediaPath,
+          String(companyId),
+          campaign.message
+        );
       } else {
         optionsMsg = {
           text: campaign.message
@@ -150,6 +156,10 @@ const ProcessCampaignService = async ({
       await group.save();
       failedCount++;
     }
+  }
+
+  if (mediaIsTemp && resolvedMediaPath && fs.existsSync(resolvedMediaPath)) {
+    try { fs.unlinkSync(resolvedMediaPath); } catch (_) {}
   }
 
   // Atualizar campanha

@@ -6,10 +6,16 @@ import {
   AutoIncrement,
   ForeignKey,
   BelongsTo,
+  BelongsToMany,
+  HasMany,
+  HasOne,
   CreatedAt,
   UpdatedAt,
 } from "sequelize-typescript";
 import Cliente from "./Cliente";
+import Departamento from "./Departamento";
+import ContatoDepartamento from "./ContatoDepartamento";
+import ContatoAppAcesso from "./ContatoAppAcesso";
 
 @Table({ tableName: "ClienteContatos" })
 class ClienteContato extends Model<ClienteContato> {
@@ -45,6 +51,15 @@ class ClienteContato extends Model<ClienteContato> {
 
   @BelongsTo(() => Cliente)
   cliente: any;
+
+  @BelongsToMany(() => Departamento, () => ContatoDepartamento)
+  departamentos: any[];
+
+  @HasMany(() => ContatoDepartamento)
+  contatoDepartamentos: any[];
+
+  @HasOne(() => ContatoAppAcesso)
+  appAcesso: any;
 
   @CreatedAt
   createdAt: Date;

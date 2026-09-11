@@ -40,7 +40,6 @@ import {
 
 import FacebookLogin from "react-facebook-login/dist/facebook-login-render-props";
 
-import MainContainer from "../../components/MainContainer";
 import MainHeader from "../../components/MainHeader";
 import MainHeaderButtonsWrapper from "../../components/MainHeaderButtonsWrapper";
 import Title from "../../components/Title";
@@ -59,11 +58,22 @@ import usePlans from "../../hooks/usePlans";
 import { useHistory } from "react-router-dom/cjs/react-router-dom.min";
 
 const useStyles = makeStyles((theme) => ({
+  mainContainer: {
+    display: "flex",
+    flexDirection: "column",
+    height: "100%",
+    padding: theme.spacing(3),
+    width: "100%",
+    boxSizing: "border-box",
+  },
   mainPaper: {
     flex: 1,
     // padding: theme.spacing(1),
     padding: theme.padding,
-    overflowY: "scroll",
+    overflowY: "auto",
+    overflowX: "auto",
+    width: "100%",
+    boxSizing: "border-box",
     ...theme.scrollbarStyles,
   },
   customTableCell: {
@@ -506,7 +516,7 @@ const Connections = () => {
   }
 
   return (
-    <MainContainer>
+    <div className={classes.mainContainer}>
       <ConfirmationModal
         title={confirmModalInfo.title}
         open={confirmModalOpen}
@@ -750,7 +760,7 @@ const Connections = () => {
           </TableBody>
         </Table>
       </Paper>
-    </MainContainer>
+    </div>
   );
 };
 

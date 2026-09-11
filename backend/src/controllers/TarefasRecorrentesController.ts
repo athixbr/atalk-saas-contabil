@@ -8,12 +8,21 @@ import DeleteTarefaRecorrenteService from "../services/TarefaRecorrenteService/D
 export const index = async (req: Request, res: Response): Promise<Response> => {
   try {
     const { companyId } = req.user;
-    const { searchParam = "", pageNumber = "1" } = req.query as any;
+    const {
+      searchParam = "",
+      pageNumber = "1",
+      pageSize = "20",
+      orderBy,
+      order
+    } = req.query as any;
 
     const result = await ListTarefasRecorrentesService({
       companyId: Number(companyId),
       searchParam,
-      page: parseInt(pageNumber, 10)
+      page: parseInt(pageNumber, 10),
+      pageSize: parseInt(pageSize, 10),
+      orderBy,
+      order
     });
 
     return res.status(200).json(result);

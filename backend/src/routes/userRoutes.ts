@@ -4,6 +4,7 @@ import isAuth from "../middleware/isAuth";
 import * as UserController from "../controllers/UserController";
 import multer from "multer";
 import uploadConfig from "../config/upload";
+import uploadFilesToStorage from "../middleware/uploadToStorage";
 
 const upload = multer(uploadConfig);
 
@@ -21,6 +22,6 @@ userRoutes.get("/users/:userId", isAuth, UserController.show);
 
 userRoutes.delete("/users/:userId", isAuth, UserController.remove);
 
-userRoutes.post("/users/:userId/media-upload", isAuth, upload.array("profileImage"), UserController.mediaUpload);
+userRoutes.post("/users/:userId/media-upload", isAuth, upload.array("profileImage"), uploadFilesToStorage, UserController.mediaUpload);
 
 export default userRoutes;

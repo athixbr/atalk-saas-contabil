@@ -16,6 +16,7 @@ import {
   Select,
   InputLabel,
   FormControl,
+  Card,
 } from "@material-ui/core";
 import {
   Save as SaveIcon,
@@ -28,6 +29,7 @@ import MainContainer from "../../components/MainContainer";
 import MainHeader from "../../components/MainHeader";
 import Title from "../../components/Title";
 import MainHeaderButtonsWrapper from "../../components/MainHeaderButtonsWrapper";
+import EndpointSelector from "../../components/EndpointSelector";
 import api from "../../services/api";
 
 const useStyles = makeStyles((theme) => ({
@@ -69,6 +71,7 @@ const ModelosParametrosCadastro = () => {
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [endpointsModelo, setEndpointsModelo] = useState([]);
   
   const [formData, setFormData] = useState({
     nome: "",
@@ -86,14 +89,17 @@ const ModelosParametrosCadastro = () => {
     tagsId: "",
     adiantamentoFolhaId: "",
     distribuicaoLucrosId: "",
-    // Enquadramento Tributário
+    grupoClienteId: "",
+    segmentoId: "",
+    atuacaoId: "",
+    // Enquadramento
     porteFederalId: "",
     porteEstadualId: "",
     porteMunicipalId: "",
     regimeTributarioFederalId: "",
     regimeTributarioEstadualId: "",
     regimeTributarioMunicipalId: "",
-    // Enquadramento Operacional
+    // Classificação operacional
     volumeFiscalId: "",
     volumeContabilId: "",
     volumeDPId: "",
@@ -118,6 +124,9 @@ const ModelosParametrosCadastro = () => {
     tags: [], // Tags do Cliente
     adiantamentoFolha: [],
     distribuicaoLucros: [],
+    grupoCliente: [],
+    segmento: [],
+    atuacao: [],
     porteFederal: [],
     porteEstadual: [],
     porteMunicipal: [],
@@ -168,6 +177,9 @@ const ModelosParametrosCadastro = () => {
         api.get("/parametros/tags"),
         api.get("/parametros/adiantamentofolha"),
         api.get("/parametros/distribuicaolucros"),
+        api.get("/parametros/grupocliente"),
+        api.get("/parametros/segmento"),
+        api.get("/parametros/atuacao"),
         api.get("/parametros/portefederal"),
         api.get("/parametros/porteestadual"),
         api.get("/parametros/portemunicipal"),
@@ -188,6 +200,7 @@ const ModelosParametrosCadastro = () => {
         statusCliente, statusComplementar, periodicidadeCliente, tipoCliente,
         tierCliente, clusterCliente, categoriaCliente, escritorioGestor,
         localizacaoCliente, tags, adiantamentoFolha, distribuicaoLucros,
+        grupoCliente, segmento, atuacao,
         porteFederal, porteEstadual, porteMunicipal,
         regimeTributarioFederal, regimeTributarioEstadual, regimeTributarioMunicipal,
         volumeFiscal, volumeContabil, volumeDP, volumeBPO,
@@ -209,6 +222,9 @@ const ModelosParametrosCadastro = () => {
         tags: tags.status === "fulfilled" ? tags.value.data : [], // Tags do Cliente
         adiantamentoFolha: adiantamentoFolha.status === "fulfilled" ? adiantamentoFolha.value.data : [],
         distribuicaoLucros: distribuicaoLucros.status === "fulfilled" ? distribuicaoLucros.value.data : [],
+        grupoCliente: grupoCliente.status === "fulfilled" ? grupoCliente.value.data.parametros || grupoCliente.value.data : [],
+        segmento: segmento.status === "fulfilled" ? segmento.value.data.parametros || segmento.value.data : [],
+        atuacao: atuacao.status === "fulfilled" ? atuacao.value.data.parametros || atuacao.value.data : [],
         porteFederal: porteFederal.status === "fulfilled" ? porteFederal.value.data : [],
         porteEstadual: porteEstadual.status === "fulfilled" ? porteEstadual.value.data : [],
         porteMunicipal: porteMunicipal.status === "fulfilled" ? porteMunicipal.value.data : [],
@@ -232,8 +248,12 @@ const ModelosParametrosCadastro = () => {
 
   const loadModelo = async () => {
     try {
-      const { data } = await api.get(`/modelos-parametros/${id}`);
-      setFormData(data);
+      const [modeloRes, endpointsRes] = await Promise.allSettled([
+        api.get(`/modelos-parametros/${id}`),
+        api.get(`/modelos-parametros/${id}/endpoints`),
+      ]);
+      if (modeloRes.status === "fulfilled") setFormData(modeloRes.value.data);
+      if (endpointsRes.status === "fulfilled") setEndpointsModelo(endpointsRes.value.data || []);
     } catch (error) {
       console.error("Erro ao carregar modelo:", error);
       toast.error("Erro ao carregar modelo");
@@ -274,14 +294,21 @@ const ModelosParametrosCadastro = () => {
         return acc;
       }, {});
       
+      let modeloId = id;
       if (id) {
         await api.put(`/modelos-parametros/${id}`, dataToSend);
         toast.success("Modelo atualizado com sucesso");
       } else {
-        await api.post("/modelos-parametros", dataToSend);
+        const { data: novoModelo } = await api.post("/modelos-parametros", dataToSend);
+        modeloId = novoModelo.id;
         toast.success("Modelo criado com sucesso");
       }
-      
+
+      // Salva endpoints vinculados ao modelo
+      if (modeloId) {
+        await api.put(`/modelos-parametros/${modeloId}/endpoints`, { endpoints: endpointsModelo });
+      }
+
       history.push("/modelos-parametros");
     } catch (error) {
       console.error("Erro ao salvar modelo:", error);
@@ -402,34 +429,10 @@ const ModelosParametrosCadastro = () => {
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={6}>
                   <SelectParametro
-                    label="Status do Cliente"
-                    name="statusClienteId"
-                    value={formData.statusClienteId}
-                    options={parametros.statusCliente}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <SelectParametro
-                    label="Status Complementar"
-                    name="statusComplementarId"
-                    value={formData.statusComplementarId}
-                    options={parametros.statusComplementar}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <SelectParametro
                     label="Periodicidade do Cliente"
                     name="periodicidadeClienteId"
                     value={formData.periodicidadeClienteId}
                     options={parametros.periodicidadeCliente}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <SelectParametro
-                    label="Tipo do Cliente"
-                    name="tipoClienteId"
-                    value={formData.tipoClienteId}
-                    options={parametros.tipoCliente}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -496,80 +499,6 @@ const ModelosParametrosCadastro = () => {
                     options={parametros.distribuicaoLucros}
                   />
                 </Grid>
-              </Grid>
-            </AccordionDetails>
-          </Accordion>
-
-          {/* Accordion 2: Enquadramento Tributário */}
-          <Accordion className={classes.accordion}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />} className={classes.accordionSummary}>
-              <Typography variant="subtitle1" style={{ fontWeight: 600, color: '#1976d2' }}>
-                📋 Enquadramento Tributário
-              </Typography>
-            </AccordionSummary>
-            <AccordionDetails className={classes.accordionDetails}>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
-                  <SelectParametro
-                    label="Porte Federal"
-                    name="porteFederalId"
-                    value={formData.porteFederalId}
-                    options={parametros.porteFederal}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <SelectParametro
-                    label="Porte Estadual"
-                    name="porteEstadualId"
-                    value={formData.porteEstadualId}
-                    options={parametros.porteEstadual}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <SelectParametro
-                    label="Porte Municipal"
-                    name="porteMunicipalId"
-                    value={formData.porteMunicipalId}
-                    options={parametros.porteMunicipal}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <SelectParametro
-                    label="Regime Tributário Federal"
-                    name="regimeTributarioFederalId"
-                    value={formData.regimeTributarioFederalId}
-                    options={parametros.regimeTributarioFederal}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <SelectParametro
-                    label="Regime Tributário Estadual"
-                    name="regimeTributarioEstadualId"
-                    value={formData.regimeTributarioEstadualId}
-                    options={parametros.regimeTributarioEstadual}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <SelectParametro
-                    label="Regime Tributário Municipal"
-                    name="regimeTributarioMunicipalId"
-                    value={formData.regimeTributarioMunicipalId}
-                    options={parametros.regimeTributarioMunicipal}
-                  />
-                </Grid>
-              </Grid>
-            </AccordionDetails>
-          </Accordion>
-
-          {/* Accordion 3: Enquadramento Operacional */}
-          <Accordion className={classes.accordion}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />} className={classes.accordionSummary}>
-              <Typography variant="subtitle1" style={{ fontWeight: 600, color: '#1976d2' }}>
-                📈 Enquadramento Operacional
-              </Typography>
-            </AccordionSummary>
-            <AccordionDetails className={classes.accordionDetails}>
-              <Grid container spacing={2}>
                 <Grid item xs={12} sm={6}>
                   <SelectParametro
                     label="Volume Fiscal"
@@ -634,9 +563,135 @@ const ModelosParametrosCadastro = () => {
                     options={parametros.modalFechBPO}
                   />
                 </Grid>
+                <Grid item xs={12} sm={6}>
+                  <SelectParametro
+                    label="Grupo do Cliente"
+                    name="grupoClienteId"
+                    value={formData.grupoClienteId}
+                    options={parametros.grupoCliente}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <SelectParametro
+                    label="Segmento"
+                    name="segmentoId"
+                    value={formData.segmentoId}
+                    options={parametros.segmento}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <SelectParametro
+                    label="Atuação"
+                    name="atuacaoId"
+                    value={formData.atuacaoId}
+                    options={parametros.atuacao}
+                  />
+                </Grid>
               </Grid>
             </AccordionDetails>
           </Accordion>
+
+          {/* Accordion 2: Enquadramento */}
+          <Accordion className={classes.accordion}>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />} className={classes.accordionSummary}>
+              <Typography variant="subtitle1" style={{ fontWeight: 600, color: '#1976d2' }}>
+                📋 Enquadramento
+              </Typography>
+            </AccordionSummary>
+            <AccordionDetails className={classes.accordionDetails}>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <SelectParametro
+                    label="Status do Cliente"
+                    name="statusClienteId"
+                    value={formData.statusClienteId}
+                    options={parametros.statusCliente}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <SelectParametro
+                    label="Status Complementar"
+                    name="statusComplementarId"
+                    value={formData.statusComplementarId}
+                    options={parametros.statusComplementar}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <SelectParametro
+                    label="Tipo de Pessoa"
+                    name="tipoClienteId"
+                    value={formData.tipoClienteId}
+                    options={parametros.tipoCliente}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <SelectParametro
+                    label="Porte Federal"
+                    name="porteFederalId"
+                    value={formData.porteFederalId}
+                    options={parametros.porteFederal}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <SelectParametro
+                    label="Porte Estadual"
+                    name="porteEstadualId"
+                    value={formData.porteEstadualId}
+                    options={parametros.porteEstadual}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <SelectParametro
+                    label="Porte Municipal"
+                    name="porteMunicipalId"
+                    value={formData.porteMunicipalId}
+                    options={parametros.porteMunicipal}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <SelectParametro
+                    label="Regime Tributário Federal"
+                    name="regimeTributarioFederalId"
+                    value={formData.regimeTributarioFederalId}
+                    options={parametros.regimeTributarioFederal}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <SelectParametro
+                    label="Regime Tributário Estadual"
+                    name="regimeTributarioEstadualId"
+                    value={formData.regimeTributarioEstadualId}
+                    options={parametros.regimeTributarioEstadual}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <SelectParametro
+                    label="Regime Tributário Municipal"
+                    name="regimeTributarioMunicipalId"
+                    value={formData.regimeTributarioMunicipalId}
+                    options={parametros.regimeTributarioMunicipal}
+                  />
+                </Grid>
+              </Grid>
+            </AccordionDetails>
+          </Accordion>
+
+          <Divider style={{ margin: "32px 0" }} />
+
+          {/* Seletor de Tarefas & Controles do Modelo */}
+          <Typography variant="h6" className={classes.sectionTitle} gutterBottom>
+            Tarefas & Controles do Modelo
+          </Typography>
+          <Typography variant="body2" color="textSecondary" style={{ marginBottom: 16 }}>
+            Selecione as tarefas, controles, recorrências e parcelamentos que fazem parte deste modelo.
+            Ao aplicar o modelo em um cliente, estas configurações aparecerão pré-selecionadas.
+          </Typography>
+          <Card style={{ padding: 16, border: '1px solid #e3e8ef', backgroundColor: '#fafafa', marginBottom: 24 }}>
+            <EndpointSelector
+              selectedEndpoints={endpointsModelo}
+              onChange={setEndpointsModelo}
+            />
+          </Card>
 
           <Divider style={{ margin: "32px 0" }} />
 

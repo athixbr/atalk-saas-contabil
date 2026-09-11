@@ -13,6 +13,7 @@ import QuickMessage from "../models/QuickMessage";
 import { head } from "lodash";
 import fs from "fs";
 import path from "path";
+import DigitalOceanService from "../services/DigitalOceanService";
 
 import AppError from "../errors/AppError";
 
@@ -220,6 +221,10 @@ export const deleteMedia = async (
     const fileExists = fs.existsSync(filePath);
     if (fileExists) {
       fs.unlinkSync(filePath);
+    } else {
+      try {
+        await DigitalOceanService.delete(`company${companyId}/quickMessage/${quickmessage.mediaName}`);
+      } catch (_) {}
     }
     quickmessage.update ({
       mediaPath: null,

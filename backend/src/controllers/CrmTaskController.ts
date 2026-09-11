@@ -9,7 +9,7 @@ import DeleteService from "../services/CrmTaskServices/DeleteService";
 
 type IndexQuery = {
   leadId?: number | string;
-  clientId?: number | string;
+  clienteId?: number | string;
   userId?: number | string;
   categoryId?: number | string;
   status?: string;
@@ -17,13 +17,13 @@ type IndexQuery = {
 };
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
-  const { leadId, clientId, userId, categoryId, status, priority } = req.query as IndexQuery;
+  const { leadId, clienteId, userId, categoryId, status, priority } = req.query as IndexQuery;
   const { companyId } = req.user;
 
   const tasks = await ListService({
     companyId,
     leadId,
-    clientId,
+    clienteId,
     userId,
     categoryId,
     status,

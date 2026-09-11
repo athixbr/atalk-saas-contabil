@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -7,64 +7,30 @@ import {
   Title,
   Tooltip,
   Legend,
-} from 'chart.js';
-import { Bar } from 'react-chartjs-2';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import brLocale from 'date-fns/locale/pt-BR';
-import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
-import { Stack, TextField } from '@mui/material';
+} from "chart.js";
+import { Bar } from "react-chartjs-2";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import brLocale from "date-fns/locale/pt-BR";
+import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
+import { Stack, TextField, Chip } from "@mui/material";
 import Typography from "@material-ui/core/Typography";
-import Button from "@material-ui/core/Button";
-import api from '../../services/api';
-import { format } from 'date-fns';
-import { toast } from 'react-toastify';
+import api from "../../services/api";
+import { format } from "date-fns";
+import { toast } from "react-toastify";
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend
-);
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
-export const options = {
-  responsive: true,
-  plugins: {
-    legend: {
-      position: 'top',
-      display: false,
-    },
-    title: {
-      display: true,
-      text: 'Tickets',
-      position: 'left',
-    },
-    datalabels: {
-      display: true,
-      anchor: 'start',
-      offset: -30,
-      align: "start",
-      color: "#fff",
-      textStrokeColor: "#000",
-      textStrokeWidth: 2,
-      font: {
-        size: 20,
-        weight: "bold"
-      },
-    }
-  },
-};
+const BAR_COLORS = [
+  "#1A4783", "#E74C3C", "#2ECC71", "#F39C12", "#9B59B6",
+  "#1ABC9C", "#E67E22", "#3498DB", "#E91E63", "#00BCD4",
+  "#8BC34A", "#FF5722", "#607D8B", "#009688", "#FF9800",
+];
 
-// Função para obter o último dia do mês
-const getLastDayOfMonth = (date) => {
-  return new Date(date.getFullYear(), date.getMonth() + 1, 0);
-};
+const getLastDayOfMonth = (date) =>
+  new Date(date.getFullYear(), date.getMonth() + 1, 0);
 
-// Função para obter o primeiro dia do mês
-const getFirstDayOfMonth = (date) => {
-  return new Date(date.getFullYear(), date.getMonth(), 1);
-};
+const getFirstDayOfMonth = (date) =>
+  new Date(date.getFullYear(), date.getMonth(), 1);
 
 export const ChartsQueue = () => {
   const [initialDate, setInitialDate] = useState(getFirstDayOfMonth(new Date()));
@@ -73,66 +39,115 @@ export const ChartsQueue = () => {
 
   useEffect(() => {
     handleGetTicketsInformation();
-  }, [initialDate, finalDate]); // Conforme as datas mudem a função é chamada
+  }, [initialDate, finalDate]);
 
   const handleGetTicketsInformation = async () => {
     try {
-      const { data } = await api.get(`/dashboard/queues?initialDate=${format(initialDate, 'yyyy-MM-dd')}&finalDate=${format(finalDate, 'yyyy-MM-dd')}`);
-      console.log(data);
+      const { data } = await api.get(
+        `/dashboard/queues?initialDate=${format(initialDate, "yyyy-MM-dd")}&finalDate=${format(finalDate, "yyyy-MM-dd")}`
+      );
       setTicketsData(data);
-    } catch (error) {
-      toast.error('Erro ao buscar informações dos tickets');
+    } catch (_) {
+      toast.error("Erro ao buscar informações por fila");
     }
   };
 
+  const labels =
+    ticketsData && ticketsData.length > 0
+      ? ticketsData.map((item) => item?.queue?.name || "Sem fila")
+      : [];
+
+  const values =
+    ticketsData && ticketsData.length > 0
+      ? ticketsData.map((item) => item.quantidade)
+      : [];
+
   const dataCharts = {
-    labels: ticketsData && ticketsData.length > 0 && ticketsData.map((item) => {
-      return item?.queue?.name || 'Sem fila';
-    }),
+    labels,
     datasets: [
       {
-        label: 'Dataset 1',
-        data: ticketsData && ticketsData.length > 0 && ticketsData.map((item) => item.quantidade),
-        backgroundColor: '#1A4783',
+        label: "Atendimentos",
+        data: values,
+        backgroundColor: labels.map((_, i) => BAR_COLORS[i % BAR_COLORS.length]),
+        borderRadius: 6,
+        borderSkipped: false,
       },
     ],
   };
 
+  const options = {
+    indexAxis: "y",
+    responsive: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: (ctx) => ` ${ctx.parsed.x} atendimento(s)`,
+        },
+      },
+      datalabels: { display: false },
+    },
+    scales: {
+      x: {
+        beginAtZero: true,
+        ticks: { precision: 0 },
+        grid: { color: "rgba(0,0,0,0.05)" },
+      },
+      y: {
+        grid: { display: false },
+        ticks: { font: { size: 12 } },
+      },
+    },
+  };
+
+  const total = values.reduce((s, v) => s + v, 0);
+
   return (
     <>
-      <Typography component="h2" variant="h6" gutterBottom style={{ color: "#153969" }}>
-        Atendimentos por departamento
-      </Typography>
+      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+        <Chip
+          label={`Total: ${total}`}
+          size="small"
+          sx={{ background: "#1A4783", color: "#fff", fontWeight: 600, fontSize: "12px" }}
+        />
+      </Stack>
 
-      <Stack direction={'row'} spacing={2} alignItems={'center'} sx={{ my: 2 }} >
+      <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
         <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={brLocale}>
           <DatePicker
             value={initialDate}
-            onChange={(newValue) => setInitialDate(newValue)}
+            onChange={(v) => setInitialDate(v)}
             label="Data inicial"
-            renderInput={(params) => <TextField fullWidth {...params} sx={{ width: '20ch' }} />}
+            renderInput={(params) => (
+              <TextField {...params} size="small" sx={{ width: "18ch" }} />
+            )}
           />
         </LocalizationProvider>
-
         <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={brLocale}>
           <DatePicker
             value={finalDate}
-            onChange={(newValue) => setFinalDate(newValue)}
+            onChange={(v) => setFinalDate(v)}
             label="Data final"
-            renderInput={(params) => <TextField fullWidth {...params} sx={{ width: '20ch' }} />}
+            renderInput={(params) => (
+              <TextField {...params} size="small" sx={{ width: "18ch" }} />
+            )}
           />
         </LocalizationProvider>
-
-        {/* <Button
-          className="buttonHover"
-          onClick={handleGetTicketsInformation}
-          style={{ backgroundColor: "#1A4783", color: "white" }}
-        >
-          Filtrar
-        </Button> */}
       </Stack>
 
-      <Bar options={options} data={dataCharts} style={{ maxWidth: '100%', maxHeight: '280px' }} />
+      {labels.length === 0 ? (
+        <Typography
+          style={{ textAlign: "center", color: "#aaa", padding: "40px 0", fontSize: "14px" }}
+        >
+          Sem dados para o período selecionado
+        </Typography>
+      ) : (
+        <Bar
+          options={options}
+          data={dataCharts}
+          style={{ maxWidth: "100%", maxHeight: "300px" }}
+        />
+      )}
     </>
   );
 };

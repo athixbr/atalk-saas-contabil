@@ -8,11 +8,17 @@ import Tabs from "@material-ui/core/Tabs";
 import Tab from "@material-ui/core/Tab";
 import MoveToInboxIcon from "@material-ui/icons/MoveToInbox";
 import CheckBoxIcon from "@material-ui/icons/CheckBox";
+import MergeTypeIcon from "@material-ui/icons/MergeType";
+import CallMergeIcon from "@material-ui/icons/CallMerge";
+import Tooltip from "@material-ui/core/Tooltip";
+import IconButton from "@material-ui/core/IconButton";
+import Badge from "@material-ui/core/Badge";
 
 import FormControlLabel from "@material-ui/core/FormControlLabel";
 import Switch from "@material-ui/core/Switch";
 
 import NewTicketModal from "../NewTicketModal";
+import MergeTicketModal from "../MergeTicketModal";
 import TicketsList from "../TicketsList";
 import TabPanel from "../TabPanel";
 
@@ -89,6 +95,9 @@ const TicketsManager = () => {
 	const [tab, setTab] = useState("open");
 	const [newTicketModalOpen, setNewTicketModalOpen] = useState(false);
 	const [showAllTickets, setShowAllTickets] = useState(false);
+	const [mergeMode, setMergeMode] = useState(false);
+	const [selectedForMerge, setSelectedForMerge] = useState([]);
+	const [mergeModalOpen, setMergeModalOpen] = useState(false);
 	const searchInputRef = useRef();
 	const { user } = useContext(AuthContext);
 
@@ -123,11 +132,39 @@ const TicketsManager = () => {
 		setTab(newValue);
 	};
 
+	const handleToggleMergeMode = () => {
+		setMergeMode(prev => !prev);
+		setSelectedForMerge([]);
+	};
+
+	const handleToggleSelectForMerge = (ticket) => {
+		setSelectedForMerge(prev => {
+			const alreadySelected = prev.some(t => t.id === ticket.id);
+			if (alreadySelected) {
+				return prev.filter(t => t.id !== ticket.id);
+			}
+			if (prev.length >= 2) return prev;
+			return [...prev, ticket];
+		});
+	};
+
+	const handleMergeSuccess = (masterTicketId) => {
+		setMergeMode(false);
+		setSelectedForMerge([]);
+	};
+
 	return (
 		<Paper elevation={0} variant="outlined" className={classes.ticketsWrapper}>
 			<NewTicketModal
 				modalOpen={newTicketModalOpen}
 				onClose={e => setNewTicketModalOpen(false)}
+			/>
+			<MergeTicketModal
+				open={mergeModalOpen}
+				onClose={() => setMergeModalOpen(false)}
+				ticketA={selectedForMerge[0]}
+				ticketB={selectedForMerge[1]}
+				onMergeSuccess={handleMergeSuccess}
 			/>
 			<Paper elevation={0} square className={classes.tabsHeader}>
 				<Tabs
@@ -172,32 +209,74 @@ const TicketsManager = () => {
 					</div>
 				) : (
 					<>
-						<Button
-							variant="outlined"
-							color="primary"
-							onClick={() => setNewTicketModalOpen(true)}
-						>
-							{i18n.t("ticketsManager.buttons.newTicket")}
-						</Button>
+						{!mergeMode ? (
+							<Button
+								variant="outlined"
+								color="primary"
+								onClick={() => setNewTicketModalOpen(true)}
+							>
+								{i18n.t("ticketsManager.buttons.newTicket")}
+							</Button>
+						) : (
+							<Button
+								variant="contained"
+								color="secondary"
+								size="small"
+								onClick={handleToggleMergeMode}
+								style={{ marginRight: 4 }}
+							>
+								Cancelar
+							</Button>
+						)}
+						{mergeMode && selectedForMerge.length === 2 && (
+							<Button
+								variant="contained"
+								color="primary"
+								size="small"
+								onClick={() => setMergeModalOpen(true)}
+								style={{ marginRight: 4 }}
+							>
+								Mesclar ({selectedForMerge.length})
+							</Button>
+						)}
 						<Can
 							role={user.profile}
 							perform="tickets-manager:showall"
 							yes={() => (
-								<FormControlLabel
-									label={i18n.t("tickets.buttons.showAll")}
-									labelPlacement="start"
-									control={
-										<Switch
-											size="small"
-											checked={showAllTickets}
-											onChange={() =>
-												setShowAllTickets(prevState => !prevState)
+								<>
+									{!mergeMode && (
+										<FormControlLabel
+											label={i18n.t("tickets.buttons.showAll")}
+											labelPlacement="start"
+											control={
+												<Switch
+													size="small"
+													checked={showAllTickets}
+													onChange={() =>
+														setShowAllTickets(prevState => !prevState)
+													}
+													name="showAllTickets"
+													color="primary"
+												/>
 											}
-											name="showAllTickets"
-											color="primary"
 										/>
-									}
-								/>
+									)}
+									<Tooltip title={mergeMode ? "Sair do modo agrupar" : "Agrupar tickets duplicados"}>
+										<IconButton
+											size="small"
+											color={mergeMode ? "secondary" : "default"}
+											onClick={handleToggleMergeMode}
+											style={{ marginLeft: 4 }}
+										>
+											<Badge
+												badgeContent={mergeMode && selectedForMerge.length > 0 ? selectedForMerge.length : 0}
+												color="primary"
+											>
+												<CallMergeIcon />
+											</Badge>
+										</IconButton>
+									</Tooltip>
+								</>
 							)}
 						/>
 					</>
@@ -214,21 +293,37 @@ const TicketsManager = () => {
 					status="open"
 					showAll={showAllTickets}
 					selectedQueueIds={selectedQueueIds}
+					mergeMode={mergeMode}
+					selectedForMerge={selectedForMerge}
+					onToggleSelectForMerge={handleToggleSelectForMerge}
 				/>
-				<TicketsList status="pending" selectedQueueIds={selectedQueueIds} />
+				<TicketsList
+					status="pending"
+					selectedQueueIds={selectedQueueIds}
+					mergeMode={mergeMode}
+					selectedForMerge={selectedForMerge}
+					onToggleSelectForMerge={handleToggleSelectForMerge}
+				/>
 			</TabPanel>
 			<TabPanel value={tab} name="closed" className={classes.ticketsWrapper}>
 				<TicketsList
 					status="closed"
 					showAll={true}
 					selectedQueueIds={selectedQueueIds}
+					mergeMode={mergeMode}
+					selectedForMerge={selectedForMerge}
+					onToggleSelectForMerge={handleToggleSelectForMerge}
 				/>
 			</TabPanel>
 			<TabPanel value={tab} name="search" className={classes.ticketsWrapper}>
 				<TicketsList
+					status="search"
 					searchParam={searchParam}
 					showAll={true}
 					selectedQueueIds={selectedQueueIds}
+					mergeMode={mergeMode}
+					selectedForMerge={selectedForMerge}
+					onToggleSelectForMerge={handleToggleSelectForMerge}
 				/>
 			</TabPanel>
 		</Paper>

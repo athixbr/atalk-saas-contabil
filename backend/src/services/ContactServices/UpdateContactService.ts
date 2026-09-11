@@ -1,6 +1,7 @@
 import AppError from "../../errors/AppError";
 import Contact from "../../models/Contact";
 import ContactCustomField from "../../models/ContactCustomField";
+import Tag from "../../models/Tag";
 
 interface ExtraInfo {
   id?: number;
@@ -37,12 +38,12 @@ const UpdateContactService = async ({
     include: ["extraInfo"]
   });
 
-  if (contact?.companyId !== companyId) {
-    throw new AppError("Não é possível alterar registros de outra empresa");
-  }
-
   if (!contact) {
     throw new AppError("ERR_NO_CONTACT_FOUND", 404);
+  }
+
+  if (contact.companyId !== companyId) {
+    throw new AppError("Não é possível alterar registros de outra empresa");
   }
 
   if (extraInfo) {
@@ -75,7 +76,7 @@ const UpdateContactService = async ({
 
   await contact.reload({
     attributes: ["id", "name", "number", "email", "acceptAudioMessage", "active", "profilePicUrl", "remoteJid"],
-    include: ["extraInfo"]
+    include: ["extraInfo", { model: Tag, as: "tags" }]
   });
 
   return contact;

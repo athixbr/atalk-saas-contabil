@@ -59,13 +59,15 @@ const ListDepartamentosService = async ({
   const result = departamentos.map((dept) => ({
     id: dept.id,
     nome: dept.nome,
-    usuarios: dept.departamentoUsuarios.map((du) => ({
-      id: du.user.id,
-      name: du.user.name,
-      email: du.user.email,
-      isCoordenador: du.isCoordenador,
-    })),
-    totalUsuarios: dept.departamentoUsuarios.length,
+    usuarios: dept.departamentoUsuarios
+      .filter((du) => du.user)
+      .map((du) => ({
+        id: du.user.id,
+        name: du.user.name,
+        email: du.user.email,
+        isCoordenador: du.isCoordenador,
+      })),
+    totalUsuarios: dept.departamentoUsuarios.filter((du) => du.user).length,
   }));
 
   return {

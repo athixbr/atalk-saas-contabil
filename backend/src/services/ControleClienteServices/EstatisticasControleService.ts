@@ -176,7 +176,7 @@ const EstatisticasControleService = async ({
       cfg."nome" as "controleNome",
       c."nome" as "clienteNome",
       cc."dataFim",
-      DATE_PART('day', cc."dataFim" - CURRENT_DATE) as "diasRestantes"
+      (cc."dataFim" - CURRENT_DATE) as "diasRestantes"
     FROM "ControleClientes" cc
     INNER JOIN "ControlesConfig" cfg ON cfg.id = cc."controleConfigId"
     INNER JOIN "Clientes" c ON c.id = cc."clienteId"

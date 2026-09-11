@@ -1542,6 +1542,11 @@ const messages = {
             help: "Ajuda",
           },
           options: {
+            groups: {
+              general: "Geral",
+              ticketFlow: "Atendimento e Fluxo de Tickets",
+              whatsapp: "WhatsApp",
+            },
             disabled: "Desabilitadas",
             enabled: "Habilitadas",
             updating: "Atualizando...",

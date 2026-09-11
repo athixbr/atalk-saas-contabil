@@ -313,8 +313,8 @@ const ListTicketsService = async ({
           },
           { "$contact.number$": { [Op.like]: `%${sanitizedSearchParam}%` } },
           {
-            "$message.body$": where(
-              fn("LOWER", fn("unaccent", col("body"))),
+            "$messages.body$": where(
+              fn("LOWER", fn("unaccent", col("messages.body"))),
               "LIKE",
               `%${sanitizedSearchParam}%`
             )
@@ -403,6 +403,12 @@ const ListTicketsService = async ({
   whereCondition = {
     ...whereCondition,
     companyId
+  };
+
+  // Sempre excluir tickets que foram incorporados em outro (independente dos filtros acima)
+  whereCondition = {
+    ...whereCondition,
+    isMerged: { [Op.or]: [false, null] }
   };
 
   const limit = 40;

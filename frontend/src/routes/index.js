@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { BrowserRouter, Switch } from "react-router-dom";
+import { BrowserRouter, Switch, Redirect } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 
 import LoggedInLayout from "../layout";
@@ -47,6 +47,7 @@ import Kanban from "../pages/Kanban";
 import TagsKanban from "../pages/TagsKanban";
 import GridReport from '../pages/Reports/GridReport';
 import TicketTimeReports from '../pages/Reports/TicketTimeReports';
+import TicketsLogsReport from '../pages/Reports/TicketsLogsReport';
 import UserPerformanceReports from '../pages/Reports/UserPerformanceReports';
 import Tarefas from "../pages/Tarefas";
 import Agenda from "../pages/Agenda";
@@ -73,9 +74,8 @@ import ModelosParametros from "../pages/ModelosParametros";
 import ModelosParametrosCadastro from "../pages/ModelosParametros/Cadastro";
 import Clientes from "../pages/Clientes";
 import ClientesCadastro from "../pages/Clientes/Cadastro";
-import Socios from "../pages/Socios";
-import SociosCadastro from "../pages/Socios/Cadastro";
 import XmlNfe from "../pages/XmlNfe";
+import SpedFiscal from "../pages/SpedFiscal";
 import PainelTarefas from "../pages/PainelTarefas";
 import Recorrencia from "../pages/Recorrencia";
 import Parcelamentos from "../pages/Parcelamentos";
@@ -85,7 +85,6 @@ import CadastroChecklist from "../pages/Checklists/Cadastro";
 import VisualizarChecklist from "../pages/Checklists/Visualizar";
 import ListaTarefasRecorrentes from "../pages/TarefasRecorrentes/Lista";
 import FormularioTarefaRecorrente from "../pages/TarefasRecorrentes/NovoFormulario";
-import GerenciamentoTarefasGeradas from "../pages/TarefasGeradas/Gerenciamento";
 import CentralAtividades from "../pages/CentralAtividades";
 import CentralVinculos from "../pages/CentralVinculos";
 import VincularControles from "../pages/VincularControles";
@@ -101,6 +100,37 @@ import ArticleForm from "../pages/BaseConhecimento/ArticleForm";
 import CategoriesManager from "../pages/BaseConhecimento/CategoriesManager";
 import AdminNotifications from "../pages/AdminNotifications";
 import WhatsappStory from "../pages/WhatsappStory";
+import Search from "../pages/Search";
+import ConfigEmail from "../pages/ConfigEmail";
+import ConfigWhatsapp from "../pages/ConfigWhatsapp";
+import CadastroTarefas from "../pages/CadastroTarefas";
+import Painel from "../pages/Painel";
+import Honorarios from "../pages/FinanceiroContabil/Honorarios";
+import ServicosAvulsos from "../pages/FinanceiroContabil/ServicosAvulsos";
+import Pedidos from "../pages/FinanceiroContabil/Pedidos";
+import ContasReceber from "../pages/FinanceiroContabil/ContasReceber";
+import ContasPagar from "../pages/FinanceiroContabil/ContasPagar";
+import TarefasValor from "../pages/FinanceiroContabil/TarefasValor";
+import PainelIndicadores from "../pages/PainelIndicadores";
+import AtendimentoHub from "../pages/AtendimentoHub";
+import TarefaHub from "../pages/TarefaHub";
+import CrmHub from "../pages/CrmHub";
+import ClientesHub from "../pages/ClientesHub";
+import DocumentosHub from "../pages/DocumentosHub";
+import DocumentosCredenciais from "../pages/DocumentosCredenciais";
+import FinanceiroHub from "../pages/FinanceiroHub";
+import ConfiguracoesHub from "../pages/ConfiguracoesHub";
+import ModelosLeitura from "../pages/ModelosLeitura";
+import AssistenteAI from "../pages/AssistenteAI";
+import FluxogramaWorkflow from "../pages/FluxogramaWorkflow";
+
+// A antiga página standalone de Tarefas Geradas foi unificada na aba
+// "Tarefas Geradas" de /gestao-tarefas/painel — este redirect preserva
+// links/favoritos antigos para /tarefas-geradas.
+const RedirectTarefasGeradas = () => <Redirect to="/gestao-tarefas/painel?tab=geradas" />;
+const RedirectTarefasCadastro = () => <Redirect to="/tarefas-recorrentes" />;
+const RedirectNovaTarefaParcelamento = () => <Redirect to="/tarefas-recorrentes/novo?tipo=parcelamento" />;
+const RedirectSociosClientes = () => <Redirect to="/clientes" />;
 
 const Routes = () => {
   const [showCampaigns, setShowCampaigns] = useState(false);
@@ -126,8 +156,21 @@ const Routes = () => {
                 <Route exact path="/financeiro" component={Financeiro} isPrivate />
                 <Route exact path="/companies" component={Companies} isPrivate />
                 <Route exact path="/" component={Dashboard} isPrivate />
+                <Route exact path="/painel" component={PainelIndicadores} isPrivate />
+                <Route exact path="/atendimento" component={AtendimentoHub} isPrivate />
+                <Route exact path="/tarefa" component={TarefaHub} isPrivate />
+                <Route exact path="/crm-hub" component={CrmHub} isPrivate />
+                <Route exact path="/clientes-hub" component={ClientesHub} isPrivate />
+                <Route exact path="/documentos" component={DocumentosHub} isPrivate />
+                <Route exact path="/documentos/credenciais" component={DocumentosCredenciais} isPrivate />
+                <Route exact path="/modelos-leitura" component={ModelosLeitura} isPrivate />
+                <Route exact path="/fin" component={FinanceiroHub} isPrivate />
+                <Route exact path="/assistente-ai" component={AssistenteAI} isPrivate />
+                <Route exact path="/fluxograma" component={FluxogramaWorkflow} isPrivate />
+                <Route exact path="/configuracoes" component={ConfiguracoesHub} isPrivate />
                 <Route exact path="/reports" component={GridReport} isPrivate />
                 <Route exact path="/reports/tickets/time-analysis" component={TicketTimeReports} isPrivate />
+                <Route exact path="/reports/tickets/logs" component={TicketsLogsReport} isPrivate />
                 <Route exact path="/reports/users/performance" component={UserPerformanceReports} isPrivate />
                 <Route exact path="/tickets/:ticketId?" component={TicketResponsiveContainer} isPrivate />
                 <Route exact path="/connections" component={Connections} isPrivate />
@@ -138,6 +181,7 @@ const Routes = () => {
                 <Route exact path="/contacts" component={Contacts} isPrivate />
                 <Route exact path="/helps" component={Helps} isPrivate />
                 <Route exact path="/xml-nfe" component={XmlNfe} isPrivate />
+                <Route exact path="/sped" component={SpedFiscal} isPrivate />
                 <Route exact path="/users" component={Users} isPrivate />
                 <Route exact path="/users/perfil-cargo/:userId" component={PerfilCargo} isPrivate />
                 <Route exact path="/users/holerites/:userId" component={Holerites} isPrivate />
@@ -162,8 +206,8 @@ const Routes = () => {
                 <Route exact path="/vincular-controles" component={VincularControles} isPrivate />
                 <Route exact path="/agenda" component={Agenda} isPrivate />
                 <Route exact path="/controles" component={Controles} isPrivate />
-                <Route exact path="/recorrencia" component={ListaTarefasRecorrentes} isPrivate />
-                <Route exact path="/parcelamentos" component={Parcelamentos} isPrivate />
+                <Route exact path="/recorrencia" component={RedirectTarefasCadastro} isPrivate />
+                <Route exact path="/parcelamentos" component={RedirectTarefasCadastro} isPrivate />
                 <Route exact path="/crm" component={CRM} isPrivate />
                 <Route exact path="/crm/leads/:leadId" component={LeadDetail} isPrivate />
                 <Route exact path="/crm/tarefas" component={CrmTasks} isPrivate />
@@ -182,12 +226,11 @@ const Routes = () => {
                 <Route exact path="/tarefas-recorrentes" component={ListaTarefasRecorrentes} isPrivate />
                 <Route exact path="/tarefas-recorrentes/novo" component={FormularioTarefaRecorrente} isPrivate />
                 <Route exact path="/tarefas-recorrentes/editar/:id" component={FormularioTarefaRecorrente} isPrivate />
-                <Route exact path="/tarefas-geradas" component={GerenciamentoTarefasGeradas} isPrivate />
+                <Route exact path="/tarefas-geradas" component={RedirectTarefasGeradas} isPrivate />
                 
                 {/* Rotas de Parcelamentos */}
-                <Route exact path="/parcelamentos" component={Parcelamentos} isPrivate />
-                <Route exact path="/parcelamentos/novo" component={FormularioParcelamento} isPrivate />
-                <Route exact path="/parcelamentos/editar/:id" component={FormularioParcelamento} isPrivate />
+                <Route exact path="/parcelamentos/novo" component={RedirectNovaTarefaParcelamento} isPrivate />
+                <Route exact path="/parcelamentos/editar/:id" component={RedirectTarefasCadastro} isPrivate />
                 
                 {/* Rotas de Checklists */}
                 <Route exact path="/checklists" component={Checklists} isPrivate />
@@ -203,23 +246,27 @@ const Routes = () => {
                 <Route exact path="/clientes/cadastro/:id?" component={ClientesCadastro} isPrivate />
                 
                 {/* Rotas de Sócios */}
-                <Route exact path="/socios" component={Socios} isPrivate />
-                <Route exact path="/socios/cadastro/:id?" component={SociosCadastro} isPrivate />
+                <Route exact path="/socios" component={RedirectSociosClientes} isPrivate />
+                <Route exact path="/socios/cadastro/:id?" component={RedirectSociosClientes} isPrivate />
                 
                 {/* Rotas de Configuração - Tarefas e Departamentos */}
-                <Route exact path="/tarefas-config" component={TarefasConfig} isPrivate />
-                <Route exact path="/tarefas-config/cadastro/:id?" component={TarefasCadastro} isPrivate />
-                <Route exact path="/tarefas-config/visualizar/:id" component={TarefasVisualizar} isPrivate />
+                <Route exact path="/tarefas-config" component={RedirectTarefasCadastro} isPrivate />
+                <Route exact path="/tarefas-config/cadastro/:id?" component={RedirectTarefasCadastro} isPrivate />
+                <Route exact path="/tarefas-config/visualizar/:id" component={RedirectTarefasCadastro} isPrivate />
                 
                 {/* Rotas de Configuração - Controles */}
-                <Route exact path="/controles-config" component={ControlesConfig} isPrivate />
-                <Route exact path="/controles-config/cadastro/:id?" component={ControlesCadastro} isPrivate />
+                <Route exact path="/controles-config" component={RedirectTarefasCadastro} isPrivate />
+                <Route exact path="/controles-config/cadastro/:id?" component={RedirectTarefasCadastro} isPrivate />
                 
                 <Route exact path="/departamentos" component={Departamentos} isPrivate />
                 <Route exact path="/departamentos/cadastro/:id?" component={DepartamentosCadastro} isPrivate />
                 <Route exact path="/parametros" component={Parametros} isPrivate />
                 <Route exact path="/modelos-parametros" component={ModelosParametros} isPrivate />
                 <Route exact path="/modelos-parametros/cadastro/:id?" component={ModelosParametrosCadastro} isPrivate />
+                <Route exact path="/config-email" component={ConfigEmail} isPrivate />
+                <Route exact path="/config-whatsapp" component={ConfigWhatsapp} isPrivate />
+                <Route exact path="/gestao-tarefas/cadastro" component={CadastroTarefas} isPrivate />
+                <Route exact path="/gestao-tarefas/painel" component={Painel} isPrivate />
                 
                 {/* Rotas do módulo Grupos - rotas específicas ANTES da rota com :id */}
                 <Route exact path="/grupos/nova" component={GruposNovaCampanha} isPrivate />
@@ -228,6 +275,15 @@ const Routes = () => {
                 <Route exact path="/grupos/campanha/:id" component={GruposNovaCampanha} isPrivate />
                 <Route exact path="/grupos" component={Grupos} isPrivate />
                 <Route exact path="/whatsapp-stories" component={WhatsappStory} isPrivate />
+                <Route exact path="/busca" component={Search} isPrivate />
+
+                {/* Rotas do módulo Financeiro Contábil */}
+                <Route exact path="/fin/honorarios" component={Honorarios} isPrivate />
+                <Route exact path="/fin/servicos-avulsos" component={ServicosAvulsos} isPrivate />
+                <Route exact path="/fin/pedidos" component={Pedidos} isPrivate />
+                <Route exact path="/fin/contas-receber" component={ContasReceber} isPrivate />
+                <Route exact path="/fin/contas-pagar" component={ContasPagar} isPrivate />
+                <Route exact path="/fin/tarefas-valor" component={TarefasValor} isPrivate />
 
 
                 {showCampaigns && (

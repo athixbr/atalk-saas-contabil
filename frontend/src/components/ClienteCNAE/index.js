@@ -48,25 +48,23 @@ const ClienteCNAE = ({ clienteId }) => {
     }
   }, [clienteId]);
 
-  // Carregar CNAEs da API do IBGE
-  const fetchCnaesIBGE = async () => {
+  // Carregar CNAEs da base própria (importada do IBGE, tabela local)
+  const fetchCnaesBase = async () => {
     try {
       setLoadingCnaes(true);
-      const response = await fetch("https://servicodados.ibge.gov.br/api/v2/cnae/classes");
-      const data = await response.json();
-      
-      // Mapear para formato { codigo, descricao }
+      const { data } = await api.get("/cnaes");
+
+      // Mapear para formato { codigo, descricao } já formatado (ex: 6201-5/00)
       const cnaeList = data.map((item) => ({
-        id: item.id, // Ex: "6201500"
-        codigo: item.id,
+        id: item.id,
+        codigo: item.codigo,
         descricao: item.descricao || "",
-        observacoes: item.observacoes || "",
       }));
-      
+
       setCnaeOptions(cnaeList);
     } catch (err) {
-      console.error("Erro ao carregar CNAEs do IBGE:", err);
-      toast.error("Erro ao carregar lista de CNAEs do IBGE");
+      console.error("Erro ao carregar base de CNAEs:", err);
+      toast.error("Erro ao carregar lista de CNAEs");
       setCnaeOptions([]);
     } finally {
       setLoadingCnaes(false);
@@ -107,9 +105,9 @@ const ClienteCNAE = ({ clienteId }) => {
       setSelectedCnaeOption(null);
     }
     
-    // Carregar CNAEs do IBGE se ainda não carregou
+    // Carregar CNAEs da base própria se ainda não carregou
     if (cnaeOptions.length === 0) {
-      fetchCnaesIBGE();
+      fetchCnaesBase();
     }
     
     setOpenDialog(true);
@@ -139,17 +137,9 @@ const ClienteCNAE = ({ clienteId }) => {
     setSelectedCnaeOption(newValue);
     
     if (newValue) {
-      // Formatar código CNAE (ex: 6201500 -> 6201-5/00)
-      const formatarCNAE = (codigo) => {
-        if (codigo.length === 7) {
-          return `${codigo.slice(0, 4)}-${codigo.slice(4, 5)}/${codigo.slice(5)}`;
-        }
-        return codigo;
-      };
-
       setFormData({
         ...formData,
-        cnae: formatarCNAE(newValue.codigo),
+        cnae: newValue.codigo,
         descricao: newValue.descricao,
       });
     }
@@ -330,7 +320,7 @@ const ClienteCNAE = ({ clienteId }) => {
                 </Box>
               )}
               noOptionsText="Nenhum CNAE encontrado"
-              loadingText="Carregando CNAEs do IBGE..."
+              loadingText="Carregando CNAEs..."
             />
             <Typography variant="caption" color="textSecondary" style={{ marginTop: 4, display: 'block' }}>
               💡 Pesquise por código (ex: 6201) ou por nome da atividade (ex: desenvolvimento)

@@ -14,6 +14,8 @@ import {
 import Company from "./Company";
 import User from "./User";
 import DepartamentoUsuario from "./DepartamentoUsuario";
+import ClienteContato from "./ClienteContato";
+import ContatoDepartamento from "./ContatoDepartamento";
 
 @Table
 class Departamento extends Model<Departamento> {
@@ -37,6 +39,12 @@ class Departamento extends Model<Departamento> {
 
   @HasMany(() => DepartamentoUsuario)
   departamentoUsuarios: any[];
+
+  @BelongsToMany(() => ClienteContato, () => ContatoDepartamento)
+  contatos: any[];
+
+  @HasMany(() => ContatoDepartamento)
+  contatoDepartamentos: any[];
 
   @CreatedAt
   createdAt: Date;

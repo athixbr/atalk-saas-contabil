@@ -130,6 +130,34 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
 
         const msgRetryCounterCache = new NodeCache();
 
+        // Cache de dispositivos persistido no Redis para evitar delay no primeiro envio após restart.
+        // Sem este cache, o primeiro envio a cada contato requer uma consulta usync ao servidor WA
+        // que demora 20-60s. Com cache Redis os dispositivos persistem entre restarts.
+        const redisDevicesCache = {
+          mget: async (users: string[]) => {
+            const result: Record<string, any> = {};
+            await Promise.all(users.map(async (user) => {
+              const cached = await cacheLayer.get(`devicesCache:${whatsapp.id}:${user}`);
+              if (cached) {
+                try { result[user] = JSON.parse(cached); } catch {}
+              }
+            }));
+            return result;
+          },
+          mset: async (entries: Array<{key: string, value: any}>) => {
+            await Promise.all(entries.map(({ key, value }) =>
+              cacheLayer.set(`devicesCache:${whatsapp.id}:${key}`, JSON.stringify(value), 'EX', 86400)
+            ));
+          },
+          get: async (user: string) => {
+            const cached = await cacheLayer.get(`devicesCache:${whatsapp.id}:${user}`);
+            return cached ? JSON.parse(cached) : undefined;
+          },
+          set: async (key: string, value: any) => {
+            await cacheLayer.set(`devicesCache:${whatsapp.id}:${key}`, JSON.stringify(value), 'EX', 86400);
+          }
+        };
+
         wsocket = makeWASocket({
           logger: loggerBaileys,
           printQRInTerminal: false,
@@ -139,12 +167,15 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
             keys: makeCacheableSignalKeyStore(state.keys, logger),
           },
           version,
-          defaultQueryTimeoutMs: 60000,
-          // retryRequestDelayMs: 250,
-          // keepAliveIntervalMs: 1000 * 60 * 10 * 3,
+          defaultQueryTimeoutMs: 10000,
+          connectTimeoutMs: 30000,
+          keepAliveIntervalMs: 15000,
+          retryRequestDelayMs: 250,
           msgRetryCounterCache,
+          // @ts-ignore
+          userDevicesCache: redisDevicesCache,
           shouldIgnoreJid: jid => isJidBroadcast(jid),
-          syncFullHistory: true,
+          syncFullHistory: false,
         });
 
 
@@ -294,6 +325,37 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
 
               resolve(wsocket);
 
+              // Pré-carregar mapeamentos LID→PN do Redis no cache em memória.
+              // O evento lid-mapping.update raramente dispara (Baileys issue #2263),
+              // então lemos os dados persitidos pelo Baileys na auth store diretamente.
+              // Formato no Redis: sessions:{id}:lid-mapping-{lidUser}_reverse → "{pnUser}"
+              setTimeout(async () => {
+                try {
+                  const reverseKeys = await cacheLayer.getKeys(`sessions:${whatsapp.id}:lid-mapping-*_reverse`);
+                  if (reverseKeys.length > 0) {
+                    logger.info(`[LID] Pré-carregando ${reverseKeys.length} mapeamentos LID do Redis para sessão ${whatsapp.id}`);
+                    await Promise.all(reverseKeys.map(async (redisKey) => {
+                      try {
+                        const raw = await cacheLayer.get(redisKey);
+                        if (!raw) return;
+                        const pnUser: string = JSON.parse(raw);
+                        if (!pnUser || typeof pnUser !== "string") return;
+                        // Extrai o lidUser do nome da chave
+                        const prefix = `sessions:${whatsapp.id}:lid-mapping-`;
+                        const lidUser = redisKey.slice(prefix.length).replace(/_reverse$/, "");
+                        if (!lidUser) return;
+                        await storeLidMapping(`${lidUser}@lid`, `${pnUser}@s.whatsapp.net`);
+                      } catch (e) {
+                        logger.warn(`[LID] Erro ao pré-carregar chave ${redisKey}: ${e}`);
+                      }
+                    }));
+                    logger.info(`[LID] Mapeamentos LID pré-carregados para sessão ${whatsapp.id}`);
+                  }
+                } catch (err) {
+                  logger.warn(`[LID] Falha ao pré-carregar mapeamentos LID: ${err}`);
+                }
+              }, 3000);
+
               // Carregar todos os grupos que esse número participa
               setTimeout(async () => {
                 try {
@@ -401,17 +463,43 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
               }
             });
 
+            // Helper: buscar foto do contato com timeout
+            const fetchProfilePic = async (jid: string): Promise<string | null> => {
+              try {
+                const picPromise = wsocket.profilePictureUrl(jid, "image");
+                const timeout = new Promise<string>((_, rej) => setTimeout(() => rej(new Error("timeout")), 5000));
+                const url = await Promise.race([picPromise, timeout]);
+                return url || null;
+              } catch {
+                return null;
+              }
+            };
+
+            const io = getIO();
+
             if (lidContact && phoneContact && lidContact.id !== phoneContact.id) {
               // MERGE: dois contatos para a mesma pessoa → fundir no contato real
               await Ticket.update({ contactId: phoneContact.id }, { where: { contactId: lidContact.id } });
               await lidContact.destroy();
               logger.info(`[LID] merge: contato ${lidContact.id} (${lidJid}) → ${phoneContact.id} (${phoneJid})`);
 
+              // Atualiza foto do contato real (CDN URL → download local) se não tiver
+              if (!phoneContact.profilePicUrl || phoneContact.profilePicUrl.includes("nopicture")) {
+                const picUrl = await fetchProfilePic(phoneJid);
+                if (picUrl) {
+                  // Usa CreateOrUpdateContactService para baixar e salvar localmente
+                  CreateOrUpdateContactService({
+                    name: phoneContact.name,
+                    number: phoneNumber,
+                    isGroup: false,
+                    companyId,
+                    remoteJid: phoneJid,
+                    profilePicUrl: picUrl
+                  }).catch(() => {});
+                }
+              }
+
               // Deduplicar tickets abertos após o merge.
-              // Pode ocorrer que o contato real já tinha um ticket aberto (ticket B)
-              // e o placeholder LID também tinha um (ticket A). Após a migração acima
-              // ambos ficam associados ao mesmo contactId → dois tickets abertos.
-              // Solução: por whatsappId, mantém o mais antigo (maior histórico) e fecha os demais.
               const openStatuses = ["open", "pending", "group", "nps", "lgpd"];
               const dupTickets = await Ticket.findAll({
                 where: {
@@ -437,17 +525,29 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
                 }
               }
             } else if (lidContact && !phoneContact) {
-              // Só existe contato LID → atualiza para número/remoteJid real
-              await lidContact.update({ number: phoneNumber, remoteJid: phoneJid });
+              // Só existe contato LID → atualiza para número/remoteJid real e baixa foto
+              const picUrl = (!lidContact.profilePicUrl || lidContact.profilePicUrl.includes("nopicture"))
+                ? await fetchProfilePic(phoneJid)
+                : null;
+              // Usa CreateOrUpdateContactService para download local da foto
+              CreateOrUpdateContactService({
+                name: lidContact.name || phoneNumber,
+                number: phoneNumber,
+                isGroup: false,
+                companyId,
+                remoteJid: phoneJid,
+                profilePicUrl: picUrl || lidContact.profilePicUrl || `${process.env.FRONTEND_URL}/nopicture.png`
+              }).catch(() => {});
               logger.info(`[LID] resolvido: contato ${lidContact.id} atualizado de ${lidJid} → ${phoneJid}`);
             }
           } catch (e) {
-            // ignore erros individuais
+            logger.warn(`[LID] applyLidMapping erro: ${e}`);
           }
         };
 
-        // Evento 1: lid-mapping.update — disparado pelo Baileys quando descobre um mapeamento novo
-        // Estrutura: { lid: "148262@lid", pn: "5511999@s.whatsapp.net" }
+        // Evento 1: lid-mapping.update — RARAMENTE dispara na prática (Baileys issue #2263).
+        // A resolução principal vem de: remoteJidAlt/participantAlt nas mensagens (wbotMessageListener)
+        // e do pré-carregamento Redis acima. Mantemos o listener como fallback residual.
         wsocket.ev.on("lid-mapping.update", async ({ lid, pn }: { lid: string; pn: string }) => {
           if (lid && pn && isLidUser(lid) && isPnUser(pn)) {
             logger.info(`[LID] lid-mapping.update: ${lid} → ${pn}`);

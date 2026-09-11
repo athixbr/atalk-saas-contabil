@@ -11,6 +11,7 @@ import { format, isSameDay, parseISO } from "date-fns";
 import React, { useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import MarkdownWrapper from "../MarkdownWrapper";
+import formatMentions from "../../utils/formatMentions";
 
 const useStyles = makeStyles(theme => ({
     ticket: {
@@ -165,7 +166,7 @@ const TicketListForwardMessageItem = ({ ticket, selectedTicket, sendData }) => {
                                 color="textSecondary"
                             >
                                 {ticket.lastMessage ? (
-                                    <MarkdownWrapper>{ticket.lastMessage}</MarkdownWrapper>
+                                    <MarkdownWrapper>{formatMentions(ticket.lastMessage)}</MarkdownWrapper>
                                 ) : (
                                     <br />
                                 )}

@@ -64,14 +64,21 @@ const CreateOrUpdateContactService = async ({
           companyId
         }
       });
-      // Se achou pelo remoteJid, atualiza o número para o novo formato
-      if (contact) {
-        contact.number = number;
+      // Se achou pelo remoteJid e o número precisa ser atualizado
+      if (contact && !isGroup && contact.number !== number) {
+        // Verifica se outro contato já tem esse número para evitar UniqueConstraintError
+        const existingByNumber = await Contact.findOne({ where: { number, companyId } });
+        if (existingByNumber) {
+          // Usa o contato do número correto (evita duplicata); remoteJid será atualizado nele
+          contact = existingByNumber;
+        } else {
+          contact.number = number;
+        }
       }
     }
 
     // Calcula após buscar o contato para comparação correta
-    const updateImage = (contact?.profilePicUrl || "") !== profilePicUrl;
+    const updateImage = !!profilePicUrl && (contact?.profilePicUrl || "") !== profilePicUrl;
 
     if (contact) {
       contact.remoteJid = remoteJid; 
@@ -80,8 +87,8 @@ const CreateOrUpdateContactService = async ({
       if (isGroup || contact.name === number) {
         contact.name = name;
       }
-      contact.save();
-      contact.reload();
+      await contact.save();
+      await contact.reload();
 
       io.emit(`company-${companyId}-contact`, {
         action: "update",
@@ -121,7 +128,8 @@ const CreateOrUpdateContactService = async ({
             channel,
             acceptAudioMessage: acceptAudioMessageContact === 'enabled' ? true : false,
             remoteJid,
-            urlPicture: profilePicUrl
+            profilePicUrl,
+            urlPicture: null  // será preenchido pelo bloco updateImage abaixo
           });
 
           io.emit(`company-${companyId}-contact`, {
@@ -159,7 +167,7 @@ const CreateOrUpdateContactService = async ({
       fs.writeFileSync(join(folder,filename), response.data);
       
       }
-      contact.update({
+      await contact.update({
         urlPicture: filename,
         pictureUpdated: true
       })
@@ -170,8 +178,8 @@ const CreateOrUpdateContactService = async ({
       });
     }
     return contact;
-  } catch (err) {
-    logger.error("Error to find or create a contact:", err);
+  } catch (err: any) {
+    logger.error(`Error to find or create a contact: ${err?.message} | stack: ${err?.stack}`);
     return contact ?? null;
   }
 };

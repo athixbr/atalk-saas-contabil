@@ -1,0 +1,566 @@
+import {
+  Avatar,
+  Badge,
+  makeStyles,
+  useTheme,
+  withStyles,
+} from "@material-ui/core";
+import Divider from "@material-ui/core/Divider";
+import ListItem from "@material-ui/core/ListItem";
+import ListItemIcon from "@material-ui/core/ListItemIcon";
+import ListItemText from "@material-ui/core/ListItemText";
+import Tooltip from "@material-ui/core/Tooltip";
+import Typography from "@material-ui/core/Typography";
+import DashboardOutlinedIcon from "@material-ui/icons/DashboardOutlined";
+import { default as React, useContext, useEffect, useState } from "react";
+import { Link as RouterLink, useHistory, useLocation } from "react-router-dom";
+import styled from "styled-components";
+import { getBackendUrl } from "../config";
+import useHelps from "../hooks/useHelps";
+
+import { useActiveMenu } from "../context/ActiveMenuContext";
+import { AuthContext } from "../context/Auth/AuthContext";
+import { WhatsAppsContext } from "../context/WhatsApp/WhatsAppsContext";
+
+import { Can } from "../components/Can";
+
+import { useMediaQuery } from "@material-ui/core";
+import {
+  DocumentText,
+  Logout,
+  MoneySend,
+  People,
+  Profile2User,
+  Setting,
+  TaskSquare,
+  Whatsapp,
+} from "iconsax-react";
+import toastError from "../errors/toastError";
+import ColorModeContext from "../layout/themeContext";
+import { socketConnection } from "../services/socket";
+import { i18n } from "../translate/i18n";
+
+const useStyles = makeStyles((theme) => ({
+  listItem: {
+    height: "48px",
+    width: "auto",
+    borderRadius: "12px",
+    paddingTop: "4px",
+    paddingBottom: "4px",
+    transition: "all 0.2s ease",
+    "&:hover": {
+      backgroundColor: "rgba(255, 255, 255, 0.05)",
+    },
+  },
+  listItemCollapsed: {
+    justifyContent: "center",
+    paddingLeft: 0,
+    paddingRight: 0,
+  },
+  listItemIconCollapsed: {
+    minWidth: "auto",
+    justifyContent: "center",
+  },
+  listItemText: {
+    fontSize: "13px",
+    fontWeight: 500,
+    color: "#000",
+    fontFamily: "Inter, sans-serif",
+    transition: "all 0.2s",
+    whiteSpace: "nowrap",
+    "&:hover": {
+      color: "#999",
+    },
+  },
+  iconHoverActive: {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: "12px",
+    height: 42,
+    width: 42,
+    minWidth: 42,
+    transition: "all 0.2s ease",
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    color: "#000",
+    "&:hover, &.active": {
+      backgroundColor: "#065183",
+      color: "#FFF",
+      transform: "translateY(-1px)",
+      boxShadow: "0 4px 12px rgba(37, 182, 232, 0.2)",
+    },
+    "& svg": {
+      fontSize: "1.4rem",
+      transition: "all 0.2s",
+    },
+  },
+  badge: {
+    "& .MuiBadge-badge": {
+      backgroundColor: "#ef5350",
+      color: "#fff",
+      boxShadow: "0 0 0 2px rgb(9, 11, 17)",
+      "&::after": {
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: "100%",
+        borderRadius: "50%",
+        animation: "$ripple 1.2s infinite ease-in-out",
+        border: "1px solid #ef5350",
+        content: '""',
+      },
+    },
+  },
+  "@keyframes ripple": {
+    "0%": {
+      transform: "scale(.8)",
+      opacity: 1,
+    },
+    "100%": {
+      transform: "scale(2.4)",
+      opacity: 0,
+    },
+  },
+  menuContainer: {
+    backgroundColor: "#FFF",
+    height: "100%",
+    position: "relative",
+    overflowX: "hidden",
+    overflowY: "auto",
+    "&::-webkit-scrollbar": {
+      width: "6px",
+    },
+    "&::-webkit-scrollbar-thumb": {
+      backgroundColor: "rgba(255, 255, 255, 0.1)",
+      borderRadius: "3px",
+    },
+    "&::-webkit-scrollbar-track": {
+      backgroundColor: "transparent",
+    },
+  },
+  versionText: {
+    fontSize: "12px",
+    padding: "16px",
+    textAlign: "center",
+    fontWeight: 500,
+    color: "rgba(255, 255, 255, 0.5)",
+    letterSpacing: "0.5px",
+  },
+}));
+
+const StyledBadge = withStyles((theme) => ({
+  badge: {
+    backgroundColor: "#44b700",
+    color: "#44b700",
+    boxShadow: `0 0 0 2px ${theme.palette.background.paper}`,
+    [theme.breakpoints.down("xs")]: {
+      display: "none",
+    },
+    "&::after": {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: "100%",
+      borderRadius: "50%",
+      animation: "$ripple 1.2s infinite ease-in-out",
+      border: "1px solid currentColor",
+      content: '""',
+    },
+  },
+  "@keyframes ripple": {
+    "0%": {
+      transform: "scale(.8)",
+      opacity: 1,
+    },
+    "100%": {
+      transform: "scale(2.4)",
+      opacity: 0,
+    },
+  },
+}))(Badge);
+
+const MenuButton = styled.div`
+  color: white;
+  display: flex;
+  justify-content: end;
+  align-items: center;
+  width: "40px";
+
+  border-radius: 50px;
+  background-color: transparent;
+  padding: 8px;
+  cursor: pointer;
+  &:hover {
+    background-color: #24272c;
+  }
+`;
+
+const Theme = styled.div`
+  width: 35px;
+  height: 35px;
+  border-radius: 20px;
+  margin-left: 28px;
+  &:hover {
+    background-color: #24272c;
+  }
+`;
+
+// Prefixos de rota que mantêm cada item do menu "ativo" enquanto o usuário
+// navega dentro das sub-páginas do respectivo hub.
+const PAINEL_ACTIVE_PATHS = ["/painel", "/reports", "/moments"];
+const PAINEL_EXACT_PATHS = ["/"];
+const ATENDIMENTO_ACTIVE_PATHS = [
+  "/atendimento",
+  "/tickets",
+  "/contacts",
+  "/connections",
+  "/campaigns",
+  "/contact-lists",
+  "/campaigns-config",
+  "/grupos",
+  "/whatsapp-stories",
+  "/tags",
+  "/quick-messages",
+  "/schedules",
+  "/chats",
+  "/base-conhecimento",
+  "/helps",
+];
+const TAREFA_ACTIVE_PATHS = ["/tarefa", "/tarefas", "/gestao-tarefas"];
+const CRM_ACTIVE_PATHS = ["/crm-hub", "/crm"];
+const CLIENTES_ACTIVE_PATHS = [
+  "/clientes-hub",
+  "/clientes",
+  "/socios",
+  "/certidoes",
+  "/cobranca",
+];
+const DOCUMENTOS_ACTIVE_PATHS = ["/documentos", "/files", "/xml-nfe"];
+const FINANCEIRO_ACTIVE_PATHS = ["/fin"];
+const CONFIGURACOES_ACTIVE_PATHS = [
+  "/configuracoes",
+  "/settings",
+  "/queues",
+  "/queue-integration",
+  "/prompts",
+  "/messages-api",
+  "/plantao",
+  "/admin-notifications",
+  "/financeiro",
+  "/companies",
+  "/announcements",
+  "/users",
+  "/departamentos",
+  "/parametros",
+  "/modelos-parametros",
+  "/config-email",
+  "/config-whatsapp",
+];
+
+function ListItemLink(props) {
+  const { icon, primary, to, collapsed, showBadge, activePaths, exactPaths } =
+    props;
+  const classes = useStyles();
+  const { activeMenu } = useActiveMenu();
+  const location = useLocation();
+  const isActive =
+    activeMenu === to ||
+    location.pathname === to ||
+    (exactPaths && exactPaths.includes(location.pathname)) ||
+    (activePaths && activePaths.some((p) => location.pathname.startsWith(p)));
+
+  const renderLink = React.useMemo(
+    () =>
+      React.forwardRef((itemProps, ref) => (
+        <RouterLink to={to} ref={ref} {...itemProps} />
+      )),
+    [to]
+  );
+
+  const ConditionalTooltip = ({ children, tooltipEnabled }) =>
+    tooltipEnabled ? (
+      <Tooltip title={primary} placement="right" arrow>
+        {children}
+      </Tooltip>
+    ) : (
+      children
+    );
+
+  return (
+    <ConditionalTooltip tooltipEnabled={!!collapsed}>
+      <li>
+        <ListItem
+          button
+          component={renderLink}
+          className={`${classes.listItem} ${
+            collapsed ? classes.listItemCollapsed : ""
+          }`}
+        >
+          {icon ? (
+            <ListItemIcon
+              className={collapsed ? classes.listItemIconCollapsed : undefined}
+            >
+              {showBadge ? (
+                <Badge
+                  badgeContent="!"
+                  color="error"
+                  overlap="circular"
+                  className={classes.badge}
+                >
+                  <Avatar
+                    className={`${classes.iconHoverActive} ${
+                      isActive ? "active" : ""
+                    }`}
+                  >
+                    {icon}
+                  </Avatar>
+                </Badge>
+              ) : (
+                <Avatar
+                  className={`${classes.iconHoverActive} ${
+                    isActive ? "active" : ""
+                  }`}
+                >
+                  {icon}
+                </Avatar>
+              )}
+            </ListItemIcon>
+          ) : null}
+          {!collapsed && (
+            <ListItemText
+              primary={
+                <Typography className={classes.listItemText}>
+                  {primary}
+                </Typography>
+              }
+            />
+          )}
+        </ListItem>
+      </li>
+    </ConditionalTooltip>
+  );
+}
+
+const MainListItems = ({ collapsed, drawerClose }) => {
+  const { whatsApps } = useContext(WhatsAppsContext);
+  const { user } = useContext(AuthContext);
+
+  const [connectionWarning, setConnectionWarning] = useState(false);
+
+  const backendUrl = getBackendUrl();
+  const { handleLogout } = useContext(AuthContext);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const history = useHistory();
+  const [profileUrl, setProfileUrl] = useState(null);
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [userModalOpen, setUserModalOpen] = useState(false);
+
+  const { colorMode } = useContext(ColorModeContext);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const toggleColorMode = () => {
+    colorMode.toggleColorMode();
+  };
+
+  const { socket } = useContext(AuthContext);
+  const theme = useTheme();
+
+  const greaterThenSm = useMediaQuery(theme.breakpoints.up("md"));
+  const [version, setVersion] = useState(false);
+
+  const { list } = useHelps();
+  const [hasHelps, setHasHelps] = useState(false);
+
+  useEffect(() => {
+    setIsAdmin(user.profile === "admin");
+  }, [user]);
+
+  useEffect(() => {
+    async function checkHelps() {
+      const helps = await list();
+      setHasHelps(helps.length > 0);
+    }
+    checkHelps();
+  }, []);
+
+  useEffect(() => {
+    const companyId = user.companyId;
+    const userId = user.id;
+
+    const socket = socketConnection({ companyId, userId: user.id });
+    if (!socket) {
+      return () => {};
+    }
+    const ImageUrl = user.profileImage;
+
+    if (ImageUrl !== undefined && ImageUrl !== null)
+      setProfileUrl(
+        `${backendUrl}/public/company${companyId}/user/${ImageUrl}`
+      );
+    else setProfileUrl(`${process.env.FRONTEND_URL}/nopicture.png`);
+
+    socket.on(`company-${companyId}-auth`, (data) => {
+      if (data.user.id === +userId) {
+        toastError("Sua conta foi acessada em outro computador.");
+        setTimeout(() => {
+          localStorage.clear();
+          window.location.reload();
+        }, 1000);
+      }
+    });
+
+    socket.emit("userStatus");
+    const interval = setInterval(() => {
+      socket.emit("userStatus");
+    }, 1000 * 60 * 5);
+
+    return () => {
+      socket.disconnect();
+      clearInterval(interval);
+    };
+  }, [user]);
+
+  const handleCloseMenu = () => {
+    setAnchorEl(null);
+    setMenuOpen(false);
+  };
+
+  const handleOpenUserModal = () => {
+    setUserModalOpen(true);
+    handleCloseMenu();
+  };
+
+  const handleClickLogout = () => {
+    if (theme.mode === "dark") toggleColorMode();
+    handleCloseMenu();
+    handleLogout();
+  };
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      if (whatsApps.length > 0) {
+        const offlineWhats = whatsApps.filter((whats) => {
+          return (
+            whats.status === "qrcode" ||
+            whats.status === "PAIRING" ||
+            whats.status === "DISCONNECTED" ||
+            whats.status === "TIMEOUT" ||
+            whats.status === "OPENING"
+          );
+        });
+        if (offlineWhats.length > 0) {
+          setConnectionWarning(true);
+        } else {
+          setConnectionWarning(false);
+        }
+      }
+    }, 2000);
+    return () => clearTimeout(delayDebounceFn);
+  }, [whatsApps]);
+
+  const handleMenu = (event) => {
+    setAnchorEl(event.currentTarget);
+    setMenuOpen(true);
+  };
+
+  return (
+    <div onClick={drawerClose}>
+      <Can
+        role={
+          (user.profile === "user" && user.showDashboard === "enabled") ||
+          user.allowRealTime === "enabled"
+            ? "admin"
+            : user.profile
+        }
+        perform={"drawer-admin-items:view"}
+        yes={() => (
+          <ListItemLink
+            to="/painel"
+            primary="Painel"
+            icon={<DashboardOutlinedIcon />}
+            collapsed={collapsed}
+            activePaths={PAINEL_ACTIVE_PATHS}
+            exactPaths={PAINEL_EXACT_PATHS}
+          />
+        )}
+      />
+
+      <ListItemLink
+        to="/atendimento"
+        primary="Atendimento"
+        icon={<Whatsapp />}
+        collapsed={collapsed}
+        activePaths={ATENDIMENTO_ACTIVE_PATHS}
+        showBadge={connectionWarning}
+      />
+
+      <ListItemLink
+        to="/tarefa"
+        primary="Tarefa"
+        icon={<TaskSquare />}
+        collapsed={collapsed}
+        activePaths={TAREFA_ACTIVE_PATHS}
+      />
+
+      <ListItemLink
+        to="/crm-hub"
+        primary="CRM"
+        icon={<Profile2User />}
+        collapsed={collapsed}
+        activePaths={CRM_ACTIVE_PATHS}
+      />
+
+      <ListItemLink
+        to="/clientes-hub"
+        primary="Clientes"
+        icon={<People />}
+        collapsed={collapsed}
+        activePaths={CLIENTES_ACTIVE_PATHS}
+      />
+
+      <ListItemLink
+        to="/documentos"
+        primary="Documentos"
+        icon={<DocumentText />}
+        collapsed={collapsed}
+        activePaths={DOCUMENTOS_ACTIVE_PATHS}
+      />
+
+      <ListItemLink
+        to="/fin"
+        primary="Financeiro"
+        icon={<MoneySend />}
+        collapsed={collapsed}
+        activePaths={FINANCEIRO_ACTIVE_PATHS}
+      />
+
+      <Can
+        role={user.profile}
+        perform="drawer-admin-items:view"
+        yes={() => (
+          <ListItemLink
+            to="/configuracoes"
+            primary="Configurações"
+            icon={<Setting />}
+            collapsed={collapsed}
+            activePaths={CONFIGURACOES_ACTIVE_PATHS}
+          />
+        )}
+      />
+
+      {/* SAIR */}
+      <Divider />
+      <div onClick={handleClickLogout}>
+        <ListItemLink
+          to="#"
+          primary={i18n.t("mainDrawer.appBar.user.logout")}
+          icon={<Logout />}
+          collapsed={collapsed}
+        />
+      </div>
+    </div>
+  );
+};
+
+export default MainListItems;

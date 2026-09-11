@@ -8,20 +8,30 @@ import Departamento from "../../models/Departamento";
 import DepartamentoUsuario from "../../models/DepartamentoUsuario";
 import User from "../../models/User";
 import AppError from "../../errors/AppError";
+import {
+  validateEntregasMensais,
+  validateDiasField,
+  validateCompetenciaValor,
+  validatePrazosFixos,
+  normalizePrazosFixos
+} from "./validateTarefaRecorrenteFields";
 
 interface TarefaRecorrenteData {
   codigo?: string;
   classificacao?: string;
   mininome?: string;
   nomeTarefa: string;
+  tipoTarefa?: string;
   departamentoId?: number;
   entregasMensais?: object;
   diasAntecipacao?: number;
   diasInicio?: number;
+  diasConclusao?: number;
   tipoDiasAntes?: string;
   prazosFixos?: string;
   sabadoUtil?: boolean;
   competencia?: string;
+  competenciaTipo?: string;
   exigirRobo?: boolean;
   passivelMulta?: boolean;
   alertaGuia?: boolean;
@@ -44,10 +54,11 @@ interface TarefaRecorrenteData {
   retencaoMeses?: number;
   prazoMinimoRealizacao?: number;
   semVencimento?: boolean;
+  faseConfig?: object;
   checklistId?: number;
   canaisNotificacao?: string[];
   valor?: number;
-  clientesIds?: number[];
+  clientesIds?: Array<number | { id?: number; clienteId?: number; vencimento?: string; controleComDataId?: number }>;
   sociosIds?: number[];
   usuariosIds?: number[];
   usuarioResponsavelId?: number;
@@ -66,6 +77,25 @@ const CreateTarefaRecorrenteService = async (
     userId,
     ...tarefaData
   } = data;
+
+  // Código agora é exibido a partir do ID auto-incremental e não é persistido pelo formulário.
+  delete tarefaData.codigo;
+
+  // Classificação: obrigatória, formato 00.00.00
+  if (!tarefaData.classificacao || !/^\d{2}\.\d{2}\.\d{2}$/.test(tarefaData.classificacao)) {
+    throw new AppError("ERR_CLASSIFICACAO_INVALIDA: Classificação é obrigatória no formato 00.00.00", 400);
+  }
+
+  // Entregas Mensais: cada mês deve ter um dia válido no calendário, "ultimo", "nao_tem" ou vazio
+  validateEntregasMensais(tarefaData.entregasMensais);
+
+  // Prazos e Configurações: campos numéricos limitados a 4 dígitos
+  validateDiasField(tarefaData.diasAntecipacao, "diasAntecipacao");
+  validateDiasField(tarefaData.diasInicio, "diasInicio");
+  validateDiasField(tarefaData.diasConclusao, "diasConclusao");
+  validateCompetenciaValor(tarefaData.competencia);
+  tarefaData.prazosFixos = normalizePrazosFixos(tarefaData.prazosFixos) as string;
+  validatePrazosFixos(tarefaData.prazosFixos);
 
   // Validar departamentoId se fornecido
   if (tarefaData.departamentoId) {
@@ -92,13 +122,25 @@ const CreateTarefaRecorrenteService = async (
 
   // Campos booleanos que podem vir como strings "sim"/"nao"
   const booleanFields = [
-    'sabadoUtil', 'exigirRobo', 'passivelMulta', 'alertaGuia', 
-    'checklistObrigatorio', 'notificarCliente', 'servicoLiberado', 
-    'baixarAutomatico', 'ativa'
+    'sabadoUtil', 'exigirRobo', 'passivelMulta', 'alertaGuia',
+    'checklistObrigatorio', 'notificarCliente', 'servicoLiberado',
+    'baixarAutomatico'
   ];
 
   // Limpar campos vazios, converter booleanos e tratar ENUMs
   const cleanData = Object.entries(tarefaData).reduce((acc, [key, value]) => {
+    // "ativa" nunca deve virar null: ausência/valor vazio omite a chave
+    // (deixando o defaultValue: true do schema atuar), nunca grava NULL
+    // explícito, senão a tarefa fica de fora da geração automática
+    // (GenerateTarefasRecorrentesService filtra where: { ativa: true }).
+    if (key === 'ativa') {
+      if (value === "nao" || value === false) {
+        acc[key] = false;
+      } else if (value === "sim" || value === true) {
+        acc[key] = true;
+      }
+      return acc;
+    }
     // Converter strings "sim"/"nao" para boolean
     if (booleanFields.includes(key)) {
       if (value === "sim" || value === true) {
@@ -115,6 +157,9 @@ const CreateTarefaRecorrenteService = async (
     if (value === "" && (key === "esfera")) {
       acc[key] = null;
     } 
+    else if (key === "tipoTarefa") {
+      acc[key] = value || "recorrente";
+    }
     // Se for departamentoId vazio ou inválido, converter para null
     else if (key === "departamentoId" && (!value || value === "")) {
       acc[key] = null;
@@ -128,6 +173,7 @@ const CreateTarefaRecorrenteService = async (
 
   // Criar a tarefa recorrente
   const tarefaRecorrente = await TarefaRecorrente.create({
+    tipoTarefa: "recorrente",
     ...cleanData,
     usuarioResponsavelId,
     companyId,
@@ -137,10 +183,12 @@ const CreateTarefaRecorrenteService = async (
 
   // Vincular clientes
   if (clientesIds.length > 0) {
-    const clientesVinculos = clientesIds.map(clienteId => ({
+    const clientesVinculos = clientesIds.map((cliente: any) => ({
       tarefaRecorrenteId: tarefaRecorrente.id,
-      clienteId
-    }));
+      clienteId: typeof cliente === "object" ? cliente.clienteId || cliente.id : cliente,
+      vencimento: typeof cliente === "object" ? cliente.vencimento || null : null,
+      controleComDataId: typeof cliente === "object" ? cliente.controleComDataId || null : null
+    })).filter(vinculo => vinculo.clienteId);
     await TarefaRecorrenteCliente.bulkCreate(clientesVinculos);
   }
 
@@ -172,6 +220,7 @@ const CreateTarefaRecorrenteService = async (
       { model: User, as: "usuarios" }
     ]
   });
+  tarefaRecorrente.setDataValue("codigo", String(tarefaRecorrente.id));
 
   return tarefaRecorrente;
 };

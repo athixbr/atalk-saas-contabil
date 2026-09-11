@@ -25,16 +25,20 @@ import { head } from "lodash";
 type IndexQuery = {
   searchParam: string;
   pageNumber: string;
+  orderBy?: string;
+  order?: string;
 };
 
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
-  const { searchParam, pageNumber } = req.query as IndexQuery;
+  const { searchParam, pageNumber, orderBy, order } = req.query as IndexQuery;
   const { companyId, profile } = req.user;
 
   const { users, count, hasMore } = await ListUsersService({
     searchParam,
     pageNumber,
+    orderBy,
+    order,
     companyId,
     profile
   });
@@ -61,7 +65,9 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     defaultTheme,
     defaultMenu,
     allowGroup,
-    wpp
+    wpp,
+    isActive,
+    departamentos
   } = req.body;
   let userCompanyId: number | null = null;
 
@@ -163,7 +169,9 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
       defaultTheme,
       defaultMenu,
       allowGroup,
-      wpp
+      wpp,
+      isActive,
+      departamentos
     });
 
     const io = getIO();

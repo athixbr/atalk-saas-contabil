@@ -17,6 +17,10 @@ import IconButton from "@material-ui/core/IconButton";
 import SearchIcon from "@material-ui/icons/Search";
 import TextField from "@material-ui/core/TextField";
 import InputAdornment from "@material-ui/core/InputAdornment";
+import Typography from "@material-ui/core/Typography";
+import Tooltip from "@material-ui/core/Tooltip";
+import Chip from "@material-ui/core/Chip";
+import AddIcon from "@material-ui/icons/Add";
 
 import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
 import EditIcon from "@material-ui/icons/Edit";
@@ -24,10 +28,9 @@ import DescriptionIcon from "@material-ui/icons/Description";
 import TimerOffIcon from "@material-ui/icons/TimerOff";
 import PlayCircleOutlineIcon from "@material-ui/icons/PlayCircleOutline";
 import PauseCircleOutlineIcon from "@material-ui/icons/PauseCircleOutline";
+import CampaignIcon from "@material-ui/icons/Send";
 
-import MainContainer from "../../components/MainContainer";
 import MainHeader from "../../components/MainHeader";
-import Title from "../../components/Title";
 
 import api from "../../services/api";
 import { i18n } from "../../translate/i18n";
@@ -88,13 +91,91 @@ const reducer = (state, action) => {
   }
 };
 
+const STATUS_GRADIENTS = {
+  INATIVA: "linear-gradient(135deg, #757f9a 0%, #9aa5b8 100%)",
+  PROGRAMADA: "linear-gradient(135deg, #F7971E 0%, #FFD200 100%)",
+  EM_ANDAMENTO: "linear-gradient(135deg, #1A4783 0%, #2d7dd2 100%)",
+  CANCELADA: "linear-gradient(135deg, #e52d27 0%, #b31217 100%)",
+  FINALIZADA: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
+};
+
 const useStyles = makeStyles((theme) => ({
+  mainContainer: {
+    display: "flex",
+    flexDirection: "column",
+    height: "100%",
+    padding: theme.spacing(3),
+    width: "100%",
+    boxSizing: "border-box",
+  },
   mainPaper: {
     flex: 1,
-    // padding: theme.spacing(1),
     padding: theme.padding,
-    overflowY: "scroll",
+    overflowY: "auto",
+    overflowX: "auto",
+    width: "100%",
+    boxSizing: "border-box",
     ...theme.scrollbarStyles,
+    borderRadius: "20px",
+    border: "1px solid #eef1f7",
+    boxShadow: "0 2px 16px rgba(0,0,0,0.07)",
+  },
+  pageHeader: {
+    background: "linear-gradient(135deg, #1A4783 0%, #2d7dd2 100%)",
+    borderRadius: "20px",
+    padding: "20px 28px",
+    color: "#fff",
+    display: "flex",
+    alignItems: "center",
+    gap: "16px",
+    boxShadow: "0 4px 24px rgba(26,71,131,0.25)",
+  },
+  pageHeaderIcon: {
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderRadius: "14px",
+    padding: "12px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  filterRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: "12px",
+    marginTop: theme.spacing(2),
+    marginBottom: theme.spacing(2),
+    flexWrap: "wrap",
+  },
+  searchField: {
+    minWidth: "220px",
+    backgroundColor: theme.palette.type === "light" ? "#fff" : undefined,
+    "& .MuiOutlinedInput-root": {
+      borderRadius: "10px",
+    },
+  },
+  addButton: {
+    borderRadius: "10px",
+    fontWeight: 600,
+    padding: "9px 20px",
+    boxShadow: "0 4px 12px rgba(26,71,131,0.3)",
+  },
+  tableHeadCell: {
+    fontWeight: 700,
+    color: "#1A4783",
+    borderBottom: "2px solid #eef1f7",
+  },
+  statusChip: {
+    color: "#fff",
+    fontWeight: 600,
+    fontSize: "0.7rem",
+    height: "24px",
+  },
+  actionsCell: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "2px",
   },
 }));
 
@@ -259,7 +340,7 @@ const Campaigns = () => {
   };
 
   return (
-    <MainContainer>
+    <div className={classes.mainContainer}>
       <ConfirmationModal
         title={
           deletingCampaign &&
@@ -283,38 +364,47 @@ const Campaigns = () => {
       />
       <MainHeader>
         <Grid style={{ width: "99.6%" }} container>
-          <Grid xs={12} sm={8} item>
-            <Title>{i18n.t("campaigns.title")}</Title>
-          </Grid>
-          <Grid xs={12} sm={4} item>
-            <Grid spacing={2} container>
-              <Grid xs={6} sm={6} item>
-                <TextField
-                  fullWidth
-                  placeholder={i18n.t("campaigns.searchPlaceholder")}
-                  type="search"
-                  value={searchParam}
-                  onChange={handleSearch}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon style={{ color: "gray" }} />
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-              </Grid>
-              <Grid xs={6} sm={6} item>
-                <Button
-                  fullWidth
-                  variant="contained"
-                  onClick={handleOpenCampaignModal}
-                  color="primary"
-                >
-                  {i18n.t("campaigns.buttons.add")}
-                </Button>
-              </Grid>
-            </Grid>
+          <Grid xs={12} item>
+            <div className={classes.pageHeader}>
+              <div className={classes.pageHeaderIcon}>
+                <CampaignIcon style={{ color: "#fff", fontSize: "28px" }} />
+              </div>
+              <div>
+                <Typography style={{ fontSize: "20px", fontWeight: 700, lineHeight: 1.2 }}>
+                  {i18n.t("campaigns.title")}
+                </Typography>
+                <Typography style={{ fontSize: "13px", opacity: 0.82, marginTop: "2px" }}>
+                  Crie e acompanhe disparos em massa para seus contatos
+                </Typography>
+              </div>
+            </div>
+            <div className={classes.filterRow}>
+              <TextField
+                className={classes.searchField}
+                placeholder={i18n.t("campaigns.searchPlaceholder")}
+                type="search"
+                variant="outlined"
+                size="small"
+                value={searchParam}
+                onChange={handleSearch}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon style={{ color: "gray" }} />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+              <Button
+                className={classes.addButton}
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={handleOpenCampaignModal}
+                color="primary"
+              >
+                {i18n.t("campaigns.buttons.add")}
+              </Button>
+            </div>
           </Grid>
         </Grid>
       </MainHeader>
@@ -326,28 +416,28 @@ const Campaigns = () => {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell align="center">
+              <TableCell className={classes.tableHeadCell} align="center">
                 {i18n.t("campaigns.table.name")}
               </TableCell>
-              <TableCell align="center">
+              <TableCell className={classes.tableHeadCell} align="center">
                 {i18n.t("campaigns.table.status")}
               </TableCell>
-              <TableCell align="center">
+              <TableCell className={classes.tableHeadCell} align="center">
                 {i18n.t("campaigns.table.contactList")}
               </TableCell>
-              <TableCell align="center">
+              <TableCell className={classes.tableHeadCell} align="center">
                 {i18n.t("campaigns.table.whatsapp")}
               </TableCell>
-              <TableCell align="center">
+              <TableCell className={classes.tableHeadCell} align="center">
                 {i18n.t("campaigns.table.scheduledAt")}
               </TableCell>
-              <TableCell align="center">
+              <TableCell className={classes.tableHeadCell} align="center">
                 {i18n.t("campaigns.table.completedAt")}
               </TableCell>
-              <TableCell align="center">
+              <TableCell className={classes.tableHeadCell} align="center">
                 {i18n.t("campaigns.table.confirmation")}
               </TableCell>
-              <TableCell align="center">
+              <TableCell className={classes.tableHeadCell} align="center">
                 {i18n.t("campaigns.table.actions")}
               </TableCell>
             </TableRow>
@@ -358,7 +448,16 @@ const Campaigns = () => {
                 <TableRow key={campaign.id}>
                   <TableCell align="center">{campaign.name}</TableCell>
                   <TableCell align="center">
-                    {formatStatus(campaign.status)}
+                    <Chip
+                      className={classes.statusChip}
+                      style={{
+                        background:
+                          STATUS_GRADIENTS[campaign.status] ||
+                          STATUS_GRADIENTS.INATIVA,
+                      }}
+                      label={formatStatus(campaign.status)}
+                      size="small"
+                    />
                   </TableCell>
                   <TableCell align="center">
                     {campaign.contactListId
@@ -384,48 +483,57 @@ const Campaigns = () => {
                     {campaign.confirmation ? "Habilitada" : "Desabilitada"}
                   </TableCell>
                   <TableCell align="center">
-                    {campaign.status === "EM_ANDAMENTO" && (
-                      <IconButton
-                        onClick={() => cancelCampaign(campaign)}
-                        title="Parar Campanha"
-                        size="small"
-                      >
-                        <PauseCircleOutlineIcon />
-                      </IconButton>
-                    )}
-                    {campaign.status === "CANCELADA" && (
-                      <IconButton
-                        onClick={() => restartCampaign(campaign)}
-                        title="Parar Campanha"
-                        size="small"
-                      >
-                        <PlayCircleOutlineIcon />
-                      </IconButton>
-                    )}
-                    <IconButton
-                      onClick={() =>
-                        history.push(`/campaign/${campaign.id}/report`)
-                      }
-                      size="small"
-                    >
-                      <DescriptionIcon />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleEditCampaign(campaign)}
-                    >
-                      <EditIcon />
-                    </IconButton>
-
-                    <IconButton
-                      size="small"
-                      onClick={(e) => {
-                        setConfirmModalOpen(true);
-                        setDeletingCampaign(campaign);
-                      }}
-                    >
-                      <DeleteOutlineIcon />
-                    </IconButton>
+                    <div className={classes.actionsCell}>
+                      {campaign.status === "EM_ANDAMENTO" && (
+                        <Tooltip title="Parar Campanha">
+                          <IconButton
+                            onClick={() => cancelCampaign(campaign)}
+                            size="small"
+                          >
+                            <PauseCircleOutlineIcon />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      {campaign.status === "CANCELADA" && (
+                        <Tooltip title="Reiniciar Campanha">
+                          <IconButton
+                            onClick={() => restartCampaign(campaign)}
+                            size="small"
+                          >
+                            <PlayCircleOutlineIcon />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      <Tooltip title="Relatório">
+                        <IconButton
+                          onClick={() =>
+                            history.push(`/campaign/${campaign.id}/report`)
+                          }
+                          size="small"
+                        >
+                          <DescriptionIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Editar">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleEditCampaign(campaign)}
+                        >
+                          <EditIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Excluir">
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            setConfirmModalOpen(true);
+                            setDeletingCampaign(campaign);
+                          }}
+                        >
+                          <DeleteOutlineIcon />
+                        </IconButton>
+                      </Tooltip>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -434,7 +542,7 @@ const Campaigns = () => {
           </TableBody>
         </Table>
       </Paper>
-    </MainContainer>
+    </div>
   );
 };
 

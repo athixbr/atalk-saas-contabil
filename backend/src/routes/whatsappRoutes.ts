@@ -5,6 +5,7 @@ import * as WhatsAppController from "../controllers/WhatsAppController";
 
 import multer from "multer";
 import uploadConfig from "../config/upload";
+import uploadFilesToStorage from "../middleware/uploadToStorage";
 import { mediaUpload } from "../services/WhatsappService/uploadMediaAttachment";
 import { deleteMedia } from "../services/WhatsappService/uploadMediaAttachment";
 
@@ -27,6 +28,7 @@ whatsappRoutes.post(
   "/whatsapp/:whatsappId/media-upload",
   isAuth,
   upload.array("file"),
+  uploadFilesToStorage,
   mediaUpload
 );
 

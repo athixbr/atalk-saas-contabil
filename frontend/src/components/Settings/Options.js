@@ -130,8 +130,6 @@ export default function Options(props) {
   const [sendMessageOutExpedientTicketOpen, setSendMessageOutExpedientTicketOpen] = useState("enabled");
   const [loadingSendMessageOutExpedientTicketOpen, setLoadingSendMessageOutExpedientTicketOpen] = useState(false);
 
-  const [asaasToken, setAsaasToken] = useState("");
-  const [loadingAsaasToken, setLoadingAsaasToken] = useState(false);
   const { update:updateUserCreation, getAll } = useSettings();
 
   const { update } = useCompanySettings();
@@ -176,8 +174,7 @@ export default function Options(props) {
       if (key === "lgpdMessage") setLGPDMessage(value);
       if (key === "sendMsgTransfTicket") setSettingsTransfTicket(value)
       if (key === "lgpdLink") setLGPDLink(value)
-      if (key === "asaas") setAsaasToken(value);
-    }    
+    }
   }, [settings]);
 
   async function handleChangeUserCreation(value) {
@@ -385,16 +382,6 @@ export default function Options(props) {
     setLoadingRequiredTag(false);
   }
 
-  async function handleAsaasToken(value) {
-    setAsaasToken(value);
-    setLoadingAsaasToken(true);
-    await update({
-      column:"asaas",
-      data:value
-    });
-    setLoadingAsaasToken(false);
-  }
-
   async function handleSendMessageOutExpedientTicketOpen(value) {
     setLoadingSendMessageOutExpedientTicketOpen(true);
     setSendMessageOutExpedientTicketOpen(value);
@@ -406,8 +393,24 @@ export default function Options(props) {
   }
 
 
+  const SectionHeader = ({ label }) => (
+    <Grid spacing={3} container style={{ marginTop: 10, marginBottom: 10 }}>
+      <Tabs
+        indicatorColor="primary"
+        textColor="primary"
+        scrollButtons="on"
+        variant="scrollable"
+        className={classes.tab}
+      >
+        <Tab label={label} />
+      </Tabs>
+    </Grid>
+  );
+
   return (
     <>
+      {/*-----------------GERAL-----------------*/}
+      <SectionHeader label={i18n.t("settings.settings.options.groups.general")} />
       <Grid spacing={3} container>
 
         {/* CRIAÇÃO DE COMPANY/USERS */}
@@ -487,31 +490,69 @@ export default function Options(props) {
           </FormControl>
         </Grid>
 
-        {/* ENVIAR SAUDAÇÃO AO ACEITAR O TICKET */}
+        {/* TIPO DO BOT */}
         <Grid xs={12} sm={6} md={4} item>
           <FormControl className={classes.selectContainer}>
-            <InputLabel id="sendGreetingAccepted-label">
-              {i18n.t("settings.settings.options.sendGreetingAccepted")}
-            </InputLabel>
+            <InputLabel id="chatBotType-label">{i18n.t("settings.settings.options.chatBotType")}</InputLabel>
             <Select
-              labelId="sendGreetingAccepted-label"
-              value={SendGreetingAccepted}
+              labelId="chatBotType-label"
+              value={chatBotType}
               onChange={async (e) => {
-                handleSendGreetingAccepted(e.target.value);
+                handleChatBotType(e.target.value);
               }}
             >
-              <MenuItem value={"disabled"}>
-                {i18n.t("settings.settings.options.disabled")}
-              </MenuItem>
-              <MenuItem value={"enabled"}>
-                {i18n.t("settings.settings.options.enabled")}
-              </MenuItem>
+              <MenuItem value={"text"}>Texto</MenuItem>
+              {/* <MenuItem value={"button"}>{i18n.t("settings.settings.options.buttons")}</MenuItem>
+              <MenuItem value={"list"}>Lista</MenuItem> */}
             </Select>
             <FormHelperText>
-              {loadingSendGreetingAccepted && i18n.t("settings.settings.options.updating")}
+              {loadingScheduleType && i18n.t("settings.settings.options.updating")}
             </FormHelperText>
           </FormControl>
         </Grid>
+
+        <Grid xs={12} sm={6} md={4} item>
+          <FormControl className={classes.selectContainer}>
+            <InputLabel id="requiredTag-label"> {i18n.t("settings.settings.options.requiredTag")}</InputLabel>
+            <Select
+              labelId="requiredTag-label"
+              value={requiredTag}
+              onChange={async (e) => {
+                handleRequiredTag(e.target.value);
+              }}
+            >
+              <MenuItem value={"disabled"}>{i18n.t("settings.settings.options.disabled")}</MenuItem>
+              <MenuItem value={"enabled"}>{i18n.t("settings.settings.options.enabled")}</MenuItem>
+            </Select>
+            <FormHelperText>
+              {loadingRequiredTag && i18n.t("settings.settings.options.updating")}
+            </FormHelperText>
+          </FormControl>
+        </Grid>
+
+        <Grid xs={12} sm={6} md={4} item>
+          <FormControl className={classes.selectContainer}>
+            <InputLabel id="enableLGPD-label"> {i18n.t("settings.settings.options.enableLGPD")}</InputLabel>
+            <Select
+              labelId="enableLGPD-label"
+              value={enableLGPD}
+              onChange={async (e) => {
+                handleEnableLGPD(e.target.value);
+              }}
+            >
+              <MenuItem value={"disabled"}>{i18n.t("settings.settings.options.disabled")}</MenuItem>
+              <MenuItem value={"enabled"}>{i18n.t("settings.settings.options.enabled")}</MenuItem>
+            </Select>
+            <FormHelperText>
+              {loadingEnableLGPD && i18n.t("settings.settings.options.updating")}
+            </FormHelperText>
+          </FormControl>
+        </Grid>
+      </Grid>
+
+      {/*-----------------ATENDIMENTO / FILA-----------------*/}
+      <SectionHeader label={i18n.t("settings.settings.options.groups.ticketFlow")} />
+      <Grid spacing={3} container>
 
         {/* ESCOLHER OPERADOR ALEATORIO */}
         <Grid xs={12} sm={6} md={4} item>
@@ -565,38 +606,17 @@ export default function Options(props) {
           </FormControl>
         </Grid>
 
-        {/* TIPO DO BOT */}
+        {/* ENVIAR SAUDAÇÃO AO ACEITAR O TICKET */}
         <Grid xs={12} sm={6} md={4} item>
           <FormControl className={classes.selectContainer}>
-            <InputLabel id="schedule-type-label">{i18n.t("settings.settings.options.chatBotType")}</InputLabel>
-            <Select
-              labelId="schedule-type-label"
-              value={chatBotType}
-              onChange={async (e) => {
-                handleChatBotType(e.target.value);
-              }}
-            >
-              <MenuItem value={"text"}>Texto</MenuItem>
-              {/* <MenuItem value={"button"}>{i18n.t("settings.settings.options.buttons")}</MenuItem>
-              <MenuItem value={"list"}>Lista</MenuItem> */}
-            </Select>
-            <FormHelperText>
-              {loadingScheduleType && i18n.t("settings.settings.options.updating")}
-            </FormHelperText>
-          </FormControl>
-        </Grid>
-
-        {/* AVISO SOBRE LIGAÇÃO DO WHATSAPP */}
-        <Grid xs={12} sm={6} md={4} item>
-          <FormControl className={classes.selectContainer}>
-            <InputLabel id="acceptCallWhatsapp-label">
-              {i18n.t("settings.settings.options.acceptCallWhatsapp")}
+            <InputLabel id="sendGreetingAccepted-label">
+              {i18n.t("settings.settings.options.sendGreetingAccepted")}
             </InputLabel>
             <Select
-              labelId="acceptCallWhatsapp-label"
-              value={AcceptCallWhatsapp}
+              labelId="sendGreetingAccepted-label"
+              value={SendGreetingAccepted}
               onChange={async (e) => {
-                handleAcceptCallWhatsapp(e.target.value);
+                handleSendGreetingAccepted(e.target.value);
               }}
             >
               <MenuItem value={"disabled"}>
@@ -607,33 +627,7 @@ export default function Options(props) {
               </MenuItem>
             </Select>
             <FormHelperText>
-              {loadingAcceptCallWhatsapp && i18n.t("settings.settings.options.updating")}
-            </FormHelperText>
-          </FormControl>
-        </Grid>
-
-        {/* HABILITAR PARA O ATENDENTE RETIRAR O ASSINATURA */}
-        <Grid xs={12} sm={6} md={4} item>
-          <FormControl className={classes.selectContainer}>
-            <InputLabel id="sendSignMessage-label">
-              {i18n.t("settings.settings.options.sendSignMessage")}
-            </InputLabel>
-            <Select
-              labelId="sendSignMessage-label"
-              value={sendSignMessage}
-              onChange={async (e) => {
-                handleSendSignMessage(e.target.value);
-              }}
-            >
-              <MenuItem value={"disabled"}>
-                {i18n.t("settings.settings.options.disabled")}
-              </MenuItem>
-              <MenuItem value={"enabled"}>
-                {i18n.t("settings.settings.options.enabled")}
-              </MenuItem>
-            </Select>
-            <FormHelperText>
-              {loadingSendSignMessage && i18n.t("settings.settings.options.updating")}
+              {loadingSendGreetingAccepted && i18n.t("settings.settings.options.updating")}
             </FormHelperText>
           </FormControl>
         </Grid>
@@ -718,6 +712,82 @@ export default function Options(props) {
 
         <Grid xs={12} sm={6} md={4} item>
           <FormControl className={classes.selectContainer}>
+            <InputLabel id="sendMessageOutExpedientTicketOpen-label"> {i18n.t("settings.settings.options.sendMessageOutExpedientTicketOpen")}</InputLabel>
+            <Select
+              labelId="sendMessageOutExpedientTicketOpen-label"
+              value={sendMessageOutExpedientTicketOpen}
+              onChange={async (e) => {
+                handleSendMessageOutExpedientTicketOpen(e.target.value);
+              }}
+            >
+              <MenuItem value={"disabled"}>{i18n.t("settings.settings.options.disabled")}</MenuItem>
+              <MenuItem value={"enabled"}>{i18n.t("settings.settings.options.enabled")}</MenuItem>
+            </Select>
+            <FormHelperText>
+              {loadingSendMessageOutExpedientTicketOpen && i18n.t("settings.settings.options.updating")}
+            </FormHelperText>
+          </FormControl>
+        </Grid>
+      </Grid>
+
+      {/*-----------------WHATSAPP / MENSAGENS-----------------*/}
+      <SectionHeader label={i18n.t("settings.settings.options.groups.whatsapp")} />
+      <Grid spacing={3} container>
+
+        {/* AVISO SOBRE LIGAÇÃO DO WHATSAPP */}
+        <Grid xs={12} sm={6} md={4} item>
+          <FormControl className={classes.selectContainer}>
+            <InputLabel id="acceptCallWhatsapp-label">
+              {i18n.t("settings.settings.options.acceptCallWhatsapp")}
+            </InputLabel>
+            <Select
+              labelId="acceptCallWhatsapp-label"
+              value={AcceptCallWhatsapp}
+              onChange={async (e) => {
+                handleAcceptCallWhatsapp(e.target.value);
+              }}
+            >
+              <MenuItem value={"disabled"}>
+                {i18n.t("settings.settings.options.disabled")}
+              </MenuItem>
+              <MenuItem value={"enabled"}>
+                {i18n.t("settings.settings.options.enabled")}
+              </MenuItem>
+            </Select>
+            <FormHelperText>
+              {loadingAcceptCallWhatsapp && i18n.t("settings.settings.options.updating")}
+            </FormHelperText>
+          </FormControl>
+        </Grid>
+
+        {/* HABILITAR PARA O ATENDENTE RETIRAR O ASSINATURA */}
+        <Grid xs={12} sm={6} md={4} item>
+          <FormControl className={classes.selectContainer}>
+            <InputLabel id="sendSignMessage-label">
+              {i18n.t("settings.settings.options.sendSignMessage")}
+            </InputLabel>
+            <Select
+              labelId="sendSignMessage-label"
+              value={sendSignMessage}
+              onChange={async (e) => {
+                handleSendSignMessage(e.target.value);
+              }}
+            >
+              <MenuItem value={"disabled"}>
+                {i18n.t("settings.settings.options.disabled")}
+              </MenuItem>
+              <MenuItem value={"enabled"}>
+                {i18n.t("settings.settings.options.enabled")}
+              </MenuItem>
+            </Select>
+            <FormHelperText>
+              {loadingSendSignMessage && i18n.t("settings.settings.options.updating")}
+            </FormHelperText>
+          </FormControl>
+        </Grid>
+
+        <Grid xs={12} sm={6} md={4} item>
+          <FormControl className={classes.selectContainer}>
             <InputLabel id="acceptAudioMessageContact-label">
               {i18n.t("settings.settings.options.acceptAudioMessageContact")}
             </InputLabel>
@@ -740,95 +810,8 @@ export default function Options(props) {
             </FormHelperText>
           </FormControl>
         </Grid>
-
-        <Grid xs={12} sm={6} md={4} item>
-          <FormControl className={classes.selectContainer}>
-            <InputLabel id="enableLGPD-label"> {i18n.t("settings.settings.options.enableLGPD")}</InputLabel>
-            <Select
-              labelId="enableLGPD-label"
-              value={enableLGPD}
-              onChange={async (e) => {
-                handleEnableLGPD(e.target.value);
-              }}
-            >
-              <MenuItem value={"disabled"}>{i18n.t("settings.settings.options.disabled")}</MenuItem>
-              <MenuItem value={"enabled"}>{i18n.t("settings.settings.options.enabled")}</MenuItem>
-            </Select>
-            <FormHelperText>
-              {loadingEnableLGPD && i18n.t("settings.settings.options.updating")}
-            </FormHelperText>
-          </FormControl>
-        </Grid>
-
-        <Grid xs={12} sm={6} md={4} item>
-          <FormControl className={classes.selectContainer}>
-            <InputLabel id="requiredTag-label"> {i18n.t("settings.settings.options.requiredTag")}</InputLabel>
-            <Select
-              labelId="requiredTag-label"
-              value={requiredTag}
-              onChange={async (e) => {
-                handleRequiredTag(e.target.value);
-              }}
-            >
-              <MenuItem value={"disabled"}>{i18n.t("settings.settings.options.disabled")}</MenuItem>
-              <MenuItem value={"enabled"}>{i18n.t("settings.settings.options.enabled")}</MenuItem>
-            </Select>
-            <FormHelperText>
-              {loadingRequiredTag && i18n.t("settings.settings.options.updating")}
-            </FormHelperText>
-          </FormControl>
-        </Grid>    
-        <Grid xs={12} sm={6} md={4} item>
-          <FormControl className={classes.selectContainer}>
-            <InputLabel id="sendMessageOutExpedientTicketOpen-label"> {i18n.t("settings.settings.options.sendMessageOutExpedientTicketOpen")}</InputLabel>
-            <Select
-              labelId="sendMessageOutExpedientTicketOpen-label"
-              value={sendMessageOutExpedientTicketOpen}
-              onChange={async (e) => {
-                handleSendMessageOutExpedientTicketOpen(e.target.value);
-              }}
-            >
-              <MenuItem value={"disabled"}>{i18n.t("settings.settings.options.disabled")}</MenuItem>
-              <MenuItem value={"enabled"}>{i18n.t("settings.settings.options.enabled")}</MenuItem>
-            </Select>
-            <FormHelperText>
-              {loadingSendMessageOutExpedientTicketOpen && i18n.t("settings.settings.options.updating")}
-            </FormHelperText>
-          </FormControl>
-        </Grid>            
       </Grid>
-      <br></br>
-      {/*-----------------ASAAS-----------------*/}
-      <Grid spacing={3} container
-        style={{ marginBottom: 10 }}>
-        <Tabs
-          indicatorColor="primary"
-          textColor="primary"
-          scrollButtons="on"
-          variant="scrollable"
-          className={classes.tab}
-        >
-          <Tab label="ASAAS" />
 
-        </Tabs>
-        <Grid xs={12} sm={12} md={12} item>
-          <FormControl className={classes.selectContainer}>
-            <TextField
-              id="asaas"
-              name="asaas"
-              margin="dense"
-              label="Token Asaas"
-              variant="outlined"
-              value={asaasToken}
-              onChange={async (e) => {
-                handleAsaasToken(e.target.value);
-              }}
-            >
-            </TextField>
-          </FormControl>
-        </Grid>
-      </Grid>
-      <br></br>
       {/*-----------------LGPD-----------------*/}
       {enableLGPD === "enabled" && (
       <>

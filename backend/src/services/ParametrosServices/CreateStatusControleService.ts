@@ -3,11 +3,13 @@ import AppError from "../../errors/AppError";
 
 interface Request {
   nome: string;
+  cor?: string;
   companyId: number;
 }
 
 const CreateStatusControleService = async ({
   nome,
+  cor = "#f44336",
   companyId,
 }: Request): Promise<StatusControle> => {
   if (!nome || !nome.trim()) {
@@ -16,6 +18,7 @@ const CreateStatusControleService = async ({
 
   const item = await StatusControle.create({
     nome: nome.trim(),
+    cor,
     companyId,
   });
 

@@ -32,6 +32,7 @@ interface Request {
   companyId: number;
   // Novos campos
   tipoServico?: "interno" | "recorrente" | "esporadico";
+  recorrencia?: "recorrente" | "nao_recorrente";
   codigoErp?: string;
   codigoSistema?: string;
   apelido?: string;
@@ -43,6 +44,8 @@ interface Request {
   statusId?: number;
   statusComplementarId?: number;
   segmentoId?: number;
+  atuacaoId?: number;
+  atuacaoIds?: number[];
   sedeClienteId?: number;
   regimeTributarioFederalId?: number;
   regimeTributarioEstadualId?: number;
@@ -108,6 +111,7 @@ const UpdateClienteService = async ({
   companyId,
   // Novos campos
   tipoServico,
+  recorrencia,
   codigoErp,
   codigoSistema,
   apelido,
@@ -119,6 +123,8 @@ const UpdateClienteService = async ({
   statusId,
   statusComplementarId,
   segmentoId,
+  atuacaoId,
+  atuacaoIds,
   sedeClienteId,
   regimeTributarioFederalId,
   regimeTributarioEstadualId,
@@ -161,14 +167,21 @@ const UpdateClienteService = async ({
     return isNaN(num) ? null : num;
   };
 
+  const toNumericArray = (value: any): number[] => {
+    if (!Array.isArray(value)) return [];
+    return value.map(Number).filter(num => !isNaN(num));
+  };
+
   // Helper para validar e converter datas
   const toDateOrNull = (value: any): Date | null => {
     if (!value || value === "" || value === "Invalid date" || value === "null" || value === "undefined") {
       return null;
     }
     const date = new Date(value);
-    // Verificar se a data é válida
-    if (isNaN(date.getTime())) {
+    // Verificar se a data é válida (isNaN não pega datas como "0000-12-31",
+    // que o JS aceita como ano 0 mas o Postgres rejeita: "date/time field
+    // value out of range")
+    if (isNaN(date.getTime()) || date.getFullYear() < 1000) {
       return null;
     }
     return date;
@@ -182,8 +195,31 @@ const UpdateClienteService = async ({
     throw new AppError("Cliente não encontrado", 404);
   }
 
+  // Para pessoa jurídica, "nome" e "razaoSocial" são tratados como sinônimos
+  // de exibição no restante do sistema (listagens, PDFs, cron jobs) - se o
+  // cliente vier sem "nome" preenchido, usamos a razão social.
+  if ((!nome || nome.trim() === "") && razaoSocial && razaoSocial.trim() !== "") {
+    nome = razaoSocial;
+  }
+
+  if (tipoCliente === "fisica" && (!razaoSocial || razaoSocial.trim() === "") && nome && nome.trim() !== "") {
+    razaoSocial = nome;
+  }
+
   if (!nome || nome.trim() === "") {
     throw new AppError("Nome do cliente é obrigatório", 400);
+  }
+
+  if (!razaoSocial || razaoSocial.trim() === "") {
+    throw new AppError("Razão social é obrigatória", 400);
+  }
+
+  if (!nomeFantasia || nomeFantasia.trim() === "") {
+    throw new AppError("Nome fantasia é obrigatório", 400);
+  }
+
+  if (!apelido || apelido.trim() === "") {
+    throw new AppError("Apelido é obrigatório", 400);
   }
 
   if (tipoCliente === "fisica" && !cpf) {
@@ -194,16 +230,9 @@ const UpdateClienteService = async ({
     throw new AppError("CNPJ é obrigatório para pessoa jurídica", 400);
   }
 
-  // Verificar se CPF/CNPJ já existe em outro cliente
-  if (cpf && cpf !== cliente.cpf) {
-    const clienteExistente = await Cliente.findOne({
-      where: { cpf, companyId },
-    });
-    if (clienteExistente && clienteExistente.id !== clienteId) {
-      throw new AppError("CPF já cadastrado para outro cliente", 400);
-    }
-  }
+  // CPF pode se repetir entre clientes (ex.: produtores rurais que compartilham CPF em cadastros distintos)
 
+  // Verificar se CNPJ já existe em outro cliente
   if (cnpj && cnpj !== cliente.cnpj) {
     const clienteExistente = await Cliente.findOne({
       where: { cnpj, companyId },
@@ -211,6 +240,11 @@ const UpdateClienteService = async ({
     if (clienteExistente && clienteExistente.id !== clienteId) {
       throw new AppError("CNPJ já cadastrado para outro cliente", 400);
     }
+  }
+
+  const codigoErpSanitizado = codigoErp?.trim() || null;
+  if (codigoErp !== undefined && codigoErpSanitizado && !/^\d{7}$/.test(codigoErpSanitizado)) {
+    throw new AppError("O Código ERP deve conter exatamente 7 dígitos numéricos", 400);
   }
 
   await cliente.update({
@@ -242,8 +276,8 @@ const UpdateClienteService = async ({
     ...(certidoesSelecionadas !== undefined && { certidoesSelecionadas }),
     // Novos campos
     ...(tipoServico !== undefined && { tipoServico }),
-    ...(codigoErp !== undefined && { codigoErp }),
-    ...(codigoSistema !== undefined && { codigoSistema }),
+    ...(recorrencia !== undefined && { recorrencia }),
+    ...(codigoErp !== undefined && { codigoErp: codigoErpSanitizado }),
     ...(apelido !== undefined && { apelido }),
     ...(honorario !== undefined && { honorario: toNumericOrNull(honorario) }),
     ...(produtorRural !== undefined && { produtorRural }),
@@ -253,6 +287,11 @@ const UpdateClienteService = async ({
     ...(statusId !== undefined && { statusId: toNumericOrNull(statusId) }),
     ...(statusComplementarId !== undefined && { statusComplementarId: toNumericOrNull(statusComplementarId) }),
     ...(segmentoId !== undefined && { segmentoId: toNumericOrNull(segmentoId) }),
+    ...(atuacaoId !== undefined && { atuacaoId: toNumericOrNull(atuacaoId) }),
+    ...(atuacaoIds !== undefined && {
+      atuacaoIds: toNumericArray(atuacaoIds),
+      atuacaoId: toNumericOrNull(toNumericArray(atuacaoIds)[0]),
+    }),
     ...(sedeClienteId !== undefined && { sedeClienteId: toNumericOrNull(sedeClienteId) }),
     ...(regimeTributarioFederalId !== undefined && { regimeTributarioFederalId: toNumericOrNull(regimeTributarioFederalId) }),
     ...(regimeTributarioEstadualId !== undefined && { regimeTributarioEstadualId: toNumericOrNull(regimeTributarioEstadualId) }),

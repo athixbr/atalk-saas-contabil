@@ -8,15 +8,12 @@ import {
   AutoIncrement,
   DataType,
   BelongsTo,
-  ForeignKey,
-  HasMany
+  ForeignKey
 } from "sequelize-typescript";
 import Company from "./Company";
 import User from "./User";
 import CrmBusinessType from "./CrmBusinessType";
 import CrmTaxRegime from "./CrmTaxRegime";
-import CrmTask from "./CrmTask";
-import CrmInteraction from "./CrmInteraction";
 
 @Table({ tableName: "CrmClients" })
 class CrmClient extends Model<CrmClient> {
@@ -103,12 +100,6 @@ class CrmClient extends Model<CrmClient> {
 
   @BelongsTo(() => CrmTaxRegime)
   taxRegime: any;
-
-  @HasMany(() => CrmTask, { foreignKey: 'crmClientId' })
-  tasks: any[];
-
-  @HasMany(() => CrmInteraction, { foreignKey: 'crmClientId' })
-  interactions: any[];
 }
 
 export default CrmClient;

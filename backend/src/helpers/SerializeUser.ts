@@ -18,6 +18,7 @@ interface SerializedUser {
   profileImage: string;
   defaultTheme: string;
   defaultMenu: string;
+  isActive: boolean;
 }
 
 export const SerializeUser = async (user: User): Promise<SerializedUser> => {
@@ -36,6 +37,7 @@ export const SerializeUser = async (user: User): Promise<SerializedUser> => {
     whatsappId: user.whatsappId,
     profileImage: user.profileImage,
     defaultTheme: user.defaultTheme,
-    defaultMenu: user.defaultMenu
+    defaultMenu: user.defaultMenu,
+    isActive: user.isActive
   };
 };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useRef } from "react";
 import {
   Button,
   Dialog,
@@ -32,10 +32,20 @@ import { makeStyles } from "@material-ui/core/styles";
 import DeleteIcon from "@material-ui/icons/Delete";
 import EditIcon from "@material-ui/icons/Edit";
 import AddIcon from "@material-ui/icons/Add";
+import AttachFileIcon from "@material-ui/icons/AttachFile";
+import ScheduleIcon from "@material-ui/icons/Schedule";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import api from "../../services/api";
 import { toast } from "react-toastify";
 import MainHeader from "../../components/MainHeader";
+
+const toDateTimeLocal = (date) => {
+  const d = new Date(date);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+    d.getHours()
+  )}:${pad(d.getMinutes())}`;
+};
 
 const useStyles = makeStyles((theme) => ({
   container: {
@@ -78,13 +88,19 @@ const AdminNotifications = () => {
   const [users, setUsers] = useState([]);
   const [departamentos, setDepartamentos] = useState([]);
   const [loadingData, setLoadingData] = useState(false);
+  const [attachment, setAttachment] = useState(null);
+  const attachmentInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
-    titulo: "",
-    body: "",
+    title: "",
+    text: "",
     usuariosIds: [],
     departamentosIds: [],
     expirationDays: 0,
+    sendOption: "now",
+    scheduledAt: "",
+    mediaName: null,
+    mediaPath: null,
   });
 
   useEffect(() => {
@@ -95,23 +111,17 @@ const AdminNotifications = () => {
   const loadNotifications = async () => {
     setLoading(true);
     try {
-      const { data } = await api.get("/announcements");
-      
-      // Garantir que data seja sempre um array
-      let notificationsArray = [];
-      if (Array.isArray(data)) {
-        notificationsArray = data;
-      } else if (data && Array.isArray(data.records)) {
-        notificationsArray = data.records;
-      } else if (data && Array.isArray(data.announcements)) {
-        notificationsArray = data.announcements;
-      }
-      
+      const { data } = await api.get("/announcements/list", {
+        params: { companyId: user.companyId },
+      });
+
+      const notificationsArray = Array.isArray(data) ? data : [];
+
       // Filtrar para pegar apenas admin_notifications
       const adminNotifications = notificationsArray.filter(
         (n) => n.tipo === "admin_notification"
       );
-      
+
       setNotifications(adminNotifications);
     } catch (error) {
       console.error("Erro ao carregar notificações:", error);
@@ -128,8 +138,8 @@ const AdminNotifications = () => {
         api.get("/users"),
         api.get("/departamentos"),
       ]);
-      setUsers(usersRes.data || []);
-      setDepartamentos(depRes.data || []);
+      setUsers(usersRes.data.users || []);
+      setDepartamentos(depRes.data.departamentos || []);
     } catch (error) {
       toast.error("Erro ao carregar usuários e departamentos");
       console.error(error);
@@ -139,38 +149,80 @@ const AdminNotifications = () => {
 
   const handleOpenDialog = (notification = null) => {
     if (notification) {
+      const isPendingSchedule =
+        notification.scheduledAt && !notification.notifiedAt;
       setFormData({
-        titulo: notification.titulo || "",
-        body: notification.body || "",
+        title: notification.title || "",
+        text: notification.text || "",
         usuariosIds: notification.usuariosIds || [],
         departamentosIds: notification.departamentosIds || [],
-        expirationDays: notification.expirationDays || 0,
+        expirationDays: 0,
+        sendOption: isPendingSchedule ? "schedule" : "now",
+        scheduledAt: isPendingSchedule
+          ? toDateTimeLocal(notification.scheduledAt)
+          : "",
+        mediaName: notification.mediaName || null,
+        mediaPath: notification.mediaPath || null,
       });
       setEditingId(notification.id);
     } else {
       setFormData({
-        titulo: "",
-        body: "",
+        title: "",
+        text: "",
         usuariosIds: [],
         departamentosIds: [],
         expirationDays: 0,
+        sendOption: "now",
+        scheduledAt: "",
+        mediaName: null,
+        mediaPath: null,
       });
       setEditingId(null);
     }
+    setAttachment(null);
     setOpenDialog(true);
   };
 
   const handleCloseDialog = () => {
     setOpenDialog(false);
     setEditingId(null);
+    setAttachment(null);
+  };
+
+  const handleAttachmentChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setAttachment(file);
+    }
+  };
+
+  const handleRemoveAttachment = async () => {
+    if (attachment) {
+      setAttachment(null);
+      if (attachmentInputRef.current) {
+        attachmentInputRef.current.value = null;
+      }
+      return;
+    }
+
+    if (editingId && formData.mediaPath) {
+      try {
+        await api.delete(`/announcements/${editingId}/media-upload`);
+        setFormData((prev) => ({ ...prev, mediaPath: null, mediaName: null }));
+        toast.success("Arquivo removido");
+      } catch (error) {
+        toast.error("Erro ao remover arquivo");
+        console.error(error);
+      }
+    }
   };
 
   const handleSave = async () => {
-    if (!formData.titulo.trim()) {
+    if (!formData.title.trim()) {
       toast.error("Preencha o título");
       return;
     }
-    if (!formData.body.trim()) {
+    if (!formData.text.trim()) {
       toast.error("Preencha a mensagem");
       return;
     }
@@ -181,24 +233,48 @@ const AdminNotifications = () => {
       toast.error("Selecione pelo menos um usuário ou departamento");
       return;
     }
+    if (formData.sendOption === "schedule" && !formData.scheduledAt) {
+      toast.error("Selecione a data e hora do agendamento");
+      return;
+    }
 
     setLoading(true);
     try {
       const payload = {
-        titulo: formData.titulo,
-        body: formData.body,
+        title: formData.title,
+        text: formData.text,
         tipo: "admin_notification",
+        priority: 2,
+        status: true,
         usuariosIds: formData.usuariosIds,
         departamentosIds: formData.departamentosIds,
         expirationDays: formData.expirationDays,
+        scheduledAt:
+          formData.sendOption === "schedule" && formData.scheduledAt
+            ? new Date(formData.scheduledAt).toISOString()
+            : null,
       };
 
+      let savedRecord = null;
+
       if (editingId) {
-        await api.put(`/announcements/${editingId}`, payload);
+        const { data } = await api.put(`/announcements/${editingId}`, payload);
+        savedRecord = data;
         toast.success("Notificação atualizada com sucesso");
       } else {
-        await api.post("/announcements", payload);
+        const { data } = await api.post("/announcements", payload);
+        savedRecord = data;
         toast.success("Notificação criada com sucesso");
+      }
+
+      if (attachment && savedRecord?.id) {
+        const mediaFormData = new FormData();
+        mediaFormData.append("typeArch", "announcements");
+        mediaFormData.append("file", attachment);
+        await api.post(
+          `/announcements/${savedRecord.id}/media-upload`,
+          mediaFormData
+        );
       }
 
       handleCloseDialog();
@@ -241,7 +317,7 @@ const AdminNotifications = () => {
 
   const getDepartamentoName = (id) => {
     const dep = departamentos.find((d) => d.id === id);
-    return dep ? dep.name : `Departamento ${id}`;
+    return dep ? dep.nome : `Departamento ${id}`;
   };
 
   if (!user || user.profile !== "admin") {
@@ -299,6 +375,7 @@ const AdminNotifications = () => {
                         <TableCell>Usuários</TableCell>
                         <TableCell>Departamentos</TableCell>
                         <TableCell>Expiração</TableCell>
+                        <TableCell>Envio</TableCell>
                         <TableCell align="right">Ações</TableCell>
                       </TableRow>
                     </TableHead>
@@ -306,11 +383,15 @@ const AdminNotifications = () => {
                       {notifications.map((notification) => (
                         <TableRow key={notification.id}>
                           <TableCell>
-                            <Tooltip title={notification.body}>
+                            <Tooltip title={notification.text || ""}>
                               <span>
-                                {notification.titulo?.substr(0, 30) ||
-                                  "Sem título"}
-                                ...
+                                {notification.title
+                                  ? `${notification.title.substring(0, 30)}${
+                                      notification.title.length > 30
+                                        ? "..."
+                                        : ""
+                                    }`
+                                  : "Sem título"}
                               </span>
                             </Tooltip>
                           </TableCell>
@@ -381,6 +462,25 @@ const AdminNotifications = () => {
                                 ).toLocaleDateString("pt-BR")
                               : "Sem expiração"}
                           </TableCell>
+                          <TableCell>
+                            {notification.scheduledAt && !notification.notifiedAt ? (
+                              <Chip
+                                icon={<ScheduleIcon />}
+                                size="small"
+                                label={`Agendado: ${new Date(
+                                  notification.scheduledAt
+                                ).toLocaleString("pt-BR")}`}
+                              />
+                            ) : (
+                              <Typography variant="body2" color="textSecondary">
+                                {notification.notifiedAt
+                                  ? `Enviado em ${new Date(
+                                      notification.notifiedAt
+                                    ).toLocaleString("pt-BR")}`
+                                  : "Enviado"}
+                              </Typography>
+                            )}
+                          </TableCell>
                           <TableCell align="right">
                             <Tooltip title="Editar">
                               <IconButton
@@ -421,8 +521,8 @@ const AdminNotifications = () => {
             <TextField
               label="Título"
               fullWidth
-              value={formData.titulo}
-              onChange={(e) => handleFormChange("titulo", e.target.value)}
+              value={formData.title}
+              onChange={(e) => handleFormChange("title", e.target.value)}
               placeholder="Ex: Parabéns! Você recebeu um bônus"
             />
 
@@ -431,8 +531,8 @@ const AdminNotifications = () => {
               fullWidth
               multiline
               rows={4}
-              value={formData.body}
-              onChange={(e) => handleFormChange("body", e.target.value)}
+              value={formData.text}
+              onChange={(e) => handleFormChange("text", e.target.value)}
               placeholder="Mensagem que será exibida para o usuário"
             />
 
@@ -496,7 +596,7 @@ const AdminNotifications = () => {
               >
                 {departamentos.map((dep) => (
                   <MenuItem key={dep.id} value={dep.id}>
-                    {dep.name}
+                    {dep.nome}
                   </MenuItem>
                 ))}
               </Select>
@@ -518,6 +618,58 @@ const AdminNotifications = () => {
                 <MenuItem value={30}>30 dias</MenuItem>
               </Select>
             </FormControl>
+
+            <FormControl fullWidth>
+              <InputLabel>Envio</InputLabel>
+              <Select
+                value={formData.sendOption}
+                onChange={(e) =>
+                  handleFormChange("sendOption", e.target.value)
+                }
+              >
+                <MenuItem value="now">Enviar agora</MenuItem>
+                <MenuItem value="schedule">Agendar envio</MenuItem>
+              </Select>
+            </FormControl>
+
+            {formData.sendOption === "schedule" && (
+              <TextField
+                label="Data e hora do envio"
+                type="datetime-local"
+                fullWidth
+                value={formData.scheduledAt}
+                onChange={(e) =>
+                  handleFormChange("scheduledAt", e.target.value)
+                }
+                InputLabelProps={{ shrink: true }}
+                inputProps={{ min: toDateTimeLocal(new Date()) }}
+              />
+            )}
+
+            <input
+              type="file"
+              ref={attachmentInputRef}
+              style={{ display: "none" }}
+              onChange={handleAttachmentChange}
+            />
+
+            {attachment || formData.mediaPath ? (
+              <Box display="flex" alignItems="center">
+                <Chip
+                  icon={<AttachFileIcon />}
+                  label={attachment ? attachment.name : formData.mediaName}
+                  onDelete={handleRemoveAttachment}
+                />
+              </Box>
+            ) : (
+              <Button
+                variant="outlined"
+                startIcon={<AttachFileIcon />}
+                onClick={() => attachmentInputRef.current.click()}
+              >
+                Anexar arquivo
+              </Button>
+            )}
           </Box>
         </DialogContent>
         <DialogActions>

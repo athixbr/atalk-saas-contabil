@@ -3,6 +3,7 @@ import * as Yup from "yup";
 import { getIO } from "../libs/socket";
 import fs from "fs";
 import path from "path";
+import DigitalOceanService from "../services/DigitalOceanService";
 
 import ListService from "../services/CampaignGrupoServices/ListService";
 import CreateService from "../services/CampaignGrupoServices/CreateService";
@@ -189,6 +190,8 @@ export const mediaUpload = async (req: Request, res: Response): Promise<Response
     const oldPath = path.resolve("public", campaign.mediaPath);
     if (fs.existsSync(oldPath)) {
       fs.unlinkSync(oldPath);
+    } else {
+      try { await DigitalOceanService.delete(campaign.mediaPath); } catch (_) {}
     }
   }
 
@@ -217,6 +220,8 @@ export const mediaDelete = async (req: Request, res: Response): Promise<Response
     const filePath = path.resolve("public", campaign.mediaPath);
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
+    } else {
+      try { await DigitalOceanService.delete(campaign.mediaPath); } catch (_) {}
     }
 
     campaign.mediaPath = null;

@@ -36,8 +36,9 @@ import AcceptTicketWithouSelectQueue from "../AcceptTicketWithoutQueueModal";
 import TransferTicketModalCustom from "../TransferTicketModalCustom";
 import ShowTicketOpen from "../ShowTicketOpenModal";
 import { isNil } from "lodash";
+import formatMentions from "../../utils/formatMentions";
 import { toast } from "react-toastify";
-import { Done, HighlightOff, Replay, SwapHoriz } from "@material-ui/icons";
+import { Done, HighlightOff, Replay, SwapHoriz, CallMerge } from "@material-ui/icons";
 import useCompanySettings from "../../hooks/useSettings/companySettings";
 import { Chip, Stack } from "@mui/material";
 
@@ -209,7 +210,7 @@ const useStyles = makeStyles((theme) => ({
     },
 }));
 
-const TicketListItemCustom = ({ ticket, searchParam }) => {
+const TicketListItemCustom = ({ ticket, searchParam, isSelectedForMerge = false, onMergeSelect }) => {
     const classes = useStyles();
     const history = useHistory();
     const [loading, setLoading] = useState(false);
@@ -481,7 +482,7 @@ const TicketListItemCustom = ({ ticket, searchParam }) => {
                             borderRadius: "50%",
                             top: "-10px",
                         }}
-                        src={`${ticket?.contact?.profilePicUrl}`}
+                        src={`${ticket?.contact?.urlPicture || ticket?.contact?.profilePicUrl}`}
 
                     />
                 </ListItemAvatar>
@@ -545,7 +546,7 @@ const TicketListItemCustom = ({ ticket, searchParam }) => {
 
                                                     <> {ticket.lastMessage.includes('BEGIN:VCARD') ?
                                                         <MarkdownWrapper>Contato</MarkdownWrapper> :
-                                                        <MarkdownWrapper>{truncate(ticket.lastMessage, 30)}</MarkdownWrapper>}
+                                                        <MarkdownWrapper>{truncate(formatMentions(ticket.lastMessage), 30)}</MarkdownWrapper>}
                                                     </>
                                                 }
                                             </>
@@ -738,6 +739,30 @@ const TicketListItemCustom = ({ ticket, searchParam }) => {
                             >
                                 <Tooltip title={`${i18n.t("ticketsList.buttons.accept")}`}>
                                     <Done />
+                                </Tooltip>
+                            </ButtonWithSpinner>
+                        )}
+                    </span>
+                    <span className={classes.secondaryContentSecond1} >
+                        {(ticket.status === "open" || ticket.status === "group") && onMergeSelect && (
+                            <ButtonWithSpinner
+                                style={{
+                                    backgroundColor: isSelectedForMerge ? '#e3f2fd' : 'transparent',
+                                    boxShadow: 'none', border: 'none',
+                                    color: isSelectedForMerge ? '#1976d2' : '#999',
+                                    padding: '0px', borderRadius: "50%",
+                                    right: '51px', position: 'absolute',
+                                    fontSize: '0.6rem', bottom: '-30px',
+                                    minWidth: '2em', width: 'auto'
+                                }}
+                                variant="contained"
+                                className={classes.acceptButton}
+                                size="small"
+                                loading={false}
+                                onClick={e => { e.stopPropagation(); onMergeSelect(ticket); }}
+                            >
+                                <Tooltip title="Agrupar ticket">
+                                    <CallMerge fontSize="small" />
                                 </Tooltip>
                             </ButtonWithSpinner>
                         )}

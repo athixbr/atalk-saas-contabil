@@ -23,4 +23,6 @@ messageRoutes.post('/message/forward', isAuth, MessageController.forwardMessage)
 messageRoutes.post("/messages/edit/:messageId", isAuth, MessageController.edit);
 messageRoutes.post("/messages/redownload/:messageId", isAuth, MessageController.redownloadMedia);
 
+messageRoutes.get("/message-search", isAuth, MessageController.searchMessages);
+
 export default messageRoutes;

@@ -35,13 +35,25 @@ class Socio extends Model<Socio> {
   @BelongsToMany(() => Cliente, () => ClienteSocio)
   clientes: any[];
 
+  @ForeignKey(() => Cliente)
+  @Column
+  clienteOrigemId: number;
+
+  @BelongsTo(() => Cliente, "clienteOrigemId")
+  clienteOrigem: any;
+
+  @Column
+  codigoErp: string;
+
+  @Column
+  codigoSistema: string;
+
   // Dados pessoais
   @AllowNull(false)
   @Column
   nome: string;
 
-  @AllowNull(false)
-  @Column(DataType.STRING(14))
+  @Column(DataType.STRING(18))
   cpf: string;
 
   @Column(DataType.STRING(20))

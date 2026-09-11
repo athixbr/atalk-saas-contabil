@@ -82,7 +82,10 @@ class TarefaGerada extends Model<TarefaGerada> {
   @Column(DataType.TEXT)
   descricao: string;
 
-  @Column(DataType.ENUM("pendente", "em_andamento", "concluida", "cancelada"))
+  // Valores válidos: pendente | em_andamento | concluida | cancelada | pausada
+  // (STRING em vez de ENUM nativo do Postgres — ver migration
+  // 20260812120003-change-tarefas-geradas-status-to-string.ts)
+  @Column(DataType.STRING)
   status: string;
 
   @Column(DataType.DATE)

@@ -145,6 +145,7 @@ export default function FormularioTarefaRecorrente() {
   const [usuarios, setUsuarios] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [checklists, setChecklists] = useState([]);
+  const [esferas, setEsferas] = useState([]);
 
   useEffect(() => {
     loadData();
@@ -155,18 +156,20 @@ export default function FormularioTarefaRecorrente() {
 
   const loadData = async () => {
     try {
-      const [tiposRes, depsRes, usersRes, clientesRes, checklistsRes] = await Promise.all([
+      const [tiposRes, depsRes, usersRes, clientesRes, checklistsRes, esferasRes] = await Promise.all([
         api.get("/tipo-servico").catch(() => ({ data: [] })),
         api.get("/departamentos").catch(() => ({ data: { departamentos: [] } })),
         api.get("/users").catch(() => ({ data: { users: [] } })),
         api.get("/contacts").catch(() => ({ data: { contacts: [] } })),
         api.get("/checklists?ativo=true").catch(() => ({ data: { checklists: [] } })),
+        api.get("/parametros/esfera").catch(() => ({ data: [] })),
       ]);
       setTiposServico(tiposRes.data);
       setDepartamentos(depsRes.data.departamentos || depsRes.data);
       setUsuarios(usersRes.data.users || usersRes.data);
       setClientes(clientesRes.data.contacts || clientesRes.data);
       setChecklists(checklistsRes.data.checklists || []);
+      setEsferas(esferasRes.data || []);
     } catch (error) {
       console.error("Erro ao carregar dados:", error);
       toast.error("Erro ao carregar dados");
@@ -609,9 +612,11 @@ export default function FormularioTarefaRecorrente() {
                     <MenuItem value="">
                       <em>Não informado</em>
                     </MenuItem>
-                    <MenuItem value="municipal">Municipal</MenuItem>
-                    <MenuItem value="estadual">Estadual</MenuItem>
-                    <MenuItem value="federal">Federal</MenuItem>
+                    {esferas.map((item) => (
+                      <MenuItem key={item.id} value={item.nome}>
+                        {item.nome}
+                      </MenuItem>
+                    ))}
                   </Select>
                 </FormControl>
               </Grid>

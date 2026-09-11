@@ -5,6 +5,7 @@ import path from "path";
 import __cjs_sequelize from "sequelize";
 const { Op } = __cjs_sequelize;
 import AppError from "../errors/AppError";
+import DigitalOceanService from "../services/DigitalOceanService";
 
 import CreateService from "../services/TaskServices/CreateService";
 import ListService from "../services/TaskServices/ListService";
@@ -318,10 +319,11 @@ export const uploadFile = async (
   const arquivos = task.arquivos ? JSON.parse(JSON.stringify(task.arquivos)) : [];
   
   files.forEach((file: Express.Multer.File) => {
+    const storageKey = (file as any).storageKey || file.filename;
     arquivos.push({
       fileName: file.filename,
       originalName: file.originalname,
-      path: file.path,
+      path: storageKey,
       size: file.size,
       mimetype: file.mimetype,
       uploadedBy: userId,
@@ -385,10 +387,12 @@ export const deleteFile = async (
     throw new AppError("Você não pode excluir este arquivo", 403);
   }
 
-  // Deletar arquivo físico
+  // Deletar arquivo físico (local legado ou no storage)
   try {
-    if (fs.existsSync(arquivo.path)) {
+    if (path.isAbsolute(arquivo.path) && fs.existsSync(arquivo.path)) {
       fs.unlinkSync(arquivo.path);
+    } else {
+      await DigitalOceanService.delete(arquivo.path);
     }
   } catch (error) {
     console.error("Erro ao deletar arquivo físico:", error);

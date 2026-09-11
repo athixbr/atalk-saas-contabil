@@ -4,7 +4,7 @@ import isAuth from "../middleware/isAuth";
 import * as ChecklistController from "../controllers/ChecklistController";
 
 const checklistRoutes = Router();
-const upload = multer();
+const upload = multer({ limits: { fileSize: 500 * 1024 * 1024 } }); // 500 MB
 
 // Rotas CRUD
 checklistRoutes.get("/checklists", isAuth, ChecklistController.index);
